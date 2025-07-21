@@ -1,0 +1,462 @@
+import React, { useState, useEffect } from 'react';
+import {
+  Box,
+  Typography,
+  Paper,
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableRow,
+  Button,
+  IconButton,
+  Chip,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  TextField,
+  FormControl,
+  InputLabel,
+  Select,
+  MenuItem,
+  Alert,
+  CircularProgress,
+  Tooltip,
+  Card,
+  CardContent,
+} from '@mui/material';
+import {
+  Edit as EditIcon,
+  Visibility as ViewIcon,
+  Assignment as AssignIcon,
+  CheckCircle as CompleteIcon,
+  Cancel as CancelIcon,
+  Refresh as RefreshIcon,
+} from '@mui/icons-material';
+import { usePermissions } from '../../hooks/usePermissions';
+
+interface Order {
+  id: string;
+  customerId: string;
+  customerName: string;
+  serviceProviderId?: string;
+  serviceProviderName?: string;
+  status: 'pending' | 'assigned' | 'in_progress' | 'completed' | 'cancelled';
+  totalAmount: number;
+  items: Array<{
+    serviceId: string;
+    serviceName: string;
+    quantity: number;
+    price: number;
+  }>;
+  pickupAddress: string;
+  deliveryAddress: string;
+  pickupDate: string;
+  deliveryDate: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+const OrdersManagement: React.FC = () => {
+  const { canManageOrders } = usePermissions();
+  const [orders, setOrders] = useState<Order[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [filterStatus, setFilterStatus] = useState<string>('all');
+
+  // Fetch real orders data from API
+  useEffect(() => {
+    const fetchOrders = async () => {
+      try {
+        setLoading(true);
+        setError(null);
+        
+        const response = await fetch('http://localhost:5000/api/orders', {
+          headers: {
+            'Authorization': `Bearer ${localStorage.getItem('token')}`,
+            'Content-Type': 'application/json',
+          },
+        });
+
+        if (!response.ok) {
+          throw new Error('Failed to fetch orders');
+        }
+
+        const data = await response.json();
+        // Ensure orders is always an array
+        const ordersArray = Array.isArray(data) ? data : (data.orders || data.data || []);
+        setOrders(ordersArray);
+      } catch (error) {
+        console.error('Orders fetch error:', error);
+        setError('Failed to load orders');
+        setOrders([]); // Set empty array on error
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchOrders();
+  }, []);
+
+  const handleViewOrder = (order: Order) => {
+    setSelectedOrder(order);
+    setDialogOpen(true);
+  };
+
+  const handleAssignOrder = async (orderId: string, serviceProviderId: string) => {
+    try {
+      const response = await fetch(`http://localhost:5000/api/orders/${orderId}/assign`, {
+        method: 'PUT',
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('token')}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ serviceProviderId }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to assign order');
+      }
+
+      const updatedOrder = await response.json();
+      // Ensure orders is always an array
+      const ordersArray = Array.isArray(orders) ? orders : [];
+      setOrders(ordersArray.map(order => 
+        order.id === orderId ? updatedOrder : order
+      ));
+      setError(null);
+    } catch (err) {
+      setError('Failed to assign order');
+    }
+  };
+
+  const handleUpdateStatus = async (orderId: string, status: Order['status']) => {
+    try {
+      const response = await fetch(`http://localhost:5000/api/orders/${orderId}/status`, {
+        method: 'PUT',
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('token')}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ status }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to update order status');
+      }
+
+      const updatedOrder = await response.json();
+      // Ensure orders is always an array
+      const ordersArray = Array.isArray(orders) ? orders : [];
+      setOrders(ordersArray.map(order => 
+        order.id === orderId ? updatedOrder : order
+      ));
+      setError(null);
+    } catch (err) {
+      setError('Failed to update order status');
+    }
+  };
+
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case 'pending': return 'warning';
+      case 'assigned': return 'info';
+      case 'in_progress': return 'primary';
+      case 'completed': return 'success';
+      case 'cancelled': return 'error';
+      default: return 'default';
+    }
+  };
+
+  // Ensure orders is always an array before filtering
+  const ordersArray = Array.isArray(orders) ? orders : [];
+  const filteredOrders = filterStatus === 'all' 
+    ? ordersArray 
+    : ordersArray.filter(order => order.status === filterStatus);
+
+  if (!canManageOrders()) {
+    return (
+      <Box sx={{ p: 3 }}>
+        <Alert severity="error">
+          You don't have permission to manage orders.
+        </Alert>
+      </Box>
+    );
+  }
+
+  if (loading) {
+    return (
+      <Box sx={{ display: 'flex', justifyContent: 'center', p: 3 }}>
+        <CircularProgress />
+      </Box>
+    );
+  }
+
+  return (
+    <Box sx={{ p: 3 }}>
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
+        <Typography variant="h4" gutterBottom>
+          Orders Management
+        </Typography>
+        <Button
+          variant="outlined"
+          startIcon={<RefreshIcon />}
+          onClick={() => window.location.reload()}
+        >
+          Refresh
+        </Button>
+      </Box>
+
+      {error && (
+        <Alert severity="error" sx={{ mb: 2 }}>
+          {error}
+        </Alert>
+      )}
+
+      {/* Statistics Cards */}
+      <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 3, mb: 3 }}>
+        <Box sx={{ width: { xs: '100%', sm: 'calc(50% - 12px)', md: 'calc(25% - 18px)' } }}>
+          <Card>
+            <CardContent>
+              <Typography color="textSecondary" gutterBottom>
+                Total Orders
+              </Typography>
+              <Typography variant="h4">
+                {ordersArray.length}
+              </Typography>
+            </CardContent>
+          </Card>
+        </Box>
+        <Box sx={{ width: { xs: '100%', sm: 'calc(50% - 12px)', md: 'calc(25% - 18px)' } }}>
+          <Card>
+            <CardContent>
+              <Typography color="textSecondary" gutterBottom>
+                Pending
+              </Typography>
+              <Typography variant="h4" color="warning.main">
+                {ordersArray.filter(o => o.status === 'pending').length}
+              </Typography>
+            </CardContent>
+          </Card>
+        </Box>
+        <Box sx={{ width: { xs: '100%', sm: 'calc(50% - 12px)', md: 'calc(25% - 18px)' } }}>
+          <Card>
+            <CardContent>
+              <Typography color="textSecondary" gutterBottom>
+                In Progress
+              </Typography>
+              <Typography variant="h4" color="primary.main">
+                {ordersArray.filter(o => o.status === 'in_progress').length}
+              </Typography>
+            </CardContent>
+          </Card>
+        </Box>
+        <Box sx={{ width: { xs: '100%', sm: 'calc(50% - 12px)', md: 'calc(25% - 18px)' } }}>
+          <Card>
+            <CardContent>
+              <Typography color="textSecondary" gutterBottom>
+                Completed
+              </Typography>
+              <Typography variant="h4" color="success.main">
+                {ordersArray.filter(o => o.status === 'completed').length}
+              </Typography>
+            </CardContent>
+          </Card>
+        </Box>
+      </Box>
+
+      {/* Filter */}
+      <Box sx={{ mb: 2 }}>
+        <FormControl sx={{ minWidth: 200 }}>
+          <InputLabel>Filter by Status</InputLabel>
+          <Select
+            value={filterStatus}
+            label="Filter by Status"
+            onChange={(e) => setFilterStatus(e.target.value)}
+          >
+            <MenuItem value="all">All Orders</MenuItem>
+            <MenuItem value="pending">Pending</MenuItem>
+            <MenuItem value="assigned">Assigned</MenuItem>
+            <MenuItem value="in_progress">In Progress</MenuItem>
+            <MenuItem value="completed">Completed</MenuItem>
+            <MenuItem value="cancelled">Cancelled</MenuItem>
+          </Select>
+        </FormControl>
+      </Box>
+
+      <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 3 }}>
+        {filteredOrders.map((order) => (
+          <Box key={order.id} sx={{ width: { xs: '100%', sm: 'calc(50% - 12px)', md: 'calc(33.33% - 16px)', lg: 'calc(25% - 18px)' } }}>
+            <Card sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
+              <CardContent sx={{ flexGrow: 1 }}>
+                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+                  <Typography variant="h6" color="primary">
+                    #{order.id}
+                  </Typography>
+                  <Chip
+                    label={order.status.replace('_', ' ')}
+                    color={getStatusColor(order.status)}
+                    size="small"
+                  />
+                </Box>
+                
+                <Typography variant="subtitle1" gutterBottom>
+                  {order.customerName}
+                </Typography>
+                
+                <Typography variant="body2" color="text.secondary" gutterBottom>
+                  Provider: {order.serviceProviderName || 'Unassigned'}
+                </Typography>
+                
+                <Typography variant="h6" color="primary" gutterBottom>
+                  ${order.totalAmount.toFixed(2)}
+                </Typography>
+                
+                <Box sx={{ mb: 2 }}>
+                  <Typography variant="body2" color="text.secondary">
+                    Pickup: {new Date(order.pickupDate).toLocaleDateString()}
+                  </Typography>
+                  <Typography variant="body2" color="text.secondary">
+                    Delivery: {new Date(order.deliveryDate).toLocaleDateString()}
+                  </Typography>
+                </Box>
+                
+                <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
+                  {order.items.map((item, index) => (
+                    <Chip
+                      key={index}
+                      label={`${item.serviceName} x${item.quantity}`}
+                      size="small"
+                      variant="outlined"
+                    />
+                  ))}
+                </Box>
+              </CardContent>
+              
+              <Box sx={{ p: 2, pt: 0 }}>
+                <Box sx={{ display: 'flex', justifyContent: 'space-around', flexWrap: 'wrap', gap: 1 }}>
+                  <Tooltip title="View Details">
+                    <IconButton
+                      size="small"
+                      onClick={() => handleViewOrder(order)}
+                    >
+                      <ViewIcon />
+                    </IconButton>
+                  </Tooltip>
+                  {order.status === 'pending' && (
+                    <Tooltip title="Assign to Provider">
+                      <IconButton
+                        size="small"
+                        color="primary"
+                        onClick={() => handleAssignOrder(order.id, '2')}
+                      >
+                        <AssignIcon />
+                      </IconButton>
+                    </Tooltip>
+                  )}
+                  {order.status === 'assigned' && (
+                    <Tooltip title="Mark In Progress">
+                      <IconButton
+                        size="small"
+                        color="primary"
+                        onClick={() => handleUpdateStatus(order.id, 'in_progress')}
+                      >
+                        <EditIcon />
+                      </IconButton>
+                    </Tooltip>
+                  )}
+                  {order.status === 'in_progress' && (
+                    <Tooltip title="Mark Completed">
+                      <IconButton
+                        size="small"
+                        color="success"
+                        onClick={() => handleUpdateStatus(order.id, 'completed')}
+                      >
+                        <CompleteIcon />
+                      </IconButton>
+                    </Tooltip>
+                  )}
+                  {['pending', 'assigned'].includes(order.status) && (
+                    <Tooltip title="Cancel Order">
+                      <IconButton
+                        size="small"
+                        color="error"
+                        onClick={() => handleUpdateStatus(order.id, 'cancelled')}
+                      >
+                        <CancelIcon />
+                      </IconButton>
+                    </Tooltip>
+                  )}
+                </Box>
+              </Box>
+            </Card>
+          </Box>
+        ))}
+      </Box>
+
+      {/* Order Details Dialog */}
+      <Dialog
+        open={dialogOpen}
+        onClose={() => setDialogOpen(false)}
+        maxWidth="md"
+        fullWidth
+      >
+        <DialogTitle>
+          Order Details #{selectedOrder?.id}
+        </DialogTitle>
+        <DialogContent>
+          {selectedOrder && (
+            <Box>
+              <Typography variant="h6" gutterBottom>
+                Customer Information
+              </Typography>
+              <Typography>Name: {selectedOrder.customerName}</Typography>
+              <Typography>Order ID: #{selectedOrder.id}</Typography>
+              
+              <Typography variant="h6" gutterBottom sx={{ mt: 2 }}>
+                Order Items
+              </Typography>
+              {selectedOrder.items.map((item, index) => (
+                <Box key={index} sx={{ mb: 1 }}>
+                  <Typography>
+                    {item.serviceName} x {item.quantity} - ${item.price.toFixed(2)}
+                  </Typography>
+                </Box>
+              ))}
+              
+              <Typography variant="h6" gutterBottom sx={{ mt: 2 }}>
+                Addresses
+              </Typography>
+              <Typography>Pickup: {selectedOrder.pickupAddress}</Typography>
+              <Typography>Delivery: {selectedOrder.deliveryAddress}</Typography>
+              
+              <Typography variant="h6" gutterBottom sx={{ mt: 2 }}>
+                Dates
+              </Typography>
+              <Typography>Pickup: {new Date(selectedOrder.pickupDate).toLocaleDateString()}</Typography>
+              <Typography>Delivery: {new Date(selectedOrder.deliveryDate).toLocaleDateString()}</Typography>
+              
+              <Typography variant="h6" gutterBottom sx={{ mt: 2 }}>
+                Total Amount
+              </Typography>
+              <Typography variant="h5" color="primary">
+                ${selectedOrder.totalAmount.toFixed(2)}
+              </Typography>
+            </Box>
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setDialogOpen(false)}>
+            Close
+          </Button>
+        </DialogActions>
+      </Dialog>
+    </Box>
+  );
+};
+
+export default OrdersManagement; 
