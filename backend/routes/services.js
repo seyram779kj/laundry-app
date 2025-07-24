@@ -2,6 +2,33 @@ const express = require('express');
 const router = express.Router();
 const Service = require('../models/Service');
 const { protect, admin, serviceProvider } = require('../middleware/auth');
+const multer = require('multer');
+const path = require('path');
+const fs = require('fs');
+
+// Multer setup for service images
+const uploadDir = path.join(__dirname, '../uploads/services');
+if (!fs.existsSync(uploadDir)) {
+  fs.mkdirSync(uploadDir, { recursive: true });
+}
+const storage = multer.diskStorage({
+  destination: function (req, file, cb) {
+    cb(null, uploadDir);
+  },
+  filename: function (req, file, cb) {
+    const ext = path.extname(file.originalname);
+    const name = file.fieldname + '-' + Date.now() + ext;
+    cb(null, name);
+  }
+});
+const fileFilter = (req, file, cb) => {
+  if (file.mimetype.startsWith('image/')) {
+    cb(null, true);
+  } else {
+    cb(new Error('Only image files are allowed!'), false);
+  }
+};
+const upload = multer({ storage, fileFilter });
 
 // Get all services (with filtering)
 router.get('/', async (req, res) => {
@@ -81,47 +108,47 @@ router.get('/:id', async (req, res) => {
   }
 });
 
-// Create new service (service providers only)
-router.post('/', protect, serviceProvider, async (req, res) => {
+// Create new service (admin only)
+router.post('/', protect, admin, upload.single('picture'), async (req, res) => {
   try {
     const {
       name,
       description,
       category,
-      price,
-      duration,
-      isAvailable,
-      features,
-      requirements
+      basePrice,
+      estimatedTime,
+      requirements,
+      isActive
     } = req.body;
 
-    // Validate required fields
-    if (!name || !description || !category || !price) {
-      return res.status(400).json({ 
-        success: false, 
-        error: 'Name, description, category, and price are required' 
+    if (!name || !description || !category || !basePrice || !estimatedTime) {
+      return res.status(400).json({
+        success: false,
+        error: 'Name, description, category, basePrice, and estimatedTime are required'
       });
+    }
+
+    let imageUrl = '';
+    if (req.file) {
+      imageUrl = `/uploads/services/${req.file.filename}`;
     }
 
     const serviceData = {
       name,
       description,
       category,
-      price: parseFloat(price),
-      duration: parseInt(duration) || 24, // Default 24 hours
-      provider: req.user.id,
-      isAvailable: isAvailable !== undefined ? isAvailable : true,
-      features: features || [],
-      requirements: requirements || []
+      basePrice: parseFloat(basePrice),
+      estimatedTime,
+      requirements,
+      isActive: isActive === 'false' ? false : true,
+      imageUrl,
+      provider: req.user.id
     };
 
     const service = await Service.create(serviceData);
     await service.populate('provider', 'firstName lastName businessDetails location');
 
-    res.status(201).json({
-      success: true,
-      data: service
-    });
+    res.status(201).json(service);
   } catch (error) {
     console.error('Create service error:', error);
     res.status(500).json({ success: false, error: 'Failed to create service' });

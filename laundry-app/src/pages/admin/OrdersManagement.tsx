@@ -26,6 +26,7 @@ import {
   Tooltip,
   Card,
   CardContent,
+  Badge,
 } from '@mui/material';
 import {
   Edit as EditIcon,
@@ -36,6 +37,7 @@ import {
   Refresh as RefreshIcon,
 } from '@mui/icons-material';
 import { usePermissions } from '../../hooks/usePermissions';
+import axios from 'axios';
 
 interface Order {
   id: string;
@@ -67,6 +69,19 @@ const OrdersManagement: React.FC = () => {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [filterStatus, setFilterStatus] = useState<string>('all');
+  const [unreadChats, setUnreadChats] = useState<{ [orderId: string]: boolean }>({});
+  const [adminId, setAdminId] = useState<string | null>(null);
+
+  useEffect(() => {
+    // Get admin user ID from local storage or context (adjust as needed)
+    const userStr = localStorage.getItem('user');
+    if (userStr) {
+      try {
+        const user = JSON.parse(userStr);
+        setAdminId(user._id || user.id);
+      } catch {}
+    }
+  }, []);
 
   // Fetch real orders data from API
   useEffect(() => {
@@ -75,7 +90,7 @@ const OrdersManagement: React.FC = () => {
         setLoading(true);
         setError(null);
         
-        const response = await fetch('http://localhost:5000/api/orders', {
+        const response = await fetch(`${'http://localhost:5000'}/api/orders`, {
           headers: {
             'Authorization': `Bearer ${localStorage.getItem('token')}`,
             'Content-Type': 'application/json',
@@ -102,6 +117,44 @@ const OrdersManagement: React.FC = () => {
     fetchOrders();
   }, []);
 
+  // Ensure orders is always an array before filtering
+  const ordersArray = Array.isArray(orders) ? orders : [];
+  const filteredOrders = filterStatus === 'all' 
+    ? ordersArray 
+    : ordersArray.filter(order => order.status === filterStatus);
+
+  useEffect(() => {
+    const fetchUnread = async () => {
+      if (!adminId) return;
+      const badgeMap: { [orderId: string]: boolean } = {};
+      for (const order of filteredOrders) {
+        try {
+          const token = localStorage.getItem('token');
+          // Get or create chat room for this order
+          const chatRoomRes = await axios.post(
+            `${'http://localhost:5000'}/api/chats/room`,
+            { customerId: order.customerId, orderId: order.id },
+            { headers: { Authorization: `Bearer ${token}` } }
+          );
+          const chatRoomId = chatRoomRes.data._id;
+          // Fetch messages
+          const messagesRes = await axios.get(
+            `${'http://localhost:5000'}/api/chats/${chatRoomId}/messages`,
+            { headers: { Authorization: `Bearer ${token}` } }
+          );
+          const messages = messagesRes.data;
+          // If any message is not read by this admin, show badge
+          badgeMap[order.id] = messages.some((msg: any) => !msg.readBy || !msg.readBy.includes(adminId));
+        } catch {
+          badgeMap[order.id] = false;
+        }
+      }
+      setUnreadChats(badgeMap);
+    };
+    fetchUnread();
+    // eslint-disable-next-line
+  }, [filteredOrders, adminId]);
+
   const handleViewOrder = (order: Order) => {
     setSelectedOrder(order);
     setDialogOpen(true);
@@ -109,7 +162,7 @@ const OrdersManagement: React.FC = () => {
 
   const handleAssignOrder = async (orderId: string, serviceProviderId: string) => {
     try {
-      const response = await fetch(`http://localhost:5000/api/orders/${orderId}/assign`, {
+      const response = await fetch(`${'http://localhost:5000'}/api/orders/${orderId}/assign`, {
         method: 'PUT',
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('token')}`,
@@ -136,7 +189,7 @@ const OrdersManagement: React.FC = () => {
 
   const handleUpdateStatus = async (orderId: string, status: Order['status']) => {
     try {
-      const response = await fetch(`http://localhost:5000/api/orders/${orderId}/status`, {
+      const response = await fetch(`${'http://localhost:5000'}/api/orders/${orderId}/status`, {
         method: 'PUT',
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('token')}`,
@@ -161,6 +214,21 @@ const OrdersManagement: React.FC = () => {
     }
   };
 
+  const handleViewChat = async (order: Order) => {
+    try {
+      const token = localStorage.getItem('token');
+      const res = await axios.post(
+        `${'http://localhost:5000'}/api/chats/room`,
+        { customerId: order.customerId, orderId: order.id },
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      const chatRoomId = res.data._id;
+      window.location.href = `/chat/admin/${chatRoomId}`;
+    } catch (err) {
+      alert('Failed to open chat.');
+    }
+  };
+
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'pending': return 'warning';
@@ -171,12 +239,6 @@ const OrdersManagement: React.FC = () => {
       default: return 'default';
     }
   };
-
-  // Ensure orders is always an array before filtering
-  const ordersArray = Array.isArray(orders) ? orders : [];
-  const filteredOrders = filterStatus === 'all' 
-    ? ordersArray 
-    : ordersArray.filter(order => order.status === filterStatus);
 
   if (!canManageOrders()) {
     return (
@@ -346,6 +408,17 @@ const OrdersManagement: React.FC = () => {
                     >
                       <ViewIcon />
                     </IconButton>
+                  </Tooltip>
+                  <Tooltip title="View Chat">
+                    <Badge color="error" variant="dot" invisible={!unreadChats[order.id]}>
+                      <IconButton
+                        size="small"
+                        color="primary"
+                        onClick={() => handleViewChat(order)}
+                      >
+                        💬
+                      </IconButton>
+                    </Badge>
                   </Tooltip>
                   {order.status === 'pending' && (
                     <Tooltip title="Assign to Provider">

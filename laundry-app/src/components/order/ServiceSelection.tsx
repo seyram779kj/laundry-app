@@ -35,6 +35,7 @@ interface Service {
   basePrice: number;
   category: string;
   imageUrl?: string;
+  isActive?: boolean; // Added to match backend
 }
 
 interface ServiceSelectionProps {
@@ -76,7 +77,7 @@ const ServiceSelection: React.FC<ServiceSelectionProps> = ({ onServiceSelect, on
         } else if (data.data && Array.isArray(data.data.services)) {
           servicesArray = data.data.services;
         }
-        setServices(servicesArray);
+        setServices((servicesArray as Service[]).filter(service => service.isActive));
       } catch (error) {
         console.error('Services fetch error:', error);
         setError('Failed to load services');
@@ -223,7 +224,7 @@ const ServiceSelection: React.FC<ServiceSelectionProps> = ({ onServiceSelect, on
               <CardMedia
                 component="img"
                 height="200"
-                image={getServiceImage(service.category)}
+                image={service.imageUrl || getServiceImage(service.category)}
                 alt={service.name}
               />
               <CardContent sx={{ flexGrow: 1 }}>
@@ -271,7 +272,7 @@ const ServiceSelection: React.FC<ServiceSelectionProps> = ({ onServiceSelect, on
               <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 3 }}>
                 <Box sx={{ width: { xs: '100%', md: 'calc(50% - 12px)' } }}>
                   <img 
-                    src={getServiceImage(selectedService.category)} 
+                    src={selectedService.imageUrl || getServiceImage(selectedService.category)} 
                     alt={selectedService.name}
                     style={{ width: '100%', borderRadius: '8px' }}
                   />

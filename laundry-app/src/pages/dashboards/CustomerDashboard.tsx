@@ -12,6 +12,7 @@ import {
   IconButton,
   CircularProgress,
   Alert,
+  Badge,
 } from '@mui/material';
 import { useNavigate } from 'react-router-dom';
 import { usePermissions } from '../../hooks/usePermissions';
@@ -19,6 +20,7 @@ import { useAppSelector, useAppDispatch } from '../../app/hooks';
 import AddIcon from '@mui/icons-material/Add';
 import EditIcon from '@mui/icons-material/Edit';
 import VisibilityIcon from '@mui/icons-material/Visibility';
+import axios from 'axios';
 
 const API_BASE_URL = 'http://localhost:5000/api';
 
@@ -35,6 +37,7 @@ const CustomerDashboard: React.FC = () => {
   const [paymentMethods, setPaymentMethods] = useState<any[]>([]);
   const [paymentLoading, setPaymentLoading] = useState(false);
   const [paymentError, setPaymentError] = useState<string | null>(null);
+  const [unreadSupportChat, setUnreadSupportChat] = useState(false);
 
   // Fetch up-to-date user profile
   useEffect(() => {
@@ -109,6 +112,34 @@ const CustomerDashboard: React.FC = () => {
     fetchPaymentMethods();
   }, []);
 
+  useEffect(() => {
+    const fetchUnread = async () => {
+      if (!user?._id) return;
+      try {
+        const token = localStorage.getItem('token');
+        // Get or create main support chat room for this customer
+        const chatRoomRes = await axios.post(
+          `${API_BASE_URL}/chats/room`,
+          { customerId: user._id },
+          { headers: { Authorization: `Bearer ${token}` } }
+        );
+        const chatRoomId = chatRoomRes.data._id;
+        // Fetch messages
+        const messagesRes = await axios.get(
+          `${API_BASE_URL}/chats/${chatRoomId}/messages`,
+          { headers: { Authorization: `Bearer ${token}` } }
+        );
+        const messages = messagesRes.data;
+        // If any message is not read by this customer, show badge
+        setUnreadSupportChat(messages.some((msg: any) => !msg.readBy || !msg.readBy.includes(user._id)));
+      } catch {
+        setUnreadSupportChat(false);
+      }
+    };
+    fetchUnread();
+    // eslint-disable-next-line
+  }, [user?._id]);
+
   if (!isCustomer) {
     return null;
   }
@@ -119,6 +150,21 @@ const CustomerDashboard: React.FC = () => {
   const handleManageAddresses = () => navigate('/customer/profile?tab=addresses');
   const handleManagePayments = () => navigate('/customer/profile?tab=payments');
   const handleManageNotifications = () => navigate('/customer/settings?tab=notifications');
+  const handleChatWithSupport = async () => {
+    if (!user?._id) return;
+    try {
+      const token = localStorage.getItem('token');
+      const res = await axios.post(
+        `${API_BASE_URL}/chats/room`,
+        { customerId: user._id },
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      const chatRoomId = res.data._id;
+      navigate(`/chat/customer/${chatRoomId}`);
+    } catch (err) {
+      alert('Failed to start chat.');
+    }
+  };
 
   return (
     <Box sx={{ p: 3 }}>
@@ -156,6 +202,15 @@ const CustomerDashboard: React.FC = () => {
                 >
                   Browse Services
                 </Button>
+                <Badge color="error" variant="dot" invisible={!unreadSupportChat}>
+                  <Button
+                    variant="contained"
+                    color="secondary"
+                    onClick={handleChatWithSupport}
+                  >
+                    Chat with Support
+                  </Button>
+                </Badge>
               </Box>
             </CardContent>
           </Card>

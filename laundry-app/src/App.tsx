@@ -1,5 +1,5 @@
 import React, { useEffect } from 'react';
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { ThemeProvider, CssBaseline } from '@mui/material';
 import { Provider } from 'react-redux';
 import { store } from './app/store';
@@ -25,6 +25,9 @@ import ServiceProviderDashboard from './pages/dashboards/ServiceProviderDashboar
 import CustomerDashboard from './pages/dashboards/CustomerDashboard';
 import ProviderEarnings from './pages/provider/ProviderEarnings';
 import ProviderAvailability from './pages/provider/ProviderAvailability';
+import CustomerChat from './pages/dashboards/CustomerChat';
+import SupplierChat from './pages/dashboards/SupplierChat';
+import AdminChat from './pages/dashboards/AdminChat';
 
 // Admin pages
 import UsersManagement from './pages/admin/UsersManagement';
@@ -79,8 +82,17 @@ const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) =
 // Role-Based Route Component
 const RoleBasedRoute: React.FC<{ children: React.ReactNode; allowedRoles: string[] }> = ({ children, allowedRoles }) => {
   const { user, isAuthenticated } = useSelector((state: RootState) => state.auth);
+  const location = useLocation();
+
+  console.log('🛡️ RoleBasedRoute Check:', {
+    pathname: location.pathname,
+    isAuthenticated,
+    userRole: user?.role,
+    allowedRoles,
+  });
   
   if (!isAuthenticated || !user) {
+    console.log('❌ RoleBasedRoute: Not authenticated, redirecting to /');
     return <Navigate to="/" />;
   }
 
@@ -88,6 +100,7 @@ const RoleBasedRoute: React.FC<{ children: React.ReactNode; allowedRoles: string
     return <Navigate to="/unauthorized" />;
   }
 
+  console.log('✅ RoleBasedRoute: Access granted.');
   return <>{children}</>;
 };
 
@@ -106,19 +119,31 @@ const Unauthorized: React.FC = () => {
 // Root Route Component
 const RootRoute: React.FC = () => {
   const { user, isAuthenticated } = useSelector((state: RootState) => state.auth);
+  const location = useLocation();
+
+  console.log('📍 RootRoute Check:', {
+    pathname: location.pathname,
+    isAuthenticated,
+    userRole: user?.role,
+  });
   
   if (!isAuthenticated || !user) {
+    console.log('❌ RootRoute: Not authenticated, redirecting to /');
     return <Navigate to="/" />;
   }
 
   switch (user.role) {
     case 'admin':
+      console.log('Redirecting to /admin');
       return <Navigate to="/admin" />;
     case 'service_provider':
+      console.log('Redirecting to /provider');
       return <Navigate to="/provider" />;
     case 'customer':
+      console.log('Redirecting to /customer');
       return <Navigate to="/customer" />;
     default:
+      console.log('Redirecting to /login');
       return <Navigate to="/login" />;
   }
 };
@@ -135,6 +160,38 @@ const App: React.FC = () => {
               <Route path="/" element={<LandingPage />} />
               <Route path="/login" element={<Login />} />
               <Route path="/register" element={<Register />} />
+
+              {/* Chat Routes */}
+              <Route
+                path="/chat/customer/:chatRoomId"
+                element={
+                  <RoleBasedRoute allowedRoles={['customer']}>
+                    <MainLayout title="Support Chat">
+                      <CustomerChat />
+                    </MainLayout>
+                  </RoleBasedRoute>
+                }
+              />
+              <Route
+                path="/chat/supplier/:chatRoomId"
+                element={
+                  <RoleBasedRoute allowedRoles={['service_provider']}>
+                    <MainLayout title="Customer Chat">
+                      <SupplierChat />
+                    </MainLayout>
+                  </RoleBasedRoute>
+                }
+              />
+              <Route
+                path="/chat/admin/:chatRoomId"
+                element={
+                  <RoleBasedRoute allowedRoles={['admin']}>
+                    <MainLayout title="Admin Chat">
+                      <AdminChat />
+                    </MainLayout>
+                  </RoleBasedRoute>
+                }
+              />
 
               {/* Root Route - Redirects to appropriate dashboard */}
               <Route

@@ -1,6 +1,9 @@
 const express = require('express');
 const User = require('../models/User');
 const { protect, admin, hasPermission } = require('../middleware/auth');
+const Service = require('../models/Service');
+const Order = require('../models/Order');
+const mongoose = require('mongoose');
 
 const router = express.Router();
 
@@ -142,10 +145,20 @@ const updateUser = async (req, res) => {
 // @access  Private/Admin
 const deleteUser = async (req, res) => {
   try {
+    if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+      return res.status(400).json({ error: 'Invalid user ID' });
+    }
     const user = await User.findById(req.params.id);
 
     if (user) {
-      await user.remove();
+      // Check if user is referenced in Service or Order
+      const isProvider = await Service.findOne({ provider: user._id });
+      const isOrderCustomer = await Order.findOne({ customer: user._id });
+      const isOrderProvider = await Order.findOne({ serviceProvider: user._id });
+      if (isProvider || isOrderCustomer || isOrderProvider) {
+        return res.status(400).json({ error: 'Cannot delete user: user is referenced in other records.' });
+      }
+      await User.deleteOne({ _id: user._id });
       res.json({ message: 'User removed' });
     } else {
       res.status(404).json({ error: 'User not found' });

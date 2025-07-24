@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   Box,
   Typography,
@@ -10,6 +10,7 @@ import {
   Card,
   CardContent,
   Stack,
+  CircularProgress,
 } from '@mui/material';
 import {
   LocalLaundryService as LaundryIcon,
@@ -33,44 +34,36 @@ const Services: React.FC = () => {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
 
-  const coreServices = [
-    {
-      title: 'Wash & Fold',
-      description: 'Your everyday laundry, washed, dried, and neatly folded. Perfect for busy individuals.',
-      icon: <LaundryIcon sx={{ fontSize: 40 }} />,
-      price: 'Starting from GHC 5',
-    },
-    {
-      title: 'Dry Cleaning',
-      description: 'Expert care for delicate fabrics like suits, formal wear, and traditional attire. Preserves fabric integrity.',
-      icon: <DryCleaningIcon sx={{ fontSize: 40 }} />,
-      price: 'Starting from GHC 15',
-    },
-    {
-      title: 'Ironing/Pressing',
-      description: 'Crisp, wrinkle-free garments ready to wear. Ideal for professional attire and special occasions.',
-      icon: <IronIcon sx={{ fontSize: 40 }} />,
-      price: 'Starting from GHC 3',
-    },
-    {
-      title: 'Duvet & Comforter Cleaning',
-      description: 'Specialized cleaning for large, bulky items. Professional care for your bedding.',
-      icon: <BedIcon sx={{ fontSize: 40 }} />,
-      price: 'Starting from GHC 20',
-    },
-    {
-      title: 'Curtain & Upholstery',
-      description: 'Professional cleaning for your home furnishings. Restore the beauty of your fabrics.',
-      icon: <CurtainsIcon sx={{ fontSize: 40 }} />,
-      price: 'Starting from GHC 15',
-    },
-    {
-      title: 'Commercial Laundry',
-      description: 'Bulk laundry services for businesses. Reliable, consistent, and professional.',
-      icon: <BusinessIcon sx={{ fontSize: 40 }} />,
-      price: 'Contact for pricing',
-    },
-  ];
+  const [services, setServices] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const fetchServices = async () => {
+      try {
+        setLoading(true);
+        setError(null);
+        const response = await fetch('http://localhost:5000/api/services');
+        const data = await response.json();
+        let servicesArray = [];
+        if (Array.isArray(data)) {
+          servicesArray = data;
+        } else if (Array.isArray(data.services)) {
+          servicesArray = data.services;
+        } else if (Array.isArray(data.data)) {
+          servicesArray = data.data;
+        } else if (data.data && Array.isArray(data.data.services)) {
+          servicesArray = data.data.services;
+        }
+        setServices(servicesArray.filter((service: any) => service.isActive));
+      } catch (err: any) {
+        setError('Failed to load services');
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchServices();
+  }, []);
 
   const howItWorks = [
     {
@@ -171,46 +164,58 @@ const Services: React.FC = () => {
           <Typography variant="h4" align="center" gutterBottom>
             Our Services
           </Typography>
-          <Box 
-            sx={{ 
-              display: 'flex',
-              flexWrap: 'wrap',
-              gap: 3,
-              justifyContent: 'center',
-              mt: 2
-            }}
-          >
-            {coreServices.map((service, index) => (
-              <Card
-                key={index}
-                sx={{
-                  width: isMobile ? '100%' : 'calc(33.333% - 16px)',
-                  minWidth: 280,
-                  display: 'flex',
-                  flexDirection: 'column',
-                  transition: 'transform 0.2s',
-                  '&:hover': {
-                    transform: 'translateY(-4px)',
-                  },
-                }}
-              >
-                <CardContent sx={{ flexGrow: 1, textAlign: 'center' }}>
-                  <Box sx={{ color: 'primary.main', mb: 2 }}>
-                    {service.icon}
-                  </Box>
-                  <Typography variant="h6" gutterBottom>
-                    {service.title}
-                  </Typography>
-                  <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-                    {service.description}
-                  </Typography>
-                  <Typography variant="subtitle2" color="primary">
-                    {service.price}
-                  </Typography>
-                </CardContent>
-              </Card>
-            ))}
-          </Box>
+          {loading ? (
+            <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: 200 }}>
+              <CircularProgress />
+            </Box>
+          ) : error ? (
+            <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: 200 }}>
+              <Typography color="error">{error}</Typography>
+            </Box>
+          ) : (
+            <Box 
+              sx={{ 
+                display: 'flex',
+                flexWrap: 'wrap',
+                gap: 3,
+                justifyContent: 'center',
+                mt: 2
+              }}
+            >
+              {services.map((service, index) => (
+                <Card
+                  key={service._id || index}
+                  sx={{
+                    width: isMobile ? '100%' : 'calc(33.333% - 16px)',
+                    minWidth: 280,
+                    display: 'flex',
+                    flexDirection: 'column',
+                    transition: 'transform 0.2s',
+                    '&:hover': {
+                      transform: 'translateY(-4px)',
+                    },
+                  }}
+                >
+                  {service.imageUrl && (
+                    <Box sx={{ width: '100%', textAlign: 'center', pt: 2 }}>
+                      <img src={service.imageUrl} alt={service.name} style={{ maxWidth: '90%', maxHeight: 120, borderRadius: 8 }} />
+                    </Box>
+                  )}
+                  <CardContent sx={{ flexGrow: 1, textAlign: 'center' }}>
+                    <Typography variant="h6" gutterBottom>
+                      {service.name}
+                    </Typography>
+                    <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                      {service.description}
+                    </Typography>
+                    <Typography variant="subtitle2" color="primary">
+                      Starting at ${service.basePrice}
+                    </Typography>
+                  </CardContent>
+                </Card>
+              ))}
+            </Box>
+          )}
         </Container>
       </Box>
 

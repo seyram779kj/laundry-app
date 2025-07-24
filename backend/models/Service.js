@@ -32,7 +32,7 @@ const serviceSchema = new mongoose.Schema({
   estimatedTime: {
     type: String,
     required: [true, 'Estimated time is required'],
-    enum: ['same-day', 'next-day', '2-days', '3-days', '1-week']
+    enum: ['same-day', 'next-day', '2-days', '3-days', '1-week', '6hours']
   },
   requirements: {
     type: String,

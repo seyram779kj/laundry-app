@@ -133,6 +133,10 @@ const UsersManagement: React.FC = () => {
   };
 
   const handleDeleteUser = async (userId: string) => {
+    if (!userId || userId === 'undefined') {
+      setError('Invalid user ID. Cannot delete user.');
+      return;
+    }
     if (window.confirm('Are you sure you want to delete this user?')) {
       try {
         const response = await fetch(`http://localhost:5000/api/users/${userId}`, {

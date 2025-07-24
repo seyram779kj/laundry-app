@@ -11,6 +11,7 @@ import {
 import { useNavigate, Link as RouterLink } from 'react-router-dom';
 import { useAppDispatch, useAppSelector } from '../app/hooks';
 import { login, clearError } from '../features/auth/authSlice';
+import { useEffect } from 'react';
 
 const Login: React.FC = () => {
   const [email, setEmail] = useState('');
@@ -21,7 +22,13 @@ const Login: React.FC = () => {
   
   const dispatch = useAppDispatch();
   const navigate = useNavigate();
-  const { loading, error } = useAppSelector((state) => state.auth);
+  const { loading, error, isAuthenticated } = useAppSelector((state) => state.auth);
+
+  useEffect(() => {
+    if (isAuthenticated) {
+      navigate('/dashboard');
+    }
+  }, [isAuthenticated, navigate]);
 
   const validateForm = () => {
     if (!email.trim()) {
@@ -38,6 +45,7 @@ const Login: React.FC = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    console.log('Login form submitted');
     
     console.log('=== LOGIN ATTEMPT STARTED ===');
     console.log('Form data:', { email: email.trim(), password: password ? '***' : 'empty' });
