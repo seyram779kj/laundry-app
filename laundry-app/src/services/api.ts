@@ -242,7 +242,41 @@ export const healthApi = {
   },
 };
 
+// Base HTTP methods
+const httpMethods = {
+  get: async <T>(endpoint: string): Promise<ApiResponse<T>> => {
+    return await apiRequest<T>(endpoint, { method: 'GET' });
+  },
+
+  post: async <T>(endpoint: string, data?: any): Promise<ApiResponse<T>> => {
+    return await apiRequest<T>(endpoint, {
+      method: 'POST',
+      body: data ? JSON.stringify(data) : undefined,
+    });
+  },
+
+  put: async <T>(endpoint: string, data?: any): Promise<ApiResponse<T>> => {
+    return await apiRequest<T>(endpoint, {
+      method: 'PUT',
+      body: data ? JSON.stringify(data) : undefined,
+    });
+  },
+
+  delete: async <T>(endpoint: string): Promise<ApiResponse<T>> => {
+    return await apiRequest<T>(endpoint, { method: 'DELETE' });
+  },
+
+  patch: async <T>(endpoint: string, data?: any): Promise<ApiResponse<T>> => {
+    return await apiRequest<T>(endpoint, {
+      method: 'PATCH',
+      body: data ? JSON.stringify(data) : undefined,
+    });
+  },
+};
+
+// Export the complete API
 export default {
+  ...httpMethods,
   auth: authApi,
   users: usersApi,
   health: healthApi,
