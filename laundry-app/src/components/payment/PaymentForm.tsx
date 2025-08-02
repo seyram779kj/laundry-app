@@ -162,7 +162,7 @@ const PaymentForm: React.FC<PaymentFormProps> = ({
         const result = await response.json();
 
         if (result.success) {
-          setMomoStatus(prev => ({ ...prev, data: result.data }));
+          setMomoStatus((prev: any) => ({ ...prev, data: result.data }));
           
           if (result.data.status === 'completed') {
             clearInterval(pollInterval);

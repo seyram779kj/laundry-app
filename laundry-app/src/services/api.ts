@@ -69,7 +69,7 @@ const apiRequest = async <T>(
   try {
     console.log(`🔍 API request to: ${API_BASE_URL}${endpoint}`);
     console.log('🔍 Request options:', options);
-    
+
     const token = getAuthToken();
     const headers: Record<string, string> = {
       'Content-Type': 'application/json',
@@ -246,4 +246,4 @@ export default {
   auth: authApi,
   users: usersApi,
   health: healthApi,
-}; 
+};

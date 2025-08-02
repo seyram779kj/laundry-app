@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import {
   Box,
@@ -17,7 +16,7 @@ import {
   Dialog,
   DialogTitle,
   DialogContent,
-  Grid
+  Grid2 as Grid
 } from '@mui/material';
 import {
   CheckCircle,
@@ -64,11 +63,11 @@ const OrderTracking: React.FC<OrderTrackingProps> = ({ orderId, open, onClose })
   useEffect(() => {
     if (open && orderId) {
       fetchTrackingData();
-      
+
       // Setup socket connection for real-time updates
       const socket = io(process.env.REACT_APP_API_URL || 'http://localhost:5000');
       socket.emit('joinRoom', { chatRoomId: `order_${orderId}` });
-      
+
       socket.on('trackingUpdate', (data) => {
         console.log('Real-time tracking update:', data);
         fetchTrackingData(); // Refresh tracking data
@@ -144,7 +143,7 @@ const OrderTracking: React.FC<OrderTrackingProps> = ({ orderId, open, onClose })
                     <Chip
                       label={tracking.currentLocation.replace('_', ' ').toUpperCase()}
                       color="primary"
-                      size="large"
+                      size="medium"
                     />
                   </Grid>
                   <Grid item xs>
