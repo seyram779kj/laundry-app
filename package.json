@@ -7,6 +7,7 @@
     "@mui/x-date-pickers": "^8.5.2",
     "date-fns": "^4.1.0",
     "mongoose-paginate-v2": "^1.9.1",
-    "node-cache": "^5.1.2"
+    "node-cache": "^5.1.2",
+    "socket.io": "^4.8.1"
   }
 }

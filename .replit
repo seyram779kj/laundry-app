@@ -18,3 +18,25 @@ mode = "sequential"
 [[workflows.workflow.tasks]]
 task = "shell.exec"
 args = "cd backend && npm start"
+
+[[workflows.workflow]]
+name = "Start Frontend"
+author = 41511055
+mode = "sequential"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "cd laundry-app && npm start"
+
+[[workflows.workflow]]
+name = "Start Full Stack"
+author = 41511055
+mode = "parallel"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "cd backend && npm start"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "cd laundry-app && npm start"
