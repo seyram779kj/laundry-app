@@ -40,3 +40,7 @@ args = "cd backend && npm start"
 [[workflows.workflow.tasks]]
 task = "shell.exec"
 args = "cd laundry-app && npm start"
+
+[[ports]]
+localPort = 5000
+externalPort = 80
