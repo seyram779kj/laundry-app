@@ -25,7 +25,7 @@ const paymentSchema = new mongoose.Schema({
   paymentMethod: {
     type: String,
     required: true,
-    enum: ['credit_card', 'debit_card', 'bank_transfer', 'cash', 'digital_wallet']
+    enum: ['credit_card', 'debit_card', 'bank_transfer', 'cash', 'digital_wallet', 'momo']
   },
   paymentDetails: {
     type: mongoose.Schema.Types.Mixed,

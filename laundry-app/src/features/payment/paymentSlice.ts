@@ -71,6 +71,44 @@ export const processPayment = createAsyncThunk(
   }
 );
 
+export const processMoMoPayment = createAsyncThunk(
+  'payment/processMoMo',
+  async ({ paymentId, phoneNumber }: { paymentId: string; phoneNumber: string }) => {
+    const response = await fetch(`/api/payments/${paymentId}/momo`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${localStorage.getItem('token')}`
+      },
+      body: JSON.stringify({ phoneNumber })
+    });
+    
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.message || 'MoMo payment failed');
+    }
+    
+    return await response.json();
+  }
+);
+
+export const checkMoMoStatus = createAsyncThunk(
+  'payment/checkMoMoStatus',
+  async (paymentId: string) => {
+    const response = await fetch(`/api/payments/${paymentId}/momo/status`, {
+      headers: {
+        'Authorization': `Bearer ${localStorage.getItem('token')}`
+      }
+    });
+    
+    if (!response.ok) {
+      throw new Error('Failed to check MoMo status');
+    }
+    
+    return await response.json();
+  }
+);
+
 const paymentSlice = createSlice({
   name: 'payment',
   initialState,

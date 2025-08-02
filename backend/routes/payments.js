@@ -3,6 +3,7 @@ const router = express.Router();
 const Payment = require('../models/Payment');
 const Order = require('../models/Order');
 const { protect, admin, serviceProvider } = require('../middleware/auth');
+const momoService = require('../services/momoService');
 
 // Get all payments (with filtering)
 router.get('/', protect, async (req, res) => {
@@ -344,6 +345,152 @@ router.get('/stats/overview', protect, async (req, res) => {
   }
 });
 
+// Process MoMo payment
+router.post('/:id/momo', protect, async (req, res) => {
+  try {
+    const { phoneNumber } = req.body;
+    const payment = await Payment.findById(req.params.id)
+      .populate('order', 'orderNumber status totalAmount')
+      .populate('customer', 'firstName lastName email');
+
+    if (!payment) {
+      return res.status(404).json({ success: false, error: 'Payment not found' });
+    }
+
+    // Check permissions
+    if (payment.customer._id.toString() !== req.user.id) {
+      return res.status(403).json({ success: false, error: 'Access denied' });
+    }
+
+    if (payment.status !== 'pending') {
+      return res.status(400).json({ 
+        success: false, 
+        error: 'Payment is not in pending status' 
+      });
+    }
+
+    if (payment.paymentMethod !== 'momo') {
+      return res.status(400).json({ 
+        success: false, 
+        error: 'Payment method is not Mobile Money' 
+      });
+    }
+
+    // Validate phone number
+    if (!phoneNumber || !momoService.validatePhoneNumber(phoneNumber)) {
+      return res.status(400).json({ 
+        success: false, 
+        error: 'Valid phone number is required' 
+      });
+    }
+
+    const formattedPhone = momoService.formatPhoneNumber(phoneNumber);
+
+    // Initiate MoMo payment
+    const momoResult = await momoService.initiatePayment({
+      amount: payment.amount,
+      phoneNumber: formattedPhone,
+      customerName: `${payment.customer.firstName} ${payment.customer.lastName}`,
+      orderId: payment.order._id
+    });
+
+    // Update payment with MoMo details
+    payment.paymentDetails = {
+      phoneNumber: formattedPhone,
+      transactionRef: momoResult.transactionRef,
+      momoStatus: momoResult.status
+    };
+
+    if (momoResult.success) {
+      if (momoResult.status === 'completed') {
+        payment.status = 'completed';
+        payment.transactionId = momoResult.transactionId;
+        payment.completedAt = new Date();
+      } else if (momoResult.status === 'pending') {
+        payment.status = 'processing';
+        payment.processedAt = new Date();
+      }
+    } else {
+      payment.status = 'failed';
+      payment.failedAt = new Date();
+      payment.failureReason = momoResult.message;
+    }
+
+    await payment.save();
+
+    res.json({
+      success: momoResult.success,
+      data: payment,
+      message: momoResult.message,
+      momoDetails: {
+        transactionRef: momoResult.transactionRef,
+        status: momoResult.status,
+        paymentUrl: momoResult.paymentUrl
+      }
+    });
+  } catch (error) {
+    console.error('MoMo payment error:', error);
+    res.status(500).json({ success: false, error: 'Failed to process MoMo payment' });
+  }
+});
+
+// Check MoMo payment status
+router.get('/:id/momo/status', protect, async (req, res) => {
+  try {
+    const payment = await Payment.findById(req.params.id);
+
+    if (!payment) {
+      return res.status(404).json({ success: false, error: 'Payment not found' });
+    }
+
+    // Check permissions
+    if (payment.customer.toString() !== req.user.id && req.user.role !== 'admin') {
+      return res.status(403).json({ success: false, error: 'Access denied' });
+    }
+
+    if (payment.paymentMethod !== 'momo' || !payment.paymentDetails?.transactionRef) {
+      return res.status(400).json({ 
+        success: false, 
+        error: 'No MoMo transaction found for this payment' 
+      });
+    }
+
+    // Check status with MoMo service
+    const statusResult = await momoService.checkPaymentStatus(payment.paymentDetails.transactionRef);
+
+    // Update payment status if changed
+    if (statusResult.success && statusResult.status !== payment.paymentDetails.momoStatus) {
+      payment.paymentDetails.momoStatus = statusResult.status;
+      
+      if (statusResult.status === 'completed' && payment.status !== 'completed') {
+        payment.status = 'completed';
+        payment.transactionId = statusResult.transactionId;
+        payment.completedAt = new Date();
+      } else if (statusResult.status === 'failed' && payment.status !== 'failed') {
+        payment.status = 'failed';
+        payment.failedAt = new Date();
+        payment.failureReason = statusResult.message;
+      }
+
+      await payment.save();
+    }
+
+    res.json({
+      success: true,
+      data: {
+        paymentId: payment._id,
+        status: payment.status,
+        momoStatus: statusResult.status,
+        transactionRef: payment.paymentDetails.transactionRef,
+        message: statusResult.message
+      }
+    });
+  } catch (error) {
+    console.error('MoMo status check error:', error);
+    res.status(500).json({ success: false, error: 'Failed to check MoMo payment status' });
+  }
+});
+
 // Get payment methods
 router.get('/methods/list', async (req, res) => {
   try {
@@ -352,7 +499,8 @@ router.get('/methods/list', async (req, res) => {
       { id: 'debit_card', name: 'Debit Card', icon: 'credit_card' },
       { id: 'bank_transfer', name: 'Bank Transfer', icon: 'account_balance' },
       { id: 'cash', name: 'Cash', icon: 'attach_money' },
-      { id: 'digital_wallet', name: 'Digital Wallet', icon: 'account_balance_wallet' }
+      { id: 'digital_wallet', name: 'Digital Wallet', icon: 'account_balance_wallet' },
+      { id: 'momo', name: 'Mobile Money', icon: 'phone_android' }
     ];
     
     res.json({

@@ -13,7 +13,12 @@ import {
   Alert,
   CircularProgress,
   TextField,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
 } from '@mui/material';
+import { PhoneAndroid } from '@mui/icons-material';
 import { useAppDispatch, useAppSelector } from '../../app/hooks';
 import {
   createPaymentIntent,
@@ -37,10 +42,14 @@ const PaymentForm: React.FC<PaymentFormProps> = ({
   const { loading, error, paymentMethods } = useAppSelector(
     (state) => state.payment
   );
-  const [selectedMethod, setSelectedMethod] = useState<string>('new');
+  const [selectedMethod, setSelectedMethod] = useState<string>('momo');
   const [cardNumber, setCardNumber] = useState('');
   const [expiryDate, setExpiryDate] = useState('');
   const [cvc, setCvc] = useState('');
+  const [phoneNumber, setPhoneNumber] = useState('');
+  const [momoLoading, setMomoLoading] = useState(false);
+  const [momoDialog, setMomoDialog] = useState(false);
+  const [momoStatus, setMomoStatus] = useState<any>(null);
 
   useEffect(() => {
     dispatch(fetchPaymentMethods());
@@ -49,6 +58,62 @@ const PaymentForm: React.FC<PaymentFormProps> = ({
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
 
+    if (selectedMethod === 'momo') {
+      await handleMoMoPayment();
+    } else {
+      await handleCardPayment();
+    }
+  };
+
+  const handleMoMoPayment = async () => {
+    if (!phoneNumber) {
+      onError('Please enter your phone number');
+      return;
+    }
+
+    setMomoLoading(true);
+    try {
+      // First create a payment record
+      const paymentIntent = await dispatch(
+        createPaymentIntent(amount)
+      ).unwrap();
+
+      // Process MoMo payment
+      const response = await fetch(`/api/payments/${paymentIntent.id}/momo`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        },
+        body: JSON.stringify({ phoneNumber })
+      });
+
+      const result = await response.json();
+
+      if (result.success) {
+        setMomoStatus(result);
+        setMomoDialog(true);
+        
+        if (result.momoDetails.status === 'completed') {
+          setTimeout(() => {
+            setMomoDialog(false);
+            onSuccess();
+          }, 2000);
+        } else if (result.momoDetails.status === 'pending') {
+          // Start polling for status updates
+          startStatusPolling(paymentIntent.id);
+        }
+      } else {
+        onError(result.message || 'MoMo payment failed');
+      }
+    } catch (err) {
+      onError(err instanceof Error ? err.message : 'MoMo payment failed');
+    } finally {
+      setMomoLoading(false);
+    }
+  };
+
+  const handleCardPayment = async () => {
     try {
       let paymentMethodId = selectedMethod;
 
@@ -86,6 +151,46 @@ const PaymentForm: React.FC<PaymentFormProps> = ({
     }
   };
 
+  const startStatusPolling = (paymentId: string) => {
+    const pollInterval = setInterval(async () => {
+      try {
+        const response = await fetch(`/api/payments/${paymentId}/momo/status`, {
+          headers: {
+            'Authorization': `Bearer ${localStorage.getItem('token')}`
+          }
+        });
+        const result = await response.json();
+
+        if (result.success) {
+          setMomoStatus(prev => ({ ...prev, data: result.data }));
+          
+          if (result.data.status === 'completed') {
+            clearInterval(pollInterval);
+            setTimeout(() => {
+              setMomoDialog(false);
+              onSuccess();
+            }, 2000);
+          } else if (result.data.status === 'failed') {
+            clearInterval(pollInterval);
+            setMomoDialog(false);
+            onError('Payment was declined');
+          }
+        }
+      } catch (err) {
+        console.error('Status polling error:', err);
+      }
+    }, 3000); // Poll every 3 seconds
+
+    // Stop polling after 5 minutes
+    setTimeout(() => {
+      clearInterval(pollInterval);
+      if (momoDialog) {
+        setMomoDialog(false);
+        onError('Payment timeout - please try again');
+      }
+    }, 300000);
+  };
+
   return (
     <Paper sx={{ p: 3 }}>
       <Typography variant="h6" gutterBottom>
@@ -105,6 +210,16 @@ const PaymentForm: React.FC<PaymentFormProps> = ({
             value={selectedMethod}
             onChange={(e) => setSelectedMethod(e.target.value)}
           >
+            <FormControlLabel
+              value="momo"
+              control={<Radio />}
+              label={
+                <Box display="flex" alignItems="center" gap={1}>
+                  <PhoneAndroid />
+                  Mobile Money (MoMo)
+                </Box>
+              }
+            />
             {paymentMethods.map((method) => (
               <FormControlLabel
                 key={method.id}
@@ -120,6 +235,22 @@ const PaymentForm: React.FC<PaymentFormProps> = ({
             />
           </RadioGroup>
         </FormControl>
+
+        {selectedMethod === 'momo' && (
+          <Box sx={{ mb: 3 }}>
+            <Typography variant="subtitle2" gutterBottom>
+              Mobile Money Details
+            </Typography>
+            <TextField
+              label="Phone Number"
+              value={phoneNumber}
+              onChange={(e) => setPhoneNumber(e.target.value)}
+              placeholder="+233 24 123 4567"
+              fullWidth
+              helperText="Enter your mobile money registered phone number"
+            />
+          </Box>
+        )}
 
         {selectedMethod === 'new' && (
           <Box sx={{ mb: 3 }}>
@@ -168,15 +299,66 @@ const PaymentForm: React.FC<PaymentFormProps> = ({
           variant="contained"
           color="primary"
           fullWidth
-          disabled={loading || (selectedMethod === 'new' && (!cardNumber || !expiryDate || !cvc))}
+          disabled={
+            loading || 
+            momoLoading ||
+            (selectedMethod === 'new' && (!cardNumber || !expiryDate || !cvc)) ||
+            (selectedMethod === 'momo' && !phoneNumber)
+          }
           sx={{ mt: 3 }}
         >
-          {loading ? (
+          {(loading || momoLoading) ? (
             <CircularProgress size={24} color="inherit" />
           ) : (
-            'Pay Now'
+            selectedMethod === 'momo' ? 'Pay with MoMo' : 'Pay Now'
           )}
         </Button>
+
+        {/* MoMo Payment Dialog */}
+        <Dialog open={momoDialog} onClose={() => {}}>
+          <DialogTitle>Mobile Money Payment</DialogTitle>
+          <DialogContent>
+            <Box sx={{ textAlign: 'center', py: 2 }}>
+              {momoStatus?.momoDetails?.status === 'pending' ? (
+                <>
+                  <CircularProgress sx={{ mb: 2 }} />
+                  <Typography variant="h6" gutterBottom>
+                    Payment Request Sent
+                  </Typography>
+                  <Typography variant="body2" color="text.secondary">
+                    Please check your phone and approve the payment request.
+                  </Typography>
+                  <Typography variant="body2" sx={{ mt: 1 }}>
+                    Transaction Ref: {momoStatus?.momoDetails?.transactionRef}
+                  </Typography>
+                </>
+              ) : momoStatus?.momoDetails?.status === 'completed' ? (
+                <>
+                  <Typography variant="h6" color="success.main" gutterBottom>
+                    ✅ Payment Successful!
+                  </Typography>
+                  <Typography variant="body2">
+                    Your payment has been processed successfully.
+                  </Typography>
+                </>
+              ) : (
+                <>
+                  <Typography variant="h6" color="error.main" gutterBottom>
+                    ❌ Payment Failed
+                  </Typography>
+                  <Typography variant="body2">
+                    {momoStatus?.message || 'Payment could not be processed'}
+                  </Typography>
+                </>
+              )}
+            </Box>
+          </DialogContent>
+          {momoStatus?.momoDetails?.status === 'failed' && (
+            <DialogActions>
+              <Button onClick={() => setMomoDialog(false)}>Close</Button>
+            </DialogActions>
+          )}
+        </Dialog>
       </form>
     </Paper>
   );
