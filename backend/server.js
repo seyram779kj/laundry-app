@@ -48,16 +48,22 @@ const paymentRoutes = require('./routes/payments');
 const reviewRoutes = require('./routes/reviews');
 const analyticsRoutes = require('./routes/analytics');
 const chatRoutes = require('./routes/chats');
+const trackingRoutes = require('./routes/tracking');
+
+// Import middleware
+const { globalErrorHandler, notFoundHandler, logger } = require('./middleware/errorHandler');
+const { cacheMiddleware } = require('./middleware/cache');
 
 // API Routes
 app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/orders', orderRoutes);
-app.use('/api/services', serviceRoutes);
+app.use('/api/services', cacheMiddleware(300), serviceRoutes);
 app.use('/api/payments', paymentRoutes);
 app.use('/api/reviews', reviewRoutes);
-app.use('/api/analytics', analyticsRoutes);
+app.use('/api/analytics', cacheMiddleware(600), analyticsRoutes);
 app.use('/api/chats', chatRoutes);
+app.use('/api/tracking', trackingRoutes);
 
 // Socket.IO logic
 io.on('connection', (socket) => {
@@ -97,19 +103,14 @@ app.get('/api/health', (req, res) => {
   res.json({ status: 'OK', message: 'Laundry App Backend is running' });
 });
 
-// Error handling middleware
-app.use((err, req, res, next) => {
-  console.error(err.stack);
-  res.status(500).json({ 
-    error: 'Something went wrong!',
-    message: NODE_ENV === 'development' ? err.message : 'Internal server error'
-  });
-});
+// Make io available to routes
+app.set('io', io);
 
 // 404 handler
-app.use('*', (req, res) => {
-  res.status(404).json({ error: 'Route not found' });
-});
+app.use(notFoundHandler);
+
+// Global error handling middleware
+app.use(globalErrorHandler);
 
 server.listen(PORT, () => {
   console.log(`Server is running on port ${PORT}`);
