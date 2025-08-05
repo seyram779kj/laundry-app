@@ -5,6 +5,7 @@ const cors = require('cors');
 const path = require('path');
 const http = require('http');
 const { Server } = require('socket.io');
+const { startMongoDB } = require('./setupMongo');
 const Message = require('./models/Message');
 const ChatRoom = require('./models/ChatRoom');
 
@@ -31,13 +32,26 @@ app.use(express.urlencoded({ extended: true }));
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 // MongoDB Connection
-mongoose.connect(MONGODB_URI)
-.then(() => {
-  console.log('Connected to MongoDB');
-})
-.catch((error) => {
-  console.error('MongoDB connection error:', error);
-});
+const initializeDatabase = async () => {
+  try {
+    let mongoUri = MONGODB_URI;
+    
+    // For development, use in-memory MongoDB
+    if (NODE_ENV === 'development') {
+      mongoUri = await startMongoDB();
+    }
+    
+    await mongoose.connect(mongoUri);
+    console.log('Connected to MongoDB');
+    console.log('MongoDB URI:', mongoUri);
+  } catch (error) {
+    console.error('MongoDB connection error:', error);
+    process.exit(1);
+  }
+};
+
+// Initialize database
+initializeDatabase();
 
 // Import routes
 const authRoutes = require('./routes/auth');
@@ -95,6 +109,23 @@ io.on('connection', (socket) => {
 
   socket.on('disconnect', () => {
     console.log('User disconnected:', socket.id);
+  });
+});
+
+// Root route
+app.get('/', (req, res) => {
+  res.json({ 
+    success: true, 
+    message: 'Laundry App Backend API is running',
+    version: '1.0.0',
+    endpoints: {
+      health: '/api/health',
+      auth: '/api/auth',
+      users: '/api/users',
+      orders: '/api/orders',
+      services: '/api/services',
+      payments: '/api/payments'
+    }
   });
 });
 
