@@ -38,15 +38,25 @@ const initializeDatabase = async () => {
     
     // For development, use in-memory MongoDB
     if (NODE_ENV === 'development') {
-      mongoUri = await startMongoDB();
+      try {
+        mongoUri = await startMongoDB();
+      } catch (memoryServerError) {
+        console.warn('Failed to start MongoDB Memory Server, falling back to default URI:', memoryServerError.message);
+        // Fallback to a simple connection string
+        mongoUri = 'mongodb://127.0.0.1:27017/laundry-app-fallback';
+      }
     }
     
-    await mongoose.connect(mongoUri);
+    await mongoose.connect(mongoUri, {
+      serverSelectionTimeoutMS: 5000, // Timeout after 5s instead of 30s
+      socketTimeoutMS: 45000, // Close sockets after 45s of inactivity
+    });
     console.log('Connected to MongoDB');
     console.log('MongoDB URI:', mongoUri);
   } catch (error) {
     console.error('MongoDB connection error:', error);
-    process.exit(1);
+    console.log('Continuing without database connection...');
+    // Don't exit the process, allow the server to run without database
   }
 };
 
@@ -143,10 +153,35 @@ app.use(notFoundHandler);
 // Global error handling middleware
 app.use(globalErrorHandler);
 
-server.listen(PORT, () => {
+server.listen(PORT, '0.0.0.0', () => {
   console.log(`Server is running on port ${PORT}`);
   console.log(`Environment: ${NODE_ENV}`);
   console.log(`MongoDB URI: ${MONGODB_URI}`);
+});
+
+// Graceful shutdown
+process.on('SIGINT', async () => {
+  console.log('Received SIGINT, shutting down gracefully...');
+  try {
+    await mongoose.connection.close();
+    const { stopMongoDB } = require('./setupMongo');
+    await stopMongoDB();
+  } catch (error) {
+    console.error('Error during shutdown:', error);
+  }
+  process.exit(0);
+});
+
+process.on('SIGTERM', async () => {
+  console.log('Received SIGTERM, shutting down gracefully...');
+  try {
+    await mongoose.connection.close();
+    const { stopMongoDB } = require('./setupMongo');
+    await stopMongoDB();
+  } catch (error) {
+    console.error('Error during shutdown:', error);
+  }
+  process.exit(0);
 });
 
 module.exports = app; 
