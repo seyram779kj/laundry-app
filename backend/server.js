@@ -32,34 +32,24 @@ app.use(express.urlencoded({ extended: true }));
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 // MongoDB Connection
+// MongoDB Connection - Modified to use persistent database
 const initializeDatabase = async () => {
   try {
-    let mongoUri = MONGODB_URI;
-    
-    // For development, use in-memory MongoDB
-    if (NODE_ENV === 'development') {
-      try {
-        mongoUri = await startMongoDB();
-      } catch (memoryServerError) {
-        console.warn('Failed to start MongoDB Memory Server, falling back to default URI:', memoryServerError.message);
-        // Fallback to a simple connection string
-        mongoUri = 'mongodb://127.0.0.1:27017/laundry-app-fallback';
-      }
-    }
+    // Always use persistent MongoDB - no memory server
+    const mongoUri = MONGODB_URI; // 'mongodb://localhost:27017/laundry-app'
     
     await mongoose.connect(mongoUri, {
-      serverSelectionTimeoutMS: 5000000, // Timeout after 5s instead of 30s
-      socketTimeoutMS: 5000000, // Close sockets after 45s of inactivity
+      serverSelectionTimeoutMS: 5000, // Timeout after 5s instead of 30s
+      socketTimeoutMS: 45000, // Close sockets after 45s of inactivity
     });
     console.log('Connected to MongoDB');
     console.log('MongoDB URI:', mongoUri);
   } catch (error) {
     console.error('MongoDB connection error:', error);
-    console.log('Continuing without database connection...');
+    console.log('Make sure MongoDB is running locally on port 27017');
     // Don't exit the process, allow the server to run without database
   }
 };
-
 // Initialize database
 initializeDatabase();
 
