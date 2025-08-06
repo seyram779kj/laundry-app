@@ -15,8 +15,7 @@ import {
   Button,
   Dialog,
   DialogTitle,
-  DialogContent,
-  Grid2 as Grid
+  DialogContent
 } from '@mui/material';
 import {
   CheckCircle,
@@ -83,7 +82,8 @@ const OrderTracking: React.FC<OrderTrackingProps> = ({ orderId, open, onClose })
     try {
       setLoading(true);
       const response = await api.get(`/tracking/${orderId}`);
-      setTracking(response.data.data);
+      // Type assertion to handle the unknown response type
+      setTracking((response.data as any).data);
       setError(null);
     } catch (err: any) {
       setError(err.response?.data?.error || 'Failed to fetch tracking data');
@@ -138,15 +138,15 @@ const OrderTracking: React.FC<OrderTrackingProps> = ({ orderId, open, onClose })
             {/* Current Status */}
             <Card sx={{ mb: 3 }}>
               <CardContent>
-                <Grid container spacing={2} alignItems="center">
-                  <Grid item>
+                <Box display="flex" alignItems="center" gap={2}>
+                  <Box>
                     <Chip
                       label={tracking.currentLocation.replace('_', ' ').toUpperCase()}
                       color="primary"
                       size="medium"
                     />
-                  </Grid>
-                  <Grid item xs>
+                  </Box>
+                  <Box flex={1}>
                     <Typography variant="h6">
                       Order #{tracking.order.orderNumber}
                     </Typography>
@@ -155,8 +155,8 @@ const OrderTracking: React.FC<OrderTrackingProps> = ({ orderId, open, onClose })
                         Estimated Delivery: {format(new Date(tracking.estimatedDelivery), 'PPp')}
                       </Typography>
                     )}
-                  </Grid>
-                </Grid>
+                  </Box>
+                </Box>
               </CardContent>
             </Card>
 

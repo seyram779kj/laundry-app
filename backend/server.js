@@ -48,8 +48,8 @@ const initializeDatabase = async () => {
     }
     
     await mongoose.connect(mongoUri, {
-      serverSelectionTimeoutMS: 5000, // Timeout after 5s instead of 30s
-      socketTimeoutMS: 45000, // Close sockets after 45s of inactivity
+      serverSelectionTimeoutMS: 5000000, // Timeout after 5s instead of 30s
+      socketTimeoutMS: 5000000, // Close sockets after 45s of inactivity
     });
     console.log('Connected to MongoDB');
     console.log('MongoDB URI:', mongoUri);
