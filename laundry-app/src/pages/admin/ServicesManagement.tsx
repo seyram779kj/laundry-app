@@ -98,47 +98,62 @@ const ServicesManagement: React.FC = () => {
 
   // Fetch real services data from API
   useEffect(() => {
-    const fetchServices = async () => {
-      try {
-        setLoading(true);
-        setError(null);
-        
-        const response = await fetch('http://localhost:5000/api/services', {
-          headers: {
-            'Authorization': `Bearer ${localStorage.getItem('token')}`,
-            'Content-Type': 'application/json',
-          },
-        });
+  // Updated fetchServices function
+const fetchServices = async () => {
+  try {
+    setLoading(true);
+    setError(null);
+    
+    const response = await fetch('http://localhost:5000/api/services', {
+      headers: {
+        'Authorization': `Bearer ${localStorage.getItem('token')}`,
+        'Content-Type': 'application/json',
+      },
+    });
 
-        if (!response.ok) {
-          throw new Error('Failed to fetch services');
-        }
+    if (!response.ok) {
+      throw new Error('Failed to fetch services');
+    }
 
-        const data = await response.json();
-        let servicesArray: any[] = [];
-        if (Array.isArray(data)) {
-          servicesArray = data;
-        } else if (Array.isArray(data.services)) {
-          servicesArray = data.services;
-        } else if (Array.isArray(data.data)) {
-          servicesArray = data.data;
-        } else if (data.data && Array.isArray(data.data.services)) {
-          servicesArray = data.data.services;
-        }
-        const mappedServices = servicesArray.map((service: any) => ({
-          ...service,
-          id: service._id || service.id,
-        }));
-        setServices(mappedServices);
-      } catch (error) {
-        console.error('Services fetch error:', error);
-        setError('Failed to load services');
-        setServices([]); // Set empty array on error
-      } finally {
-        setLoading(false);
+    const data = await response.json();
+    console.log('Raw API response:', data);
+    
+    let servicesArray: any[] = [];
+    
+    // Handle your backend response structure
+    if (data.success && data.data) {
+      if (Array.isArray(data.data.docs)) {
+        // Paginated response from your backend
+        servicesArray = data.data.docs;
+      } else if (Array.isArray(data.data)) {
+        // Direct array in data
+        servicesArray = data.data;
       }
-    };
-
+    } else if (Array.isArray(data)) {
+      // Direct array response
+      servicesArray = data;
+    } else if (Array.isArray(data.services)) {
+      servicesArray = data.services;
+    }
+    
+    console.log('Services array extracted:', servicesArray);
+    console.log('Services count:', servicesArray.length);
+    
+    const mappedServices = servicesArray.map((service: any) => ({
+      ...service,
+      id: service._id || service.id,
+    }));
+    
+    console.log('Mapped services:', mappedServices);
+    setServices(mappedServices);
+  } catch (error) {
+    console.error('Services fetch error:', error);
+    setError('Failed to load services');
+    setServices([]); // Set empty array on error
+  } finally {
+    setLoading(false);
+  }
+};
     fetchServices();
   }, []);
 
@@ -242,51 +257,88 @@ const ServicesManagement: React.FC = () => {
     setAddForm((prev) => ({ ...prev, [name as string]: value }));
   };
 
-  const handleAddServiceSubmit = async () => {
-    setAddLoading(true);
-    setAddError(null);
-    try {
-      const formData = new FormData();
-      formData.append('name', addForm.name);
-      formData.append('description', addForm.description);
-      formData.append('basePrice', addForm.basePrice);
-      formData.append('category', addForm.category);
-      formData.append('estimatedTime', addForm.estimatedTime);
-      formData.append('requirements', addForm.requirements);
-      formData.append('isActive', String(addForm.isActive));
-      if (addForm.picture) {
-        formData.append('picture', addForm.picture);
-      }
-      const response = await fetch('http://localhost:5000/api/services', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`,
-        },
-        body: formData,
-      });
-      if (!response.ok) {
-        throw new Error('Failed to create service');
-      }
-      const newService = await response.json();
-      setServices((prev) => Array.isArray(prev) ? [...prev, newService] : [newService]);
-      setDialogOpen(false);
-      setAddForm({
-        name: '',
-        description: '',
-        basePrice: '',
-        category: 'wash-fold',
-        estimatedTime: '',
-        requirements: '',
-        isActive: true,
-        picture: null,
-      });
-      setPicturePreview(null);
-    } catch (err: any) {
-      setAddError(err.message || 'Failed to create service');
-    } finally {
-      setAddLoading(false);
+const handleAddServiceSubmit = async () => {
+  setAddLoading(true);
+  setAddError(null);
+  try {
+    const token = localStorage.getItem('token');
+    if (!token) {
+      throw new Error('No authentication token found');
     }
-  };
+
+    console.log('Service data being sent:', {
+      name: addForm.name,
+      description: addForm.description,
+      basePrice: Number(addForm.basePrice),
+      category: addForm.category,
+      estimatedTime: addForm.estimatedTime,
+      requirements: addForm.requirements,
+      isActive: addForm.isActive,
+    });
+
+    const formData = new FormData();
+    formData.append('name', addForm.name);
+    formData.append('description', addForm.description);
+    formData.append('basePrice', String(Number(addForm.basePrice)));
+    formData.append('category', addForm.category);
+    formData.append('estimatedTime', addForm.estimatedTime);
+    formData.append('requirements', addForm.requirements);
+    formData.append('isActive', String(addForm.isActive));
+    
+    if (addForm.picture) {
+      formData.append('picture', addForm.picture);
+    }
+
+    const response = await fetch('http://localhost:5000/api/services', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        // Don't set Content-Type when using FormData - let the browser set it
+      },
+      body: formData,
+    });
+
+    console.log('Response status:', response.status);
+    
+    if (!response.ok) {
+      const errorData = await response.text();
+      console.log('Error response:', errorData);
+      throw new Error(`Failed to create service: ${errorData}`);
+    }
+
+    const newService = await response.json();
+    console.log('New service created:', newService);
+    
+    // Extract the actual service data from the response
+    const serviceData = newService.data || newService;
+    console.log('Service data to add:', serviceData);
+    
+    setServices((prev) => {
+      const currentServices = Array.isArray(prev) ? prev : [];
+      console.log('Current services before add:', currentServices.length);
+      const updatedServices = [...currentServices, { ...serviceData, id: serviceData._id || serviceData.id }];
+      console.log('Updated services after add:', updatedServices.length);
+      return updatedServices;
+    });
+    setDialogOpen(false);
+    setAddForm({
+      name: '',
+      description: '',
+      basePrice: '',
+      category: 'wash-fold',
+      estimatedTime: '',
+      requirements: '',
+      isActive: true,
+      picture: null,
+    });
+    setPicturePreview(null);
+  } catch (err: any) {
+    console.error('Service creation error:', err);
+    setAddError(err.message || 'Failed to create service');
+  } finally {
+    setAddLoading(false);
+  }
+};
 
   const handleEditFormChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value, type, files } = e.target;

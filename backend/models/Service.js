@@ -44,7 +44,8 @@ const serviceSchema = new mongoose.Schema({
   provider: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User', // Make sure this references the correct model name
-    required: [true, 'Provider is required']
+    required: false,
+    default: null
   }
 }, {
   timestamps: true

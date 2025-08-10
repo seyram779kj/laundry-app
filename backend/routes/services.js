@@ -130,6 +130,7 @@ router.get('/:id', async (req, res) => {
 });
 
 // Create new service - FIXED VERSION
+// Create new service - UPDATED VERSION
 router.post('/', protect, upload.single('picture'), async (req, res) => {
   try {
     const {
@@ -140,7 +141,7 @@ router.post('/', protect, upload.single('picture'), async (req, res) => {
       estimatedTime,
       requirements,
       isActive,
-      providerId // Add this field for admin to specify provider
+      providerId // Optional field for admin to specify provider
     } = req.body;
 
     if (!name || !description || !category || !basePrice || !estimatedTime) {
@@ -150,35 +151,31 @@ router.post('/', protect, upload.single('picture'), async (req, res) => {
       });
     }
 
-    let actualProviderId;
+    let actualProviderId = null; // Default to null for admin-created global services
 
     // Determine provider based on user role
     if (req.user.role === 'admin') {
-      // Admin must specify which provider this service belongs to
-      if (!providerId) {
-        return res.status(400).json({
-          success: false,
-          error: 'Admin must specify providerId when creating services'
-        });
-      }
+      // Admin can optionally specify a provider, or leave it null for global services
+      if (providerId) {
+        // Verify the provider exists and is a service provider
+        const provider = await User.findById(providerId);
+        if (!provider) {
+          return res.status(400).json({
+            success: false,
+            error: 'Provider not found'
+          });
+        }
 
-      // Verify the provider exists and is a service provider
-      const provider = await User.findById(providerId);
-      if (!provider) {
-        return res.status(400).json({
-          success: false,
-          error: 'Provider not found'
-        });
-      }
+        if (provider.role !== 'service_provider') {
+          return res.status(400).json({
+            success: false,
+            error: 'Specified user is not a service provider'
+          });
+        }
 
-      if (provider.role !== 'service_provider') {
-        return res.status(400).json({
-          success: false,
-          error: 'Specified user is not a service provider'
-        });
+        actualProviderId = providerId;
       }
-
-      actualProviderId = providerId;
+      // If no providerId specified, actualProviderId remains null (global service)
 
     } else if (req.user.role === 'service_provider') {
       // Service providers can only create services for themselves
@@ -205,11 +202,15 @@ router.post('/', protect, upload.single('picture'), async (req, res) => {
       requirements,
       isActive: isActive === 'false' ? false : true,
       imageUrl,
-      provider: actualProviderId // Use the validated provider ID
+      provider: actualProviderId // Can be null for admin-created global services
     };
 
     const service = await Service.create(serviceData);
-    await service.populate('provider', 'firstName lastName businessDetails location');
+    
+    // Only populate provider if it exists
+    if (actualProviderId) {
+      await service.populate('provider', 'firstName lastName businessDetails location');
+    }
 
     res.status(201).json({
       success: true,
@@ -240,6 +241,7 @@ router.get('/providers/list', protect, admin, async (req, res) => {
 });
 
 // Update service (provider or admin only)
+// Update service (provider or admin only) - UPDATED
 router.put('/:id', protect, async (req, res) => {
   try {
     const service = await Service.findById(req.params.id);
@@ -249,7 +251,11 @@ router.put('/:id', protect, async (req, res) => {
     }
 
     // Check permissions
-    if (req.user.role !== 'admin' && service.provider.toString() !== req.user.id) {
+    const isAdmin = req.user.role === 'admin';
+    const isOwner = service.provider && service.provider.toString() === req.user.id;
+    const isGlobalService = !service.provider; // Admin-created global service
+
+    if (!isAdmin && !isOwner) {
       return res.status(403).json({ success: false, error: 'Access denied' });
     }
 
@@ -257,7 +263,12 @@ router.put('/:id', protect, async (req, res) => {
       req.params.id,
       req.body,
       { new: true, runValidators: true }
-    ).populate('provider', 'firstName lastName businessDetails location');
+    );
+
+    // Only populate if provider exists
+    if (updatedService.provider) {
+      await updatedService.populate('provider', 'firstName lastName businessDetails location');
+    }
 
     res.json({
       success: true,
@@ -269,7 +280,7 @@ router.put('/:id', protect, async (req, res) => {
   }
 });
 
-// Delete service (provider or admin only)
+// Delete service (provider or admin only) - UPDATED
 router.delete('/:id', protect, async (req, res) => {
   try {
     const service = await Service.findById(req.params.id);
@@ -279,7 +290,10 @@ router.delete('/:id', protect, async (req, res) => {
     }
 
     // Check permissions
-    if (req.user.role !== 'admin' && service.provider.toString() !== req.user.id) {
+    const isAdmin = req.user.role === 'admin';
+    const isOwner = service.provider && service.provider.toString() === req.user.id;
+
+    if (!isAdmin && !isOwner) {
       return res.status(403).json({ success: false, error: 'Access denied' });
     }
 
@@ -295,7 +309,26 @@ router.delete('/:id', protect, async (req, res) => {
   }
 });
 
-// Toggle service availability
+// Add this to your services router
+router.get('/debug/count', protect, admin, async (req, res) => {
+  try {
+    const totalServices = await Service.countDocuments();
+    const services = await Service.find().limit(5).sort({ createdAt: -1 });
+    
+    res.json({
+      success: true,
+      data: {
+        totalCount: totalServices,
+        recentServices: services
+      }
+    });
+  } catch (error) {
+    console.error('Debug count error:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// Toggle service availability - UPDATED
 router.put('/:id/availability', protect, async (req, res) => {
   try {
     const { isAvailable } = req.body;
@@ -306,13 +339,20 @@ router.put('/:id/availability', protect, async (req, res) => {
     }
 
     // Check permissions
-    if (req.user.role !== 'admin' && service.provider.toString() !== req.user.id) {
+    const isAdmin = req.user.role === 'admin';
+    const isOwner = service.provider && service.provider.toString() === req.user.id;
+
+    if (!isAdmin && !isOwner) {
       return res.status(403).json({ success: false, error: 'Access denied' });
     }
 
     service.isAvailable = isAvailable;
     await service.save();
-    await service.populate('provider', 'firstName lastName businessDetails location');
+    
+    // Only populate if provider exists
+    if (service.provider) {
+      await service.populate('provider', 'firstName lastName businessDetails location');
+    }
 
     res.json({
       success: true,
@@ -323,7 +363,6 @@ router.put('/:id/availability', protect, async (req, res) => {
     res.status(500).json({ success: false, error: 'Failed to update service availability' });
   }
 });
-
 // Get service categories
 router.get('/categories/list', async (req, res) => {
   try {

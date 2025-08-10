@@ -21,7 +21,6 @@ import {
   ListItem,
   ListItemIcon,
   ListItemText,
-  Grid,
   Alert,
   CircularProgress,
 } from '@mui/material';
@@ -54,7 +53,11 @@ interface Service {
   name: string;
   description: string;
   basePrice: number;
+  category?: string;
+  imageUrl?: string;
+  provider?: any;
 }
+
 
 interface BackendService {
   _id: string;
@@ -62,6 +65,10 @@ interface BackendService {
   description: string;
   basePrice: number;
   category: string;
+  imageUrl?: string;
+  provider?: any;
+  isActive?: boolean;
+  isAvailable?: boolean;
 }
 
 interface Address {
@@ -104,98 +111,7 @@ interface PaymentMethod {
   description: string;
 }
 
-const services = [
-  {
-    id: 'wash-fold',
-    title: 'Wash & Fold',
-    description: 'Professional washing, drying, and folding service for your everyday clothes.',
-    price: 'Starting at $2.50/lb',
-    image: '/images/wash-fold.jpg',
-    icon: <LocalLaundryService />,
-    details: [
-      'Separated by color and fabric type',
-      'Eco-friendly detergents',
-      'Gentle washing cycles',
-      'Professional folding',
-      'Ready for pickup in 24 hours'
-    ]
-  },
-  {
-    id: 'dry-cleaning',
-    title: 'Dry Cleaning',
-    description: 'Expert dry cleaning for delicate fabrics and special garments.',
-    price: 'Starting at $5.99/item',
-    image: '/images/dry-cleaning.jpg',
-    icon: <DryCleaning />,
-    details: [
-      'Professional stain treatment',
-      'Gentle cleaning process',
-      'Special care for delicate fabrics',
-      'Eco-friendly solvents',
-      'Same-day service available'
-    ]
-  },
-  {
-    id: 'ironing',
-    title: 'Ironing & Pressing',
-    description: 'Professional ironing and pressing service for crisp, clean clothes.',
-    price: 'Starting at $3.99/item',
-    image: '/images/ironing.jpg',
-    icon: <Iron />,
-    details: [
-      'Professional pressing equipment',
-      'Attention to detail',
-      'Proper temperature control',
-      'Special care for delicate fabrics',
-      'Ready in 24 hours'
-    ]
-  },
-  {
-    id: 'stain-removal',
-    title: 'Stain Removal',
-    description: 'Expert stain removal for tough spots and marks.',
-    price: 'Starting at $4.99/stain',
-    image: '/images/stain-removal.jpg',
-    icon: <CleaningServices />,
-    details: [
-      'Advanced stain treatment',
-      'Specialized cleaning agents',
-      'Pre-treatment assessment',
-      'Guaranteed results',
-      'Same-day service available'
-    ]
-  }
-];
-
-const steps = [
-  'Select Service',
-  'Select Items',
-  'Pickup Details',
-  'Delivery Details',
-  'Review & Pay'
-];
-
-interface SelectedItem {
-  id: string;
-  name: string;
-  price: number;
-  quantity: number;
-}
-
-const paymentMethods: PaymentMethod[] = [
-  {
-    id: 'momo',
-    name: 'Mobile Money',
-    icon: <Phone />,
-    description: 'Pay using MTN, Vodafone, or AirtelTigo Mobile Money'
-  },
-  {
-    id: 'card',
-    name: 'Credit/Debit Card',
-    icon: <CreditCard />,
-    description: 'Pay using Visa, Mastercard, or other cards'
-  }
-];
+const steps = ['Select Service', 'Select Items', 'Pickup Address', 'Delivery Address', 'Order Summary'];
 
 const NewOrder: React.FC = () => {
   const location = useLocation();
@@ -223,13 +139,75 @@ const NewOrder: React.FC = () => {
   const [paymentError, setPaymentError] = useState<string | null>(null);
   const [isProcessingPayment, setIsProcessingPayment] = useState(false);
   const [showThankYou, setShowThankYou] = useState(false);
+  
+  // Add state for fetching services directly
+  const [availableServices, setAvailableServices] = useState<Service[]>([]);
+  const [servicesLoading, setServicesLoading] = useState(false);
+  const [servicesError, setServicesError] = useState<string | null>(null);
 
   const dispatch = useAppDispatch();
   const { loading } = useSelector((state: RootState) => state.orders);
-  const { services } = useSelector((state: RootState) => state.services);
-  const serviceList = Array.isArray(services) ? services : [];
   const { user } = useSelector((state: RootState) => state.auth);
   const navigate = useNavigate();
+
+  // Fetch services directly in this component
+ useEffect(() => {
+  const fetchAvailableServices = async () => {
+    setServicesLoading(true);
+    setServicesError(null);
+    
+    try {
+      const response = await fetch('http://localhost:5000/api/services', {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('token')}`,
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to fetch services');
+      }
+
+      const data = await response.json();
+      console.log('Fetched services for customers:', data);
+      
+      let servicesArray: BackendService[] = [];
+      
+      // Handle your backend response structure
+      if (data.success && data.data) {
+        servicesArray = Array.isArray(data.data.docs) ? data.data.docs : data.data;
+      } else if (Array.isArray(data)) {
+        servicesArray = data;
+      }
+      
+      // Only show active services to customers
+      const activeServices = servicesArray.filter(service => service.isActive !== false);
+      
+      // Convert to frontend format
+      const formattedServices: Service[] = activeServices.map((service: BackendService) => ({
+        id: service._id,
+        name: service.name,
+        description: service.description,
+        basePrice: service.basePrice,
+        category: service.category,
+        imageUrl: service.imageUrl,
+        provider: service.provider
+      }));
+      
+      console.log('Formatted services for customers:', formattedServices);
+      setAvailableServices(formattedServices);
+      
+    } catch (error) {
+      console.error('Error fetching services:', error);
+      setServicesError('Failed to load services');
+      setAvailableServices([]);
+    } finally {
+      setServicesLoading(false);
+    }
+  };
+
+  fetchAvailableServices();
+}, []); // Ensure the dependency array is empty to run only once on mount
 
   useEffect(() => {
     // Handle navigation from Services page
@@ -239,11 +217,12 @@ const NewOrder: React.FC = () => {
         initialStep?: number;
       };
       
-      if (serviceId) {
-        const foundService = serviceList.find(s => s.id === serviceId);
+      if (serviceId && availableServices.length > 0) {
+        const foundService = availableServices.find(s => s.id === serviceId);
         if (foundService) {
           setSelectedServices([foundService]);
           setOrderTitle(foundService.name);
+          setSelectedService(foundService);
         }
       }
       
@@ -258,41 +237,24 @@ const NewOrder: React.FC = () => {
         console.log('Redirecting to orders page...');
         navigate('/orders', { replace: true });
       }, 4000);
+      // ... rest of your component remains the same ...
+
       return () => clearTimeout(timer);
     }
-  }, [location.state, serviceList, activeStep, showThankYou, navigate]);
+  }, [location.state, availableServices, activeStep, showThankYou, navigate]);
 
-  const handleServiceSelect = (serviceId: string) => {
-    console.log('Selected service ID:', serviceId);
-    // Find the service from the backend services (which use _id)
-    const backendService = serviceList.find(s => (s as any)._id === serviceId) as any;
-    if (!backendService) {
-      console.error('Service not found:', serviceId);
-      return;
-    }
-    
-    const service = {
-      id: serviceId, // Use the MongoDB _id as the id
-      name: backendService.name,
-      description: backendService.description,
-      basePrice: backendService.basePrice || 0
-    };
-    console.log('Created service:', service);
-    setSelectedService(service);
-    setSelectedServices([service]);
-    setOrderTitle(service.name);
-    setActiveStep(1); // This sets it to the "Select Items" step
-  };
+ const handleItemsChange = (items: Item[], totalPrice: number) => {
+  const orderItems: OrderItem[] = items.map(item => ({
+    serviceId: selectedService?.id || '',
+    quantity: item.quantity,
+    price: item.price
+  }));
+  setSelectedItems(orderItems);
+  setTotalPrice(totalPrice);
+};
 
-  const handleItemsChange = (items: Item[], totalPrice: number) => {
-    const orderItems: OrderItem[] = items.map(item => ({
-      serviceId: selectedService?.id || '',
-      quantity: item.quantity,
-      price: item.price
-    }));
-    setSelectedItems(orderItems);
-    setTotalPrice(totalPrice);
-  };
+// In the getStepContent function, ensure you pass the correct props to ItemQuantit
+
 
   const handleNext = () => {
     setActiveStep((prevStep) => prevStep + 1);
@@ -399,8 +361,30 @@ const NewOrder: React.FC = () => {
     }
   };
 
+  const isStepValid = (step: number) => {
+    switch (step) {
+      case 0:
+        return !!selectedService;
+      case 1:
+        return selectedItems.length > 0;
+      case 2:
+        return !!addresses.pickup && !!dates.pickupDate;
+      case 3:
+        return !!addresses.delivery && !!dates.deliveryDate;
+      case 4:
+        return true;
+      default:
+        return false;
+    }
+  };
+
+  const formatDates = (dates: OrderDates) => ({
+    pickup: `${dates.pickupDate} ${dates.pickupTime}`,
+    delivery: `${dates.deliveryDate} ${dates.deliveryTime}`
+  });
+
   const getStepContent = (step: number) => {
-    if (!user) return null; // Add null check for user
+    if (!user) return null;
 
     if (showThankYou) {
       return (
@@ -420,12 +404,94 @@ const NewOrder: React.FC = () => {
 
     switch (step) {
       case 0:
+        if (servicesLoading) {
+          return (
+            <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
+              <CircularProgress />
+            </Box>
+          );
+        }
+        
+        if (servicesError) {
+          return (
+            <Alert severity="error" sx={{ my: 2 }}>
+              {servicesError}
+            </Alert>
+          );
+        }
+        
+        if (availableServices.length === 0) {
+          return (
+            <Alert severity="info" sx={{ my: 2 }}>
+              No services available at the moment.
+            </Alert>
+          );
+        }
+        
         return (
-          <ServiceSelection
-            onServiceSelect={handleServiceSelect}
-            onNext={() => setActiveStep(1)}
-          />
+          <Box>
+            <Typography variant="h6" gutterBottom>
+              Select a Service
+            </Typography>
+            <Box display="flex" flexWrap="wrap" sx={{ mt: 1 }}>
+              {availableServices.map((service) => (
+                <Box key={service.id} sx={{ width: { xs: '100%', sm: '50%', md: '33.33%' }, p: 1 }}>
+                  <Card
+                    sx={{
+                      cursor: 'pointer',
+                      '&:hover': {
+                        boxShadow: 4,
+                      },
+                      border: selectedService?.id === service.id ? '2px solid' : '1px solid',
+                      borderColor: selectedService?.id === service.id ? 'primary.main' : 'divider',
+                    }}
+                    onClick={() => handleServiceClick(service)}
+                  >
+                    {service.imageUrl && (
+                      <CardMedia
+                        component="img"
+                        height="140"
+                        image={service.imageUrl.startsWith('http') 
+                          ? service.imageUrl 
+                          : `http://localhost:5000${service.imageUrl}`
+                        }
+                        alt={service.name}
+                      />
+                    )}
+                    <CardContent>
+                      <Typography gutterBottom variant="h6" component="div">
+                        {service.name}
+                      </Typography>
+                      <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+                        {service.description}
+                      </Typography>
+                      <Typography variant="h6" color="primary">
+                        ${service.basePrice}
+                      </Typography>
+                      {service.category && (
+                        <Typography variant="caption" color="text.secondary" sx={{ textTransform: 'capitalize' }}>
+                          {service.category.replace('-', ' ')}
+                        </Typography>
+                      )}
+                    </CardContent>
+                  </Card>
+                </Box>
+              ))}
+            </Box>
+            
+            {selectedService && (
+              <Box sx={{ mt: 3, display: 'flex', justifyContent: 'flex-end' }}>
+                <Button
+                  variant="contained"
+                  onClick={() => setActiveStep(1)}
+                >
+                  Continue with {selectedService.name}
+                </Button>
+              </Box>
+            )}
+          </Box>
         );
+        
       case 1:
         return (
           <ItemQuantity
@@ -433,6 +499,7 @@ const NewOrder: React.FC = () => {
             onItemsChange={handleItemsChange}
           />
         );
+        
       case 2:
         return (
           <AddressSelection
@@ -480,32 +547,13 @@ const NewOrder: React.FC = () => {
             </Box>
           </Box>
         );
+        
       default:
         return null;
     }
   };
 
-  const isStepValid = (step: number) => {
-    switch (step) {
-      case 0:
-        return !!selectedService;
-      case 1:
-        return selectedItems.length > 0;
-      case 2:
-        return !!addresses.pickup && !!dates.pickupDate;
-      case 3:
-        return !!addresses.delivery && !!dates.deliveryDate;
-      case 4:
-        return true;
-      default:
-        return false;
-    }
-  };
-
-  const formatDates = (dates: OrderDates) => ({
-    pickup: `${dates.pickupDate} ${dates.pickupTime}`,
-    delivery: `${dates.deliveryDate} ${dates.deliveryTime}`
-  });
+  // ... rest of your component remains the same ...
 
   return (
     <Container maxWidth="lg" sx={{ py: 4 }}>
@@ -514,7 +562,7 @@ const NewOrder: React.FC = () => {
           New Order
         </Typography>
         <Typography variant="subtitle1" color="text.secondary" gutterBottom>
-          {orderTitle}
+          {orderTitle || 'Select a service to get started'}
         </Typography>
 
         <Stepper activeStep={activeStep} sx={{ my: 4 }}>
@@ -559,4 +607,4 @@ const NewOrder: React.FC = () => {
   );
 };
 
-export default NewOrder; 
+export default NewOrder;
