@@ -17,6 +17,12 @@ import {
   Menu,
   MenuItem,
   Badge,
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableRow,
 } from '@mui/material';
 import MoreVertIcon from '@mui/icons-material/MoreVert';
 import MessageIcon from '@mui/icons-material/Message';
@@ -118,38 +124,42 @@ const Orders: React.FC = () => {
   const navigate = useNavigate();
 
   useEffect(() => {
-    const fetchOrders = async () => {
-      try {
-        setLoading(true);
-        setError(null);
-        const token = localStorage.getItem('token');
-
-        if (!token) {
-          setError('Authentication token not found');
-          return;
-        }
-
-        const response = await axios.get('http://localhost:5000/api/orders/provider/assigned', {
-          headers: { Authorization: `Bearer ${token}` }
-        });
-
-        if (response.data.success) {
-          setOrders(response.data.data);
-          // Check for unread messages for each order
-          await checkUnreadMessages(response.data.data, token);
-        } else {
-          setError('Failed to fetch orders');
-        }
-      } catch (err: any) {
-        console.error('Fetch orders error:', err);
-        setError(err.response?.data?.error || 'Failed to fetch orders');
-      } finally {
-        setLoading(false);
-      }
-    };
-
     fetchOrders();
   }, []);
+
+  const fetchOrders = async () => {
+    await loadOrders();
+  };
+
+  const loadOrders = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      const token = localStorage.getItem('token');
+
+      if (!token) {
+        setError('Authentication token not found');
+        return;
+      }
+
+      const response = await axios.get('http://localhost:5000/api/orders/provider/assigned', {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+
+      if (response.data.success) {
+        setOrders(response.data.data);
+        // Check for unread messages for each order
+        await checkUnreadMessages(response.data.data, token);
+      } else {
+        setError('Failed to fetch orders');
+      }
+    } catch (err: any) {
+      console.error('Fetch orders error:', err);
+      setError(err.response?.data?.error || 'Failed to fetch orders');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const checkUnreadMessages = async (ordersList: Order[], token: string) => {
     const user = JSON.parse(localStorage.getItem('user') || '{}');
