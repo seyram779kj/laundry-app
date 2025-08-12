@@ -315,21 +315,37 @@ router.put('/:id/status', protect, async (req, res) => {
   }
 });
 
-// Update order details (admin only)
-router.put('/:id', protect, admin, async (req, res) => {
+// Update order details (admin and service providers can update notes)
+router.put('/:id', protect, async (req, res) => {
   try {
-    const order = await Order.findByIdAndUpdate(
-      req.params.id,
-      req.body,
-      { new: true, runValidators: true }
-    ).populate([
-      { path: 'customer', select: 'firstName lastName email phoneNumber' },
-      { path: 'serviceProvider', select: 'firstName lastName email phoneNumber businessDetails' },
-    ]);
+    const order = await Order.findById(req.params.id);
 
     if (!order) {
       return res.status(404).json({ success: false, error: 'Order not found' });
     }
+
+    // Check permissions
+    if (req.user.role === 'service_provider') {
+      // Service providers can only update orders assigned to them and only notes
+      if (order.serviceProvider && order.serviceProvider.toString() !== req.user.id) {
+        return res.status(403).json({ success: false, error: 'Access denied' });
+      }
+      // Only allow notes updates for service providers
+      if (req.body.notes) {
+        order.notes = { ...order.notes, ...req.body.notes };
+      }
+    } else if (req.user.role === 'admin') {
+      // Admins can update everything
+      Object.assign(order, req.body);
+    } else {
+      return res.status(403).json({ success: false, error: 'Access denied' });
+    }
+
+    await order.save();
+    await order.populate([
+      { path: 'customer', select: 'firstName lastName email phoneNumber' },
+      { path: 'serviceProvider', select: 'firstName lastName email phoneNumber businessDetails' },
+    ]);
 
     res.json({
       success: true,
@@ -341,8 +357,8 @@ router.put('/:id', protect, admin, async (req, res) => {
   }
 });
 
-// Self-assign order (service providers only)
-router.put('/:id/assign-self', protect, serviceProvider, async (req, res) => {
+// Self-assign order (service providers only) - PATCH method
+router.patch('/:id/assign-self', protect, serviceProvider, async (req, res) => {
   try {
     const order = await Order.findById(req.params.id);
 
@@ -370,13 +386,51 @@ router.put('/:id/assign-self', protect, serviceProvider, async (req, res) => {
     order.serviceProvider = req.user.id;
     order.status = 'assigned';
 
-    // Add to status history
-    order.statusHistory.push({
-      status: 'assigned',
-      changedBy: req.user.id,
-      changedAt: new Date(),
-      notes: 'Service provider self-assigned to order',
+    await order.save();
+    await order.populate([
+      { path: 'customer', select: 'firstName lastName email phoneNumber' },
+      { path: 'serviceProvider', select: 'firstName lastName email phoneNumber businessDetails' },
+    ]);
+
+    res.json({
+      success: true,
+      data: order,
+      message: 'Successfully assigned to order',
     });
+  } catch (error) {
+    console.error('Self-assign order error:', error);
+    res.status(500).json({ success: false, error: 'Failed to assign order' });
+  }
+});
+
+// Self-assign order (service providers only) - PUT method
+router.put('/:id/assign-self', protect, serviceProvider, async (req, res) => {
+  try {
+    const order = await Order.findById(req.params.id);
+
+    if (!order) {
+      return res.status(404).json({ success: false, error: 'Order not found' });
+    }
+
+    // Check if order is available for assignment
+    if (order.status !== 'pending' && order.status !== 'confirmed') {
+      return res.status(400).json({ 
+        success: false, 
+        error: 'Order is not available for assignment' 
+      });
+    }
+
+    // Check if order already has a service provider assigned
+    if (order.serviceProvider) {
+      return res.status(400).json({ 
+        success: false, 
+        error: 'Order is already assigned to a service provider' 
+      });
+    }
+
+    // Assign the order to the current service provider
+    order.serviceProvider = req.user.id;
+    order.status = 'assigned';
 
     await order.save();
     await order.populate([
@@ -464,13 +518,23 @@ router.get('/stats-overview', protect, async (req, res) => {
   }
 });
 
-// GET /api/orders/provider/assigned - Get orders assigned to the service provider
+// GET /api/orders/provider/assigned - Get orders assigned to the service provider and available orders
 router.get('/provider/assigned', protect, serviceProvider, async (req, res) => {
   try {
-    const orders = await Order.find({ serviceProvider: req.user.id })
+    // Get both assigned orders and available orders for self-assignment
+    const query = {
+      $or: [
+        { serviceProvider: req.user.id }, // Orders assigned to this provider
+        { 
+          serviceProvider: null, 
+          status: { $in: ['pending', 'confirmed'] } 
+        } // Available orders for self-assignment
+      ]
+    };
+
+    const orders = await Order.find(query)
       .populate('customer', 'firstName lastName email phoneNumber')
       .populate('serviceProvider', 'firstName lastName email phoneNumber businessDetails')
-      .populate('items.service', 'name description')
       .sort({ createdAt: -1 });
 
     const formattedOrders = orders.map(order => ({

@@ -215,14 +215,15 @@ const Orders: React.FC = () => {
     try {
       const token = localStorage.getItem('token');
 
-      const response = await axios.patch(
+      const response = await axios.put(
         `http://localhost:5000/api/orders/${orderId}/assign-self`,
         {},
         { headers: { Authorization: `Bearer ${token}` } }
       );
 
       if (response.data.success) {
-        await fetchOrders(); // Refresh the orders list
+        await loadOrders(); // Refresh the orders list
+        setError(null);
       } else {
         setError('Failed to assign order to yourself');
       }
@@ -244,8 +245,9 @@ const Orders: React.FC = () => {
       );
 
       if (response.data.success) {
-        await fetchOrders();
+        await loadOrders();
         handleMenuClose();
+        setError(null);
       } else {
         setError('Failed to update order status');
       }
@@ -275,8 +277,9 @@ const Orders: React.FC = () => {
       );
 
       if (response.data.success) {
-        await fetchOrders();
+        await loadOrders();
         setNotesDialogOpen(false);
+        setError(null);
       } else {
         setError('Failed to save notes');
       }
