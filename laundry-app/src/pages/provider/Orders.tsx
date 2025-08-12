@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import {
   Box,
@@ -23,9 +24,15 @@ import {
   TableContainer,
   TableHead,
   TableRow,
+  Card,
+  CardContent,
+  Grid,
 } from '@mui/material';
 import MoreVertIcon from '@mui/icons-material/MoreVert';
 import MessageIcon from '@mui/icons-material/Message';
+import AssignmentIcon from '@mui/icons-material/Assignment';
+import PlayArrowIcon from '@mui/icons-material/PlayArrow';
+import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import { format } from 'date-fns';
 import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
@@ -117,10 +124,10 @@ const Orders: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
-  const [statusDialogOpen, setStatusDialogOpen] = useState(false);
   const [notesDialogOpen, setNotesDialogOpen] = useState(false);
   const [notes, setNotes] = useState('');
   const [unreadChats, setUnreadChats] = useState<{[orderId: string]: boolean}>({});
+  const [updating, setUpdating] = useState<string | null>(null);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -128,10 +135,6 @@ const Orders: React.FC = () => {
   }, []);
 
   const fetchOrders = async () => {
-    await loadOrders();
-  };
-
-  const loadOrders = async () => {
     try {
       setLoading(true);
       setError(null);
@@ -142,14 +145,17 @@ const Orders: React.FC = () => {
         return;
       }
 
+      console.log('Fetching orders...');
       const response = await axios.get('http://localhost:5000/api/orders?role=service_provider&include_available=true', {
         headers: { Authorization: `Bearer ${token}` }
       });
 
+      console.log('Orders response:', response.data);
+
       if (response.data.success) {
         const ordersData = response.data.data.docs || response.data.data;
+        console.log('Orders data:', ordersData);
         setOrders(ordersData);
-        // Check for unread messages for each order
         await checkUnreadMessages(ordersData, token);
       } else {
         setError('Failed to fetch orders');
@@ -172,7 +178,6 @@ const Orders: React.FC = () => {
 
     for (const order of ordersList) {
       try {
-        // Find or create chat room for this order
         const chatRoomRes = await axios.post(
           'http://localhost:5000/api/chats/room',
           { customerId: order.customer._id, orderId: order._id },
@@ -180,15 +185,12 @@ const Orders: React.FC = () => {
         );
 
         const chatRoomId = chatRoomRes.data._id;
-
-        // Get messages for this chat room
         const messagesRes = await axios.get(
           `http://localhost:5000/api/chats/${chatRoomId}/messages`,
           { headers: { Authorization: `Bearer ${token}` } }
         );
 
         const messages = messagesRes.data;
-        // Check if there are unread messages (messages not read by this provider)
         unreadStatus[order._id] = messages.some((msg: any) => 
           msg.senderType !== 'service_provider' && 
           (!msg.readBy || !msg.readBy.includes(userId))
@@ -202,32 +204,22 @@ const Orders: React.FC = () => {
     setUnreadChats(unreadStatus);
   };
 
-  const handleMenuClick = (event: React.MouseEvent<HTMLElement>, order: Order) => {
-    console.log('Menu clicked for order:', order._id);
-    console.log('Order status:', order.status);
-    console.log('Service provider:', order.serviceProvider);
-    console.log('Can assign to self:', !order.serviceProvider && (order.status === 'pending' || order.status === 'confirmed'));
-    setAnchorEl(event.currentTarget);
-    setSelectedOrder(order);
-  };
-
-  const handleMenuClose = () => {
-    setAnchorEl(null);
-    setSelectedOrder(null);
-  };
-
   const handleAssignToSelf = async (orderId: string) => {
     try {
+      setUpdating(orderId);
       const token = localStorage.getItem('token');
 
+      console.log('Assigning order to self:', orderId);
       const response = await axios.put(
         `http://localhost:5000/api/orders/${orderId}/assign-self`,
         {},
         { headers: { Authorization: `Bearer ${token}` } }
       );
 
+      console.log('Assign response:', response.data);
+
       if (response.data.success) {
-        await loadOrders(); // Refresh the orders list
+        await fetchOrders();
         setError(null);
       } else {
         setError('Failed to assign order to yourself');
@@ -235,23 +227,27 @@ const Orders: React.FC = () => {
     } catch (err: any) {
       console.error('Assign order error:', err);
       setError(err.response?.data?.error || 'Failed to assign order');
+    } finally {
+      setUpdating(null);
     }
   };
 
-  const handleStatusChange = async (newStatus: OrderStatus) => {
-    if (!selectedOrder) return;
-
+  const handleStatusChange = async (orderId: string, newStatus: OrderStatus) => {
     try {
+      setUpdating(orderId);
       const token = localStorage.getItem('token');
+      
+      console.log('Updating status:', { orderId, newStatus });
       const response = await axios.put(
-        `http://localhost:5000/api/orders/${selectedOrder._id}/status`,
+        `http://localhost:5000/api/orders/${orderId}/status`,
         { status: newStatus },
         { headers: { Authorization: `Bearer ${token}` } }
       );
 
+      console.log('Status update response:', response.data);
+
       if (response.data.success) {
-        await loadOrders();
-        handleMenuClose();
+        await fetchOrders();
         setError(null);
       } else {
         setError('Failed to update order status');
@@ -259,7 +255,19 @@ const Orders: React.FC = () => {
     } catch (err: any) {
       console.error('Status update error:', err);
       setError(err.response?.data?.error || 'Failed to update order status');
+    } finally {
+      setUpdating(null);
     }
+  };
+
+  const handleMenuClick = (event: React.MouseEvent<HTMLElement>, order: Order) => {
+    setAnchorEl(event.currentTarget);
+    setSelectedOrder(order);
+  };
+
+  const handleMenuClose = () => {
+    setAnchorEl(null);
+    setSelectedOrder(null);
   };
 
   const handleAddNotes = () => {
@@ -282,7 +290,7 @@ const Orders: React.FC = () => {
       );
 
       if (response.data.success) {
-        await loadOrders();
+        await fetchOrders();
         setNotesDialogOpen(false);
         setError(null);
       } else {
@@ -297,8 +305,6 @@ const Orders: React.FC = () => {
   const handleViewChat = async (order: Order) => {
     try {
       const token = localStorage.getItem('token');
-
-      // Find or create chat room for this order
       const response = await axios.post(
         'http://localhost:5000/api/chats/room',
         { customerId: order.customer._id, orderId: order._id },
@@ -317,6 +323,76 @@ const Orders: React.FC = () => {
     return format(new Date(dateString), 'MMM dd, yyyy hh:mm a');
   };
 
+  const getActionButtons = (order: Order) => {
+    const isUpdating = updating === order._id;
+    
+    if (!order.serviceProvider && (order.status === 'pending' || order.status === 'confirmed')) {
+      return (
+        <Button
+          size="small"
+          variant="contained"
+          color="primary"
+          disabled={isUpdating}
+          onClick={() => handleAssignToSelf(order._id)}
+          startIcon={isUpdating ? <CircularProgress size={16} /> : <AssignmentIcon />}
+          sx={{ mb: 1 }}
+        >
+          {isUpdating ? 'Assigning...' : 'Assign to Me'}
+        </Button>
+      );
+    }
+
+    if (order.status === 'assigned' && order.serviceProvider) {
+      return (
+        <Button
+          size="small"
+          variant="outlined"
+          color="primary"
+          disabled={isUpdating}
+          onClick={() => handleStatusChange(order._id, 'in_progress')}
+          startIcon={isUpdating ? <CircularProgress size={16} /> : <PlayArrowIcon />}
+          sx={{ mb: 1 }}
+        >
+          {isUpdating ? 'Starting...' : 'Start Work'}
+        </Button>
+      );
+    }
+
+    if (order.status === 'in_progress') {
+      return (
+        <Button
+          size="small"
+          variant="outlined"
+          color="secondary"
+          disabled={isUpdating}
+          onClick={() => handleStatusChange(order._id, 'ready_for_pickup')}
+          startIcon={isUpdating ? <CircularProgress size={16} /> : <CheckCircleIcon />}
+          sx={{ mb: 1 }}
+        >
+          {isUpdating ? 'Updating...' : 'Mark Ready'}
+        </Button>
+      );
+    }
+
+    if (order.status === 'ready_for_pickup') {
+      return (
+        <Button
+          size="small"
+          variant="contained"
+          color="success"
+          disabled={isUpdating}
+          onClick={() => handleStatusChange(order._id, 'completed')}
+          startIcon={isUpdating ? <CircularProgress size={16} /> : <CheckCircleIcon />}
+          sx={{ mb: 1 }}
+        >
+          {isUpdating ? 'Completing...' : 'Complete'}
+        </Button>
+      );
+    }
+
+    return null;
+  };
+
   if (loading) {
     return (
       <Box sx={{ display: 'flex', justifyContent: 'center', p: 3 }}>
@@ -328,7 +404,17 @@ const Orders: React.FC = () => {
   if (error) {
     return (
       <Box sx={{ p: 3 }}>
-        <Alert severity="error">{error}</Alert>
+        <Alert severity="error" sx={{ mb: 2 }}>
+          {error}
+          <Button 
+            onClick={fetchOrders} 
+            sx={{ ml: 2 }}
+            variant="outlined"
+            size="small"
+          >
+            Retry
+          </Button>
+        </Alert>
       </Box>
     );
   }
@@ -336,193 +422,124 @@ const Orders: React.FC = () => {
   return (
     <Box sx={{ p: 3 }}>
       <Typography variant="h4" gutterBottom>
-        Orders
+        My Orders
       </Typography>
 
-      <TableContainer component={Paper}>
-        <Table>
-          <TableHead>
-            <TableRow>
-              <TableCell>Order ID</TableCell>
-              <TableCell>Customer</TableCell>
-              <TableCell>Items</TableCell>
-              <TableCell>Total</TableCell>
-              <TableCell>Status</TableCell>
-              <TableCell>Created</TableCell>
-              <TableCell>Scheduled For</TableCell>
-              <TableCell>Actions</TableCell>
-            </TableRow>
-          </TableHead>
-          <TableBody>
-            {orders.map((order) => (
-              <TableRow key={order._id}>
-                <TableCell>{order.orderNumber}</TableCell>
-                <TableCell>
-                  <Stack direction="column" spacing={0.5}>
-                    <Typography variant="body2">
-                      {`${order.customer.firstName} ${order.customer.lastName}`}
+      {orders.length === 0 ? (
+        <Paper sx={{ p: 3, textAlign: 'center' }}>
+          <Typography variant="h6" color="text.secondary">
+            No orders available
+          </Typography>
+          <Button 
+            onClick={fetchOrders} 
+            sx={{ mt: 2 }}
+            variant="outlined"
+          >
+            Refresh
+          </Button>
+        </Paper>
+      ) : (
+        <Grid container spacing={3}>
+          {orders.map((order) => (
+            <Grid item xs={12} md={6} lg={4} key={order._id}>
+              <Card sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
+                <CardContent sx={{ flexGrow: 1 }}>
+                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+                    <Typography variant="h6" color="primary">
+                      #{order.orderNumber}
                     </Typography>
-                    {!order.serviceProvider && (order.status === 'pending' || order.status === 'confirmed') && (
-                      <Chip
-                        label="Available"
-                        color="success"
-                        size="small"
-                        variant="outlined"
-                      />
-                    )}
-                  </Stack>
-                </TableCell>
-                <TableCell>
-                  {order.items.map((item, index) => (
-                    <div key={index}>{`${item.serviceName} x${item.quantity}`}</div>
-                  ))}
-                </TableCell>
-                <TableCell>{order.formattedTotal}</TableCell>
-                <TableCell>
-                  <Chip
-                    label={statusLabels[order.status]}
-                    color={statusColors[order.status]}
-                    size="small"
-                  />
-                </TableCell>
-                <TableCell>{formatDate(order.createdAt)}</TableCell>
-                <TableCell>{formatDate(order.deliveryDate)}</TableCell>
-                <TableCell>
-                  <Stack direction="row" spacing={1} flexWrap="wrap">
-                    {/* Direct assign button for unassigned orders */}
-                    {!order.serviceProvider && (order.status === 'pending' || order.status === 'confirmed') && (
-                      <Button
-                        size="small"
-                        variant="contained"
-                        color="primary"
-                        onClick={() => handleAssignToSelf(order._id)}
-                        sx={{ minWidth: 'auto', fontSize: '0.7rem', py: 0.5 }}
-                      >
-                        Assign
-                      </Button>
-                    )}
-                    
-                    {/* Status progression buttons */}
-                    {order.status === 'assigned' && order.serviceProvider && (
-                      <Button
-                        size="small"
-                        variant="outlined"
-                        color="primary"
-                        onClick={() => handleStatusChange('in_progress')}
-                        sx={{ minWidth: 'auto', fontSize: '0.7rem', py: 0.5 }}
-                      >
-                        Start
-                      </Button>
-                    )}
-                    
-                    {order.status === 'in_progress' && (
-                      <Button
-                        size="small"
-                        variant="outlined"
-                        color="secondary"
-                        onClick={() => handleStatusChange('ready_for_pickup')}
-                        sx={{ minWidth: 'auto', fontSize: '0.7rem', py: 0.5 }}
-                      >
-                        Ready
-                      </Button>
-                    )}
-                    
-                    <IconButton
+                    <Chip
+                      label={statusLabels[order.status]}
+                      color={statusColors[order.status]}
                       size="small"
-                      onClick={(e) => handleMenuClick(e, order)}
-                    >
-                      <MoreVertIcon />
-                    </IconButton>
-                    <Badge 
-                      color="error" 
-                      variant="dot" 
-                      invisible={!unreadChats[order._id]}
-                    >
+                    />
+                  </Box>
+
+                  <Typography variant="subtitle1" gutterBottom>
+                    Customer: {`${order.customer.firstName} ${order.customer.lastName}`}
+                  </Typography>
+
+                  <Typography variant="body2" color="text.secondary" gutterBottom>
+                    Items: {order.items.map(item => `${item.serviceName} (${item.quantity})`).join(', ')}
+                  </Typography>
+
+                  <Typography variant="h6" color="primary" gutterBottom>
+                    Total: {order.formattedTotal}
+                  </Typography>
+
+                  <Typography variant="body2" color="text.secondary" gutterBottom>
+                    Created: {formatDate(order.createdAt)}
+                  </Typography>
+
+                  <Typography variant="body2" color="text.secondary" gutterBottom>
+                    Delivery: {formatDate(order.deliveryDate)}
+                  </Typography>
+
+                  {!order.serviceProvider && (order.status === 'pending' || order.status === 'confirmed') && (
+                    <Chip
+                      label="Available for Assignment"
+                      color="success"
+                      size="small"
+                      variant="outlined"
+                      sx={{ mb: 2 }}
+                    />
+                  )}
+
+                  <Stack spacing={1}>
+                    {getActionButtons(order)}
+                    
+                    <Stack direction="row" spacing={1} justifyContent="center">
+                      <Badge 
+                        color="error" 
+                        variant="dot" 
+                        invisible={!unreadChats[order._id]}
+                      >
+                        <IconButton
+                          size="small"
+                          color="primary"
+                          onClick={() => handleViewChat(order)}
+                        >
+                          <MessageIcon />
+                        </IconButton>
+                      </Badge>
+                      
                       <IconButton
                         size="small"
-                        color="primary"
-                        onClick={() => handleViewChat(order)}
+                        onClick={(e) => handleMenuClick(e, order)}
                       >
-                        <MessageIcon />
+                        <MoreVertIcon />
                       </IconButton>
-                    </Badge>
+                    </Stack>
                   </Stack>
-                </TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-      </TableContainer>
+                </CardContent>
+              </Card>
+            </Grid>
+          ))}
+        </Grid>
+      )}
 
-      {/* Status Update Menu */}
+      {/* Menu for additional actions */}
       <Menu
         anchorEl={anchorEl}
         open={Boolean(anchorEl)}
         onClose={handleMenuClose}
-        PaperProps={{
-          style: {
-            maxHeight: 300,
-            width: '20ch',
-          },
-        }}
       >
         {selectedOrder && (
           <>
-            {/* Debug info */}
-            <MenuItem disabled>
-              Status: {selectedOrder.status}
-            </MenuItem>
-            <MenuItem disabled>
-              Assigned: {selectedOrder.serviceProvider ? 'Yes' : 'No'}
-            </MenuItem>
-            
-            {/* Self-assignment option for available orders */}
-            {(!selectedOrder.serviceProvider && (selectedOrder.status === 'pending' || selectedOrder.status === 'confirmed')) && (
-              <MenuItem onClick={() => handleAssignToSelf(selectedOrder._id)}>
-                🎯 Assign to Myself
-              </MenuItem>
-            )}
-
-            {/* Confirmation option for pending orders assigned to provider */}
-            {(selectedOrder.status === 'pending' && selectedOrder.serviceProvider) && (
-              <MenuItem onClick={() => handleStatusChange('confirmed')}>
-                ✅ Confirm Order
-              </MenuItem>
-            )}
-
-            {/* Status progression options */}
-            {selectedOrder.status === 'assigned' && (
-              <MenuItem onClick={() => handleStatusChange('in_progress')}>
-                🔄 Mark as In Progress
-              </MenuItem>
-            )}
-            {selectedOrder.status === 'in_progress' && (
-              <MenuItem onClick={() => handleStatusChange('ready_for_pickup')}>
-                📦 Mark as Ready for Pickup
-              </MenuItem>
-            )}
-            {selectedOrder.status === 'ready_for_pickup' && (
-              <MenuItem onClick={() => handleStatusChange('completed')}>
-                ✅ Mark as Completed
-              </MenuItem>
-            )}
-
-            {/* Cancel option for orders that can be cancelled */}
-            {['pending', 'confirmed', 'assigned', 'in_progress', 'ready_for_pickup'].includes(selectedOrder.status) && (
-              <MenuItem onClick={() => handleStatusChange('cancelled')}>
-                ❌ Cancel Order
-              </MenuItem>
-            )}
-
-            {/* Notes option for all orders */}
             <MenuItem onClick={handleAddNotes}>
               📝 Add Notes
             </MenuItem>
-
-            {/* View Details option */}
             <MenuItem onClick={() => console.log('View details:', selectedOrder)}>
               👁️ View Details
             </MenuItem>
+            {['pending', 'confirmed', 'assigned', 'in_progress', 'ready_for_pickup'].includes(selectedOrder.status) && (
+              <MenuItem onClick={() => {
+                handleStatusChange(selectedOrder._id, 'cancelled');
+                handleMenuClose();
+              }}>
+                ❌ Cancel Order
+              </MenuItem>
+            )}
           </>
         )}
       </Menu>
