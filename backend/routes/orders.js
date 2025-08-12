@@ -89,76 +89,118 @@ router.post('/', protect, async (req, res) => {
     const {
       serviceId,
       serviceProviderId,
+      items,
       pickupAddress,
       deliveryAddress,
-      specialInstructions,
-      scheduledPickup,
-      scheduledDelivery,
+      pickupDate,
       deliveryDate,
-      pickupDate
+      paymentMethod,
+      isUrgent,
+      priority,
+      specialInstructions,
+      subtotal,
+      totalAmount,
+      tax,
+      deliveryFee
     } = req.body;
 
+    console.log('Order creation payload:', JSON.stringify(req.body, null, 2));
+
     // Validate required fields
-    if (!serviceId) {
+    if (!items || !Array.isArray(items) || items.length === 0) {
       return res.status(400).json({ 
         success: false, 
-        error: 'Service is required' 
+        error: 'Order items are required' 
       });
     }
 
-    // Retrieve the actual service object from the database
-    const service = await Service.findById(serviceId);
-
-    if (!service) {
-      return res.status(404).json({ 
+    if (!pickupAddress || !deliveryAddress || !pickupDate || !deliveryDate) {
+      return res.status(400).json({ 
         success: false, 
-        error: 'Service not found' 
+        error: 'Pickup/delivery addresses and dates are required' 
       });
     }
 
-    // Define dates object
-    const dates = {
-      deliveryDate,
-      pickupDate
-    };
+    // Validate and process items
+    const processedItems = [];
+    let calculatedSubtotal = 0;
 
-    // Define calculateSubtotal function
-    const calculateSubtotal = (service) => {
-      // For simplicity, let's assume the subtotal is the price of the service
-      // In a real-world scenario, you would calculate the subtotal based on the order items and prices
-      return service.price;
-    };
+    for (const item of items) {
+      const service = await Service.findById(item.service);
+      if (!service) {
+        return res.status(404).json({ 
+          success: false, 
+          error: `Service not found: ${item.service}` 
+        });
+      }
 
-    // Define calculateTotalAmount function
-    const calculateTotalAmount = (subtotal) => {
-      // For simplicity, let's assume the total amount is the subtotal plus a 10% tax
-      // In a real-world scenario, you would calculate the total amount based on the subtotal and other factors
-      const tax = subtotal * 0.1;
-      return subtotal + tax;
-    };
+      const quantity = parseInt(item.quantity) || 1;
+      const unitPrice = parseFloat(item.unitPrice) || service.price || 0;
+      const totalPrice = quantity * unitPrice;
 
-    // Create orderData object
+      processedItems.push({
+        service: item.service,
+        serviceName: item.serviceName || service.name,
+        quantity: quantity,
+        unitPrice: unitPrice,
+        totalPrice: totalPrice,
+        specialInstructions: item.specialInstructions || ''
+      });
+
+      calculatedSubtotal += totalPrice;
+    }
+
+    // Calculate totals
+    const finalSubtotal = parseFloat(subtotal) || calculatedSubtotal;
+    const finalTax = parseFloat(tax) || (finalSubtotal * 0.1);
+    const finalDeliveryFee = parseFloat(deliveryFee) || (isUrgent ? 10 : 5);
+    const finalTotal = parseFloat(totalAmount) || (finalSubtotal + finalTax + finalDeliveryFee);
+
+    // Create order data
     const orderData = {
       customer: req.user.id,
-      service: serviceId,
-      serviceProvider: serviceProviderId,
-      pickupAddress,
-      deliveryAddress,
-      specialInstructions,
-      scheduledPickup,
-      scheduledDelivery,
+      serviceProvider: serviceProviderId || null,
+      items: processedItems,
       status: 'pending',
-      deliveryDate: dates.deliveryDate,
-      pickupDate: dates.pickupDate,
-      subtotal: calculateSubtotal(service),
-      totalAmount: calculateTotalAmount(calculateSubtotal(service))
+      subtotal: finalSubtotal,
+      tax: finalTax,
+      deliveryFee: finalDeliveryFee,
+      totalAmount: finalTotal,
+      pickupAddress: {
+        type: pickupAddress.type || 'home',
+        street: pickupAddress.street,
+        city: pickupAddress.city,
+        state: pickupAddress.state,
+        zipCode: pickupAddress.zipCode,
+        instructions: pickupAddress.instructions || ''
+      },
+      deliveryAddress: {
+        type: deliveryAddress.type || 'home',
+        street: deliveryAddress.street,
+        city: deliveryAddress.city,
+        state: deliveryAddress.state,
+        zipCode: deliveryAddress.zipCode,
+        instructions: deliveryAddress.instructions || ''
+      },
+      pickupDate: new Date(pickupDate),
+      deliveryDate: new Date(deliveryDate),
+      paymentMethod: paymentMethod || 'cash',
+      paymentStatus: 'pending',
+      isUrgent: Boolean(isUrgent),
+      priority: priority || 'normal',
+      notes: {
+        customer: specialInstructions || '',
+        serviceProvider: '',
+        admin: ''
+      }
     };
+
+    console.log('Final order data:', JSON.stringify(orderData, null, 2));
 
     const order = await Order.create(orderData);
     await order.populate([
       { path: 'customer', select: 'firstName lastName email phoneNumber' },
-      { path: 'serviceProvider', select: 'firstName lastName email phoneNumber businessDetails' },
-      { path: 'service', select: 'name price description' }
+      { path: 'serviceProvider', select: 'firstName lastName email phoneNumber businessDetails' }
     ]);
 
     res.status(201).json({
@@ -167,7 +209,7 @@ router.post('/', protect, async (req, res) => {
     });
   } catch (error) {
     console.error('Create order error:', error);
-    res.status(500).json({ success: false, error: 'Failed to create order' });
+    res.status(500).json({ success: false, error: error.message || 'Failed to create order' });
   }
 });
 

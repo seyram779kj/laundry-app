@@ -112,8 +112,8 @@ const orderSchema = new mongoose.Schema({
   estimatedDeliveryTime: String,
   paymentMethod: {
     type: String,
-    enum: ['credit_card', 'debit_card', 'paypal', 'cash', 'bank_transfer'],
-    required:false
+    enum: ['credit_card', 'debit_card', 'paypal', 'cash', 'bank_transfer', 'momo'],
+    required: false
   },
   paymentStatus: {
     type: String,

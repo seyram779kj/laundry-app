@@ -22,13 +22,33 @@ const getAuthHeaders = () => {
 export const createOrder = createAsyncThunk(
   'orders/create',
   async (orderData: {
-    serviceId: string;
-    serviceProviderId: string;
     items: OrderItem[];
-    pickupAddress: string;
-    deliveryAddress: string;
+    pickupAddress: {
+      type: string;
+      street: string;
+      city: string;
+      state: string;
+      zipCode: string;
+      instructions: string;
+    };
+    deliveryAddress: {
+      type: string;
+      street: string;
+      city: string;
+      state: string;
+      zipCode: string;
+      instructions: string;
+    };
     pickupDate: string;
     deliveryDate: string;
+    paymentMethod: string;
+    isUrgent: boolean;
+    priority: string;
+    specialInstructions: string;
+    subtotal: number;
+    tax: number;
+    deliveryFee: number;
+    totalAmount: number;
   }) => {
     const response = await fetch(`${API_BASE_URL}/orders`, {
       method: 'POST',
@@ -41,7 +61,8 @@ export const createOrder = createAsyncThunk(
       throw new Error(errorData.error || 'Failed to create order');
     }
     
-    return response.json();
+    const result = await response.json();
+    return result.data;
   }
 );
 

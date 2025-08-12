@@ -220,52 +220,69 @@ const NewOrderPage = () => {
 
   const handleSubmitOrder = async () => {
     setLoading(true);
+    setError(null);
     try {
-      const selectedService = selectedServices[0];
-      if (!selectedService) {
-        throw new Error('No service selected');
+      // Validate required data
+      if (selectedServices.length === 0) {
+        throw new Error('Please select at least one service');
       }
+      
+      if (!orderData.pickupAddress.street || !orderData.deliveryAddress.street) {
+        throw new Error('Pickup and delivery addresses are required');
+      }
+      
+      if (!orderData.pickupDate || !orderData.deliveryDate) {
+        throw new Error('Pickup and delivery dates are required');
+      }
+      
+      if (!orderData.paymentMethod) {
+        throw new Error('Payment method is required');
+      }
+
+      // Calculate totals
+      const subtotal = calculateSubtotal();
+      const tax = calculateTax(subtotal);
+      const deliveryFee = orderData.isUrgent ? 10 : 5;
+      const totalAmount = subtotal + tax + deliveryFee;
+
+      // Prepare items array
+      const items = selectedServices.map(service => ({
+        service: service.id,
+        serviceName: service.name,
+        quantity: service.quantity,
+        unitPrice: service.price,
+        totalPrice: service.price * service.quantity,
+        specialInstructions: orderData.specialInstructions || ''
+      }));
+
       const orderPayload = {
-        serviceId: selectedService.id,
-        serviceProviderId: null,
+        items: items,
         pickupAddress: {
-          type: orderData.pickupAddress.type,
+          type: orderData.pickupAddress.type || 'home',
           street: orderData.pickupAddress.street,
           city: orderData.pickupAddress.city,
           state: orderData.pickupAddress.state,
           zipCode: orderData.pickupAddress.zipCode,
-          instructions: orderData.pickupAddress.instructions,
+          instructions: orderData.pickupAddress.instructions || ''
         },
         deliveryAddress: {
-          type: orderData.deliveryAddress.type,
+          type: orderData.deliveryAddress.type || 'home',
           street: orderData.deliveryAddress.street,
           city: orderData.deliveryAddress.city,
           state: orderData.deliveryAddress.state,
           zipCode: orderData.deliveryAddress.zipCode,
-          instructions: orderData.deliveryAddress.instructions,
+          instructions: orderData.deliveryAddress.instructions || ''
         },
-        specialInstructions: orderData.specialInstructions,
-        scheduledPickup: orderData.pickupDate,
-        scheduledDelivery: orderData.deliveryDate,
         pickupDate: orderData.pickupDate,
         deliveryDate: orderData.deliveryDate,
-        items: [
-          {
-            service: selectedService.id,
-            serviceName: selectedService.name,
-            quantity: selectedService.quantity,
-            unitPrice: selectedService.price,
-            totalPrice: selectedService.price * selectedService.quantity,
-            specialInstructions: orderData.specialInstructions,
-          },
-        ],
-        subtotal: calculateSubtotal(),
-        totalAmount: calculateTotal(),
-        tax: calculateTax(calculateSubtotal()),
-        deliveryFee: orderData.isUrgent ? 10 : 5,
         paymentMethod: orderData.paymentMethod,
         isUrgent: orderData.isUrgent,
         priority: orderData.priority,
+        specialInstructions: orderData.specialInstructions || '',
+        subtotal: subtotal,
+        tax: tax,
+        deliveryFee: deliveryFee,
+        totalAmount: totalAmount
       };
 
       const token = localStorage.getItem('token');
@@ -293,6 +310,7 @@ const NewOrderPage = () => {
       alert('Order submitted successfully!');
       console.log('Order created:', result.data);
 
+      // Reset form
       setOrderData({
         items: [],
         pickupAddress: { type: 'home', street: '', city: '', state: '', zipCode: '', instructions: '' },
@@ -312,6 +330,7 @@ const NewOrderPage = () => {
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
       console.error('Order submission error:', errorMessage, error);
+      setError(errorMessage);
       alert(`Failed to submit order: ${errorMessage}`);
     } finally {
       setLoading(false);
@@ -817,9 +836,18 @@ const NewOrderPage = () => {
   const canProceed = () => {
     switch (activeStep) {
       case 0:
-        return services.length > 0 && selectedServices.length === 1;
+        return selectedServices.length > 0;
       case 1:
-        return orderData.pickupAddress.street && orderData.deliveryAddress.street && orderData.pickupDate && orderData.deliveryDate;
+        return (
+          orderData.pickupAddress.street && 
+          orderData.pickupAddress.city && 
+          orderData.pickupAddress.state && 
+          orderData.deliveryAddress.street && 
+          orderData.deliveryAddress.city && 
+          orderData.deliveryAddress.state && 
+          orderData.pickupDate && 
+          orderData.deliveryDate
+        );
       case 2:
         return orderData.paymentMethod && orderData.paymentTiming;
       case 3:
