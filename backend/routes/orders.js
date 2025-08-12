@@ -369,7 +369,7 @@ router.put('/:id/assign-self', protect, serviceProvider, async (req, res) => {
     // Assign the order to the current service provider
     order.serviceProvider = req.user.id;
     order.status = 'assigned';
-    
+
     // Add to status history
     order.statusHistory.push({
       status: 'assigned',
@@ -461,6 +461,40 @@ router.get('/stats-overview', protect, async (req, res) => {
   } catch (error) {
     console.error('Get order stats error:', error);
     res.status(500).json({ success: false, error: 'Failed to fetch order statistics' });
+  }
+});
+
+// GET /api/orders/provider/assigned - Get orders assigned to the service provider
+router.get('/provider/assigned', protect, serviceProvider, async (req, res) => {
+  try {
+    const orders = await Order.find({ serviceProvider: req.user.id })
+      .populate('customer', 'firstName lastName email phoneNumber')
+      .populate('serviceProvider', 'firstName lastName email phoneNumber businessDetails')
+      .populate('items.service', 'name description')
+      .sort({ createdAt: -1 });
+
+    const formattedOrders = orders.map(order => ({
+      ...order.toObject(),
+      formattedTotal: `$${order.totalAmount.toFixed(2)}`,
+      customer: {
+        _id: order.customer._id,
+        firstName: order.customer.firstName,
+        lastName: order.customer.lastName,
+        email: order.customer.email,
+        phoneNumber: order.customer.phoneNumber
+      }
+    }));
+
+    res.json({
+      success: true,
+      data: formattedOrders
+    });
+  } catch (error) {
+    console.error('Get assigned orders error:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to fetch assigned orders'
+    });
   }
 });
 

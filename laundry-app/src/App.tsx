@@ -28,6 +28,7 @@ import ProviderAvailability from './pages/provider/ProviderAvailability';
 import CustomerChat from './pages/dashboards/CustomerChat';
 import SupplierChat from './pages/dashboards/SupplierChat';
 import AdminChat from './pages/dashboards/AdminChat';
+import ProviderChat from './pages/provider/Chat'; // Import ProviderChat
 
 // Admin pages
 import UsersManagement from './pages/admin/UsersManagement';
@@ -46,7 +47,7 @@ const AuthInitializer: React.FC<{ children: React.ReactNode }> = ({ children }) 
     // Check if user is already authenticated (has token)
     const token = localStorage.getItem('token');
     console.log('🔍 AuthInitializer check:', { token: token ? 'exists' : 'null', isAuthenticated, loading });
-    
+
     if (token && !isAuthenticated) {
       console.log('🔄 Calling getMe() to restore authentication...');
       dispatch(getMe());
@@ -55,11 +56,11 @@ const AuthInitializer: React.FC<{ children: React.ReactNode }> = ({ children }) 
 
   if (loading) {
     return (
-      <div style={{ 
-        display: 'flex', 
-        justifyContent: 'center', 
-        alignItems: 'center', 
-        height: '100vh' 
+      <div style={{
+        display: 'flex',
+        justifyContent: 'center',
+        alignItems: 'center',
+        height: '100vh'
       }}>
         <div>Loading...</div>
       </div>
@@ -73,9 +74,9 @@ const AuthInitializer: React.FC<{ children: React.ReactNode }> = ({ children }) 
 const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const isAuthenticated = useSelector((state: RootState) => state.auth.isAuthenticated);
   const user = useSelector((state: RootState) => state.auth.user);
-  
+
   console.log('🔍 ProtectedRoute check:', { isAuthenticated, user: user ? 'exists' : 'null' });
-  
+
   return isAuthenticated ? <>{children}</> : <Navigate to="/" />;
 };
 
@@ -90,7 +91,7 @@ const RoleBasedRoute: React.FC<{ children: React.ReactNode; allowedRoles: string
     userRole: user?.role,
     allowedRoles,
   });
-  
+
   if (!isAuthenticated || !user) {
     console.log('❌ RoleBasedRoute: Not authenticated, redirecting to /');
     return <Navigate to="/" />;
@@ -126,7 +127,7 @@ const RootRoute: React.FC = () => {
     isAuthenticated,
     userRole: user?.role,
   });
-  
+
   if (!isAuthenticated || !user) {
     console.log('❌ RootRoute: Not authenticated, redirecting to /');
     return <Navigate to="/" />;
@@ -256,6 +257,7 @@ const App: React.FC = () => {
                         <Route path="availability" element={<ProviderAvailability />} />
                         <Route path="profile" element={<Profile />} />
                         <Route path="settings" element={<Settings />} />
+                        <Route path="chat/:chatRoomId" element={<ProviderChat />} />
                       </Routes>
                     </MainLayout>
                   </RoleBasedRoute>

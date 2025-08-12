@@ -3,16 +3,7 @@ import {
   Box,
   Typography,
   Paper,
-  Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableHead,
-  TableRow,
   Chip,
-  IconButton,
-  Menu,
-  MenuItem,
   Button,
   Dialog,
   DialogTitle,
@@ -21,12 +12,17 @@ import {
   TextField,
   Alert,
   CircularProgress,
-  Stack, // Added import for Stack
+  Stack,
+  IconButton,
+  Menu,
+  MenuItem,
+  Badge,
 } from '@mui/material';
 import MoreVertIcon from '@mui/icons-material/MoreVert';
 import MessageIcon from '@mui/icons-material/Message';
 import { format } from 'date-fns';
 import axios from 'axios';
+import { useNavigate } from 'react-router-dom';
 
 type OrderStatus = 'pending' | 'confirmed' | 'assigned' | 'in_progress' | 'ready_for_pickup' | 'completed' | 'cancelled';
 
@@ -118,95 +114,35 @@ const Orders: React.FC = () => {
   const [statusDialogOpen, setStatusDialogOpen] = useState(false);
   const [notesDialogOpen, setNotesDialogOpen] = useState(false);
   const [notes, setNotes] = useState('');
+  const [unreadChats, setUnreadChats] = useState<{[orderId: string]: boolean}>({});
+  const navigate = useNavigate();
 
   useEffect(() => {
     const fetchOrders = async () => {
       try {
         setLoading(true);
         setError(null);
+        const token = localStorage.getItem('token');
 
-        const response = await fetch('http://localhost:5000/api/orders?role=service_provider&include_available=true', {
-          headers: {
-            Authorization: `Bearer ${localStorage.getItem('token')}`,
-            'Content-Type': 'application/json',
-          },
-        });
-
-        if (!response.ok) {
-          throw new Error('Failed to fetch orders');
+        if (!token) {
+          setError('Authentication token not found');
+          return;
         }
 
-        const data = await response.json();
-        console.log('Orders API response:', JSON.stringify(data, null, 2));
+        const response = await axios.get('http://localhost:5000/api/orders/provider/assigned', {
+          headers: { Authorization: `Bearer ${token}` }
+        });
 
-        const ordersArray = data.success && data.data?.docs ? data.data.docs : [];
-        const mappedOrders = ordersArray.map((order: any) => ({
-          _id: order._id,
-          customer: {
-            _id: order.customer?._id || '',
-            firstName: order.customer?.firstName || '',
-            lastName: order.customer?.lastName || '',
-            email: order.customer?.email || '',
-            phoneNumber: order.customer?.phoneNumber || '',
-          },
-          serviceProvider: order.serviceProvider
-            ? {
-                _id: order.serviceProvider._id,
-                firstName: order.serviceProvider.firstName,
-                lastName: order.serviceProvider.lastName,
-                email: order.serviceProvider.email,
-                phoneNumber: order.serviceProvider.phoneNumber,
-                businessDetails: order.serviceProvider.businessDetails,
-              }
-            : undefined,
-          status: order.status,
-          totalAmount: order.totalAmount,
-          subtotal: order.subtotal,
-          tax: order.tax,
-          deliveryFee: order.deliveryFee,
-          items: order.items.map((item: any) => ({
-            service: item.service,
-            serviceName: item.serviceName,
-            quantity: item.quantity,
-            unitPrice: item.unitPrice,
-            totalPrice: item.totalPrice,
-            specialInstructions: item.specialInstructions,
-          })),
-          pickupAddress: {
-            type: order.pickupAddress?.type || '',
-            street: order.pickupAddress?.street || '',
-            city: order.pickupAddress?.city || '',
-            state: order.pickupAddress?.state || '',
-            zipCode: order.pickupAddress?.zipCode || '',
-            instructions: order.pickupAddress?.instructions || '',
-          },
-          deliveryAddress: {
-            type: order.deliveryAddress?.type || '',
-            street: order.deliveryAddress?.street || '',
-            city: order.deliveryAddress?.city || '',
-            state: order.deliveryAddress?.state || '',
-            zipCode: order.deliveryAddress?.zipCode || '',
-            instructions: order.deliveryAddress?.instructions || '',
-          },
-          pickupDate: order.pickupDate,
-          deliveryDate: order.deliveryDate,
-          createdAt: order.createdAt,
-          updatedAt: order.updatedAt,
-          notes: {
-            customer: order.notes?.customer || '',
-            serviceProvider: order.notes?.serviceProvider || '',
-            admin: order.notes?.admin || '',
-          },
-          orderNumber: order.orderNumber,
-          formattedTotal: order.formattedTotal,
-        }));
-        setOrders(mappedOrders);
-        console.log('Mapped orders:', mappedOrders);
-      } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-        console.error('Orders fetch error:', errorMessage, error);
-        setError('Failed to load orders');
-        setOrders([]);
+        if (response.data.success) {
+          setOrders(response.data.data);
+          // Check for unread messages for each order
+          await checkUnreadMessages(response.data.data, token);
+        } else {
+          setError('Failed to fetch orders');
+        }
+      } catch (err: any) {
+        console.error('Fetch orders error:', err);
+        setError(err.response?.data?.error || 'Failed to fetch orders');
       } finally {
         setLoading(false);
       }
@@ -214,6 +150,46 @@ const Orders: React.FC = () => {
 
     fetchOrders();
   }, []);
+
+  const checkUnreadMessages = async (ordersList: Order[], token: string) => {
+    const user = JSON.parse(localStorage.getItem('user') || '{}');
+    const userId = user._id || user.id;
+
+    if (!userId) return;
+
+    const unreadStatus: {[orderId: string]: boolean} = {};
+
+    for (const order of ordersList) {
+      try {
+        // Find or create chat room for this order
+        const chatRoomRes = await axios.post(
+          'http://localhost:5000/api/chats/room',
+          { customerId: order.customer._id, orderId: order._id },
+          { headers: { Authorization: `Bearer ${token}` } }
+        );
+
+        const chatRoomId = chatRoomRes.data._id;
+
+        // Get messages for this chat room
+        const messagesRes = await axios.get(
+          `http://localhost:5000/api/chats/${chatRoomId}/messages`,
+          { headers: { Authorization: `Bearer ${token}` } }
+        );
+
+        const messages = messagesRes.data;
+        // Check if there are unread messages (messages not read by this provider)
+        unreadStatus[order._id] = messages.some((msg: any) => 
+          msg.senderType !== 'service_provider' && 
+          (!msg.readBy || !msg.readBy.includes(userId))
+        );
+      } catch (err) {
+        console.error(`Error checking messages for order ${order._id}:`, err);
+        unreadStatus[order._id] = false;
+      }
+    }
+
+    setUnreadChats(unreadStatus);
+  };
 
   const handleMenuClick = (event: React.MouseEvent<HTMLElement>, order: Order) => {
     setAnchorEl(event.currentTarget);
@@ -225,31 +201,24 @@ const Orders: React.FC = () => {
     setSelectedOrder(null);
   };
 
-  const handleSelfAssign = async (orderId: string) => {
+  const handleAssignToSelf = async (orderId: string) => {
     try {
-      const response = await fetch(`http://localhost:5000/api/orders/${orderId}/assign-self`, {
-        method: 'PUT',
-        headers: {
-          Authorization: `Bearer ${localStorage.getItem('token')}`,
-          'Content-Type': 'application/json',
-        },
-      });
+      const token = localStorage.getItem('token');
 
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Failed to assign order');
+      const response = await axios.patch(
+        `http://localhost:5000/api/orders/${orderId}/assign-self`,
+        {},
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+
+      if (response.data.success) {
+        await fetchOrders(); // Refresh the orders list
+      } else {
+        setError('Failed to assign order to yourself');
       }
-
-      const updatedOrder = await response.json();
-      setOrders(orders.map(order =>
-        order._id === orderId ? updatedOrder.data : order
-      ));
-      setError(null);
-      handleMenuClose();
-    } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-      console.error('Self-assign error:', errorMessage, error);
-      setError('Failed to assign order to yourself');
+    } catch (err: any) {
+      console.error('Assign order error:', err);
+      setError(err.response?.data?.error || 'Failed to assign order');
     }
   };
 
@@ -257,29 +226,22 @@ const Orders: React.FC = () => {
     if (!selectedOrder) return;
 
     try {
-      const response = await fetch(`http://localhost:5000/api/orders/${selectedOrder._id}/status`, {
-        method: 'PUT',
-        headers: {
-          Authorization: `Bearer ${localStorage.getItem('token')}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ status: newStatus }),
-      });
+      const token = localStorage.getItem('token');
+      const response = await axios.put(
+        `http://localhost:5000/api/orders/${selectedOrder._id}/status`,
+        { status: newStatus },
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
 
-      if (!response.ok) {
-        throw new Error('Failed to update order status');
+      if (response.data.success) {
+        await fetchOrders();
+        handleMenuClose();
+      } else {
+        setError('Failed to update order status');
       }
-
-      const updatedOrder = await response.json();
-      setOrders(orders.map(order =>
-        order._id === selectedOrder._id ? updatedOrder.data : order
-      ));
-      setError(null);
-      handleMenuClose();
-    } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-      console.error('Status update error:', errorMessage, error);
-      setError('Failed to update order status');
+    } catch (err: any) {
+      console.error('Status update error:', err);
+      setError(err.response?.data?.error || 'Failed to update order status');
     }
   };
 
@@ -295,44 +257,40 @@ const Orders: React.FC = () => {
     if (!selectedOrder) return;
 
     try {
-      const response = await fetch(`http://localhost:5000/api/orders/${selectedOrder._id}`, {
-        method: 'PUT',
-        headers: {
-          Authorization: `Bearer ${localStorage.getItem('token')}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ notes: { ...selectedOrder.notes, serviceProvider: notes } }),
-      });
+      const token = localStorage.getItem('token');
+      const response = await axios.put(
+        `http://localhost:5000/api/orders/${selectedOrder._id}`,
+        { notes: { ...selectedOrder.notes, serviceProvider: notes } },
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
 
-      if (!response.ok) {
-        throw new Error('Failed to save notes');
+      if (response.data.success) {
+        await fetchOrders();
+        setNotesDialogOpen(false);
+      } else {
+        setError('Failed to save notes');
       }
-
-      const updatedOrder = await response.json();
-      setOrders(orders.map(order =>
-        order._id === selectedOrder._id ? updatedOrder.data : order
-      ));
-      setError(null);
-      setNotesDialogOpen(false);
-    } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-      console.error('Save notes error:', errorMessage, error);
-      setError('Failed to save notes');
+    } catch (err: any) {
+      console.error('Save notes error:', err);
+      setError(err.response?.data?.error || 'Failed to save notes');
     }
   };
 
   const handleViewChat = async (order: Order) => {
     try {
       const token = localStorage.getItem('token');
-      const res = await axios.post(
+
+      // Find or create chat room for this order
+      const response = await axios.post(
         'http://localhost:5000/api/chats/room',
         { customerId: order.customer._id, orderId: order._id },
         { headers: { Authorization: `Bearer ${token}` } }
       );
-      const chatRoomId = res.data._id;
-      window.location.href = `/chat/provider/${chatRoomId}`;
-    } catch (error) {
-      console.error('Chat error:', error);
+
+      const chatRoomId = response.data._id;
+      navigate(`/provider/chat/${chatRoomId}`);
+    } catch (err: any) {
+      console.error('Error opening chat:', err);
       setError('Failed to open chat');
     }
   };
@@ -419,13 +377,19 @@ const Orders: React.FC = () => {
                     >
                       <MoreVertIcon />
                     </IconButton>
-                    <IconButton
-                      size="small"
-                      color="primary"
-                      onClick={() => handleViewChat(order)}
+                    <Badge 
+                      color="error" 
+                      variant="dot" 
+                      invisible={!unreadChats[order._id]}
                     >
-                      <MessageIcon />
-                    </IconButton>
+                      <IconButton
+                        size="small"
+                        color="primary"
+                        onClick={() => handleViewChat(order)}
+                      >
+                        <MessageIcon />
+                      </IconButton>
+                    </Badge>
                   </Stack>
                 </TableCell>
               </TableRow>
@@ -442,11 +406,11 @@ const Orders: React.FC = () => {
       >
         {/* Self-assignment option for available orders */}
         {(selectedOrder?.status === 'pending' || selectedOrder?.status === 'confirmed') && !selectedOrder?.serviceProvider && (
-          <MenuItem onClick={() => selectedOrder && handleSelfAssign(selectedOrder._id)}>
+          <MenuItem onClick={() => selectedOrder && handleAssignToSelf(selectedOrder._id)}>
             Assign to Myself
           </MenuItem>
         )}
-        
+
         {/* Status progression options */}
         {selectedOrder?.status === 'assigned' && (
           <MenuItem onClick={() => handleStatusChange('in_progress')}>
@@ -463,21 +427,21 @@ const Orders: React.FC = () => {
             Mark as Completed
           </MenuItem>
         )}
-        
+
         {/* Confirmation option for pending orders assigned to provider */}
         {selectedOrder?.status === 'pending' && selectedOrder?.serviceProvider && (
           <MenuItem onClick={() => handleStatusChange('confirmed')}>
             Confirm Order
           </MenuItem>
         )}
-        
+
         {/* Cancel option for orders that can be cancelled */}
         {['pending', 'confirmed', 'assigned', 'in_progress', 'ready_for_pickup'].includes(selectedOrder?.status || '') && (
           <MenuItem onClick={() => handleStatusChange('cancelled')}>
             Cancel Order
           </MenuItem>
         )}
-        
+
         {/* Notes option for all orders */}
         <MenuItem onClick={handleAddNotes}>
           Add Notes
