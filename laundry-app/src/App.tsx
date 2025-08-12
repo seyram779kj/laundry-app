@@ -17,7 +17,7 @@ import Login from './pages/Login';
 import Register from './pages/Register';
 import Dashboard from './pages/Dashboard';
 import NewOrder from './pages/NewOrder';
-import Orders from './pages/provider/Orders';
+import Orders from './pages/provider/ProviderOrders';
 import Profile from './pages/Profile';
 import Settings from './pages/Settings';
 import Services from './pages/Services';
@@ -28,7 +28,7 @@ import ProviderAvailability from './pages/provider/ProviderAvailability';
 import CustomerChat from './pages/dashboards/CustomerChat';
 import SupplierChat from './pages/dashboards/SupplierChat';
 import AdminChat from './pages/dashboards/AdminChat';
-import ProviderChat from './pages/provider/Chat'; // Import ProviderChat
+import ProviderChat from './pages/provider/ProviderChat'; // Import ProviderChat
 
 // Admin pages
 import UsersManagement from './pages/admin/UsersManagement';
