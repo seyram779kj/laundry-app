@@ -1,6 +1,4 @@
-export {};
-
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Box,
   Typography,
@@ -16,81 +14,206 @@ import {
   Menu,
   MenuItem,
   Button,
-  Stack,
   Dialog,
   DialogTitle,
   DialogContent,
   DialogActions,
   TextField,
+  Alert,
+  CircularProgress,
+  Stack, // Added import for Stack
 } from '@mui/material';
 import MoreVertIcon from '@mui/icons-material/MoreVert';
+import MessageIcon from '@mui/icons-material/Message';
 import { format } from 'date-fns';
+import axios from 'axios';
 
-// Define order status types
-type OrderStatus = 'pending' | 'accepted' | 'in_progress' | 'ready_for_delivery' | 'completed' | 'cancelled';
+type OrderStatus = 'pending' | 'confirmed' | 'assigned' | 'in_progress' | 'ready_for_pickup' | 'completed' | 'cancelled';
 
 interface Order {
-  id: string;
-  customerName: string;
-  service: string;
-  items: number;
-  total: number;
+  _id: string;
+  customer: {
+    _id: string;
+    firstName: string;
+    lastName: string;
+    email: string;
+    phoneNumber: string;
+  };
+  serviceProvider?: {
+    _id: string;
+    firstName: string;
+    lastName: string;
+    email: string;
+    phoneNumber: string;
+    businessDetails?: any;
+  };
+  items: Array<{
+    service: string;
+    serviceName: string;
+    quantity: number;
+    unitPrice: number;
+    totalPrice: number;
+    specialInstructions?: string;
+  }>;
   status: OrderStatus;
+  totalAmount: number;
+  subtotal: number;
+  tax: number;
+  deliveryFee: number;
+  pickupAddress: {
+    type: string;
+    street: string;
+    city: string;
+    state: string;
+    zipCode: string;
+    instructions: string;
+  };
+  deliveryAddress: {
+    type: string;
+    street: string;
+    city: string;
+    state: string;
+    zipCode: string;
+    instructions: string;
+  };
+  pickupDate: string;
+  deliveryDate: string;
   createdAt: string;
-  scheduledFor: string;
-  notes?: string;
+  updatedAt: string;
+  notes: {
+    customer: string;
+    serviceProvider: string;
+    admin: string;
+  };
+  orderNumber: string;
+  formattedTotal: string;
 }
-
-// Mock data - replace with actual API call
-const mockOrders: Order[] = [
-  {
-    id: 'ORD001',
-    customerName: 'John Doe',
-    service: 'Wash & Fold',
-    items: 5,
-    total: 45.00,
-    status: 'pending',
-    createdAt: '2024-03-20T10:00:00',
-    scheduledFor: '2024-03-21T14:00:00',
-  },
-  {
-    id: 'ORD002',
-    customerName: 'Jane Smith',
-    service: 'Dry Cleaning',
-    items: 3,
-    total: 35.00,
-    status: 'in_progress',
-    createdAt: '2024-03-20T09:30:00',
-    scheduledFor: '2024-03-21T16:00:00',
-  },
-  // Add more mock orders as needed
-];
 
 const statusColors: Record<OrderStatus, 'default' | 'primary' | 'secondary' | 'error' | 'info' | 'success' | 'warning'> = {
   pending: 'warning',
-  accepted: 'info',
+  confirmed: 'info',
+  assigned: 'info',
   in_progress: 'primary',
-  ready_for_delivery: 'secondary',
+  ready_for_pickup: 'secondary',
   completed: 'success',
   cancelled: 'error',
 };
 
 const statusLabels: Record<OrderStatus, string> = {
   pending: 'Pending',
-  accepted: 'Accepted',
+  confirmed: 'Confirmed',
+  assigned: 'Assigned',
   in_progress: 'In Progress',
-  ready_for_delivery: 'Ready for Delivery',
+  ready_for_pickup: 'Ready for Pickup',
   completed: 'Completed',
   cancelled: 'Cancelled',
 };
 
 const Orders: React.FC = () => {
-  const [orders, setOrders] = useState<Order[]>(mockOrders);
+  const [orders, setOrders] = useState<Order[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
   const [statusDialogOpen, setStatusDialogOpen] = useState(false);
   const [notesDialogOpen, setNotesDialogOpen] = useState(false);
   const [notes, setNotes] = useState('');
+
+  useEffect(() => {
+    const fetchOrders = async () => {
+      try {
+        setLoading(true);
+        setError(null);
+
+        const response = await fetch('http://localhost:5000/api/orders?role=service_provider', {
+          headers: {
+            Authorization: `Bearer ${localStorage.getItem('token')}`,
+            'Content-Type': 'application/json',
+          },
+        });
+
+        if (!response.ok) {
+          throw new Error('Failed to fetch orders');
+        }
+
+        const data = await response.json();
+        console.log('Orders API response:', JSON.stringify(data, null, 2));
+
+        const ordersArray = data.success && data.data?.docs ? data.data.docs : [];
+        const mappedOrders = ordersArray.map((order: any) => ({
+          _id: order._id,
+          customer: {
+            _id: order.customer?._id || '',
+            firstName: order.customer?.firstName || '',
+            lastName: order.customer?.lastName || '',
+            email: order.customer?.email || '',
+            phoneNumber: order.customer?.phoneNumber || '',
+          },
+          serviceProvider: order.serviceProvider
+            ? {
+                _id: order.serviceProvider._id,
+                firstName: order.serviceProvider.firstName,
+                lastName: order.serviceProvider.lastName,
+                email: order.serviceProvider.email,
+                phoneNumber: order.serviceProvider.phoneNumber,
+                businessDetails: order.serviceProvider.businessDetails,
+              }
+            : undefined,
+          status: order.status,
+          totalAmount: order.totalAmount,
+          subtotal: order.subtotal,
+          tax: order.tax,
+          deliveryFee: order.deliveryFee,
+          items: order.items.map((item: any) => ({
+            service: item.service,
+            serviceName: item.serviceName,
+            quantity: item.quantity,
+            unitPrice: item.unitPrice,
+            totalPrice: item.totalPrice,
+            specialInstructions: item.specialInstructions,
+          })),
+          pickupAddress: {
+            type: order.pickupAddress?.type || '',
+            street: order.pickupAddress?.street || '',
+            city: order.pickupAddress?.city || '',
+            state: order.pickupAddress?.state || '',
+            zipCode: order.pickupAddress?.zipCode || '',
+            instructions: order.pickupAddress?.instructions || '',
+          },
+          deliveryAddress: {
+            type: order.deliveryAddress?.type || '',
+            street: order.deliveryAddress?.street || '',
+            city: order.deliveryAddress?.city || '',
+            state: order.deliveryAddress?.state || '',
+            zipCode: order.deliveryAddress?.zipCode || '',
+            instructions: order.deliveryAddress?.instructions || '',
+          },
+          pickupDate: order.pickupDate,
+          deliveryDate: order.deliveryDate,
+          createdAt: order.createdAt,
+          updatedAt: order.updatedAt,
+          notes: {
+            customer: order.notes?.customer || '',
+            serviceProvider: order.notes?.serviceProvider || '',
+            admin: order.notes?.admin || '',
+          },
+          orderNumber: order.orderNumber,
+          formattedTotal: order.formattedTotal,
+        }));
+        setOrders(mappedOrders);
+        console.log('Mapped orders:', mappedOrders);
+      } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+        console.error('Orders fetch error:', errorMessage, error);
+        setError('Failed to load orders');
+        setOrders([]);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchOrders();
+  }, []);
 
   const handleMenuClick = (event: React.MouseEvent<HTMLElement>, order: Order) => {
     setAnchorEl(event.currentTarget);
@@ -102,39 +225,109 @@ const Orders: React.FC = () => {
     setSelectedOrder(null);
   };
 
-  const handleStatusChange = (newStatus: OrderStatus) => {
-    if (selectedOrder) {
+  const handleStatusChange = async (newStatus: OrderStatus) => {
+    if (!selectedOrder) return;
+
+    try {
+      const response = await fetch(`http://localhost:5000/api/orders/${selectedOrder._id}/status`, {
+        method: 'PUT',
+        headers: {
+          Authorization: `Bearer ${localStorage.getItem('token')}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ status: newStatus }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to update order status');
+      }
+
+      const updatedOrder = await response.json();
       setOrders(orders.map(order =>
-        order.id === selectedOrder.id
-          ? { ...order, status: newStatus }
-          : order
+        order._id === selectedOrder._id ? updatedOrder.data : order
       ));
+      setError(null);
       handleMenuClose();
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      console.error('Status update error:', errorMessage, error);
+      setError('Failed to update order status');
     }
   };
 
   const handleAddNotes = () => {
     if (selectedOrder) {
-      setNotes(selectedOrder.notes || '');
+      setNotes(selectedOrder.notes.serviceProvider || '');
       setNotesDialogOpen(true);
       handleMenuClose();
     }
   };
 
-  const handleSaveNotes = () => {
-    if (selectedOrder) {
+  const handleSaveNotes = async () => {
+    if (!selectedOrder) return;
+
+    try {
+      const response = await fetch(`http://localhost:5000/api/orders/${selectedOrder._id}`, {
+        method: 'PUT',
+        headers: {
+          Authorization: `Bearer ${localStorage.getItem('token')}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ notes: { ...selectedOrder.notes, serviceProvider: notes } }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to save notes');
+      }
+
+      const updatedOrder = await response.json();
       setOrders(orders.map(order =>
-        order.id === selectedOrder.id
-          ? { ...order, notes }
-          : order
+        order._id === selectedOrder._id ? updatedOrder.data : order
       ));
+      setError(null);
       setNotesDialogOpen(false);
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      console.error('Save notes error:', errorMessage, error);
+      setError('Failed to save notes');
+    }
+  };
+
+  const handleViewChat = async (order: Order) => {
+    try {
+      const token = localStorage.getItem('token');
+      const res = await axios.post(
+        'http://localhost:5000/api/chats/room',
+        { customerId: order.customer._id, orderId: order._id },
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      const chatRoomId = res.data._id;
+      window.location.href = `/chat/provider/${chatRoomId}`;
+    } catch (error) {
+      console.error('Chat error:', error);
+      setError('Failed to open chat');
     }
   };
 
   const formatDate = (dateString: string) => {
     return format(new Date(dateString), 'MMM dd, yyyy hh:mm a');
   };
+
+  if (loading) {
+    return (
+      <Box sx={{ display: 'flex', justifyContent: 'center', p: 3 }}>
+        <CircularProgress />
+      </Box>
+    );
+  }
+
+  if (error) {
+    return (
+      <Box sx={{ p: 3 }}>
+        <Alert severity="error">{error}</Alert>
+      </Box>
+    );
+  }
 
   return (
     <Box sx={{ p: 3 }}>
@@ -148,7 +341,6 @@ const Orders: React.FC = () => {
             <TableRow>
               <TableCell>Order ID</TableCell>
               <TableCell>Customer</TableCell>
-              <TableCell>Service</TableCell>
               <TableCell>Items</TableCell>
               <TableCell>Total</TableCell>
               <TableCell>Status</TableCell>
@@ -159,12 +351,15 @@ const Orders: React.FC = () => {
           </TableHead>
           <TableBody>
             {orders.map((order) => (
-              <TableRow key={order.id}>
-                <TableCell>{order.id}</TableCell>
-                <TableCell>{order.customerName}</TableCell>
-                <TableCell>{order.service}</TableCell>
-                <TableCell>{order.items}</TableCell>
-                <TableCell>${order.total.toFixed(2)}</TableCell>
+              <TableRow key={order._id}>
+                <TableCell>{order.orderNumber}</TableCell>
+                <TableCell>{`${order.customer.firstName} ${order.customer.lastName}`}</TableCell>
+                <TableCell>
+                  {order.items.map((item, index) => (
+                    <div key={index}>{`${item.serviceName} x${item.quantity}`}</div>
+                  ))}
+                </TableCell>
+                <TableCell>{order.formattedTotal}</TableCell>
                 <TableCell>
                   <Chip
                     label={statusLabels[order.status]}
@@ -173,14 +368,23 @@ const Orders: React.FC = () => {
                   />
                 </TableCell>
                 <TableCell>{formatDate(order.createdAt)}</TableCell>
-                <TableCell>{formatDate(order.scheduledFor)}</TableCell>
+                <TableCell>{formatDate(order.deliveryDate)}</TableCell>
                 <TableCell>
-                  <IconButton
-                    size="small"
-                    onClick={(e) => handleMenuClick(e, order)}
-                  >
-                    <MoreVertIcon />
-                  </IconButton>
+                  <Stack direction="row" spacing={1}>
+                    <IconButton
+                      size="small"
+                      onClick={(e) => handleMenuClick(e, order)}
+                    >
+                      <MoreVertIcon />
+                    </IconButton>
+                    <IconButton
+                      size="small"
+                      color="primary"
+                      onClick={() => handleViewChat(order)}
+                    >
+                      <MessageIcon />
+                    </IconButton>
+                  </Stack>
                 </TableCell>
               </TableRow>
             ))}
@@ -194,21 +398,26 @@ const Orders: React.FC = () => {
         open={Boolean(anchorEl)}
         onClose={handleMenuClose}
       >
-        <MenuItem onClick={() => handleStatusChange('accepted')}>
-          Accept Order
-        </MenuItem>
-        <MenuItem onClick={() => handleStatusChange('in_progress')}>
-          Mark as In Progress
-        </MenuItem>
-        <MenuItem onClick={() => handleStatusChange('ready_for_delivery')}>
-          Mark as Ready for Delivery
-        </MenuItem>
-        <MenuItem onClick={() => handleStatusChange('completed')}>
-          Mark as Completed
-        </MenuItem>
-        <MenuItem onClick={() => handleStatusChange('cancelled')}>
-          Cancel Order
-        </MenuItem>
+        {selectedOrder?.status === 'assigned' && (
+          <MenuItem onClick={() => handleStatusChange('in_progress')}>
+            Mark as In Progress
+          </MenuItem>
+        )}
+        {selectedOrder?.status === 'in_progress' && (
+          <MenuItem onClick={() => handleStatusChange('ready_for_pickup')}>
+            Mark as Ready for Pickup
+          </MenuItem>
+        )}
+        {selectedOrder?.status === 'ready_for_pickup' && (
+          <MenuItem onClick={() => handleStatusChange('completed')}>
+            Mark as Completed
+          </MenuItem>
+        )}
+        {['assigned', 'in_progress', 'ready_for_pickup'].includes(selectedOrder?.status || '') && (
+          <MenuItem onClick={() => handleStatusChange('cancelled')}>
+            Cancel Order
+          </MenuItem>
+        )}
         <MenuItem onClick={handleAddNotes}>
           Add Notes
         </MenuItem>
@@ -216,7 +425,7 @@ const Orders: React.FC = () => {
 
       {/* Notes Dialog */}
       <Dialog open={notesDialogOpen} onClose={() => setNotesDialogOpen(false)}>
-        <DialogTitle>Add Notes</DialogTitle>
+        <DialogTitle>Add Service Provider Notes</DialogTitle>
         <DialogContent>
           <TextField
             autoFocus
@@ -240,4 +449,4 @@ const Orders: React.FC = () => {
   );
 };
 
-export default Orders; 
+export default Orders;

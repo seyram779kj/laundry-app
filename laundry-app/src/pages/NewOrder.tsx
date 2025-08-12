@@ -147,7 +147,7 @@ const NewOrderPage = () => {
         if (result.success && Array.isArray(result.data)) {
           const mappedServices = result.data.map((service: any) => ({
             ...service,
-            _id: service.id,
+            _id: service.id || service._id, // Ensure _id is always a string
             price: service.basePrice || service.price || 0,
             icon: getServiceIcon(service.category)
           }));
@@ -215,35 +215,51 @@ const NewOrderPage = () => {
     }
   };
 
-  const handleServiceSelect = (service: Service, quantity: number) => {
-    const serviceId = service._id || service.id;
-    const existingIndex = selectedServices.findIndex(s => (s._id || s.id) === serviceId);
+const handleServiceSelect = (service: Service, quantity: number) => {
+  // Ensure serviceId is a string, using _id first, then id, or a fallback
+  const serviceId = service._id || service.id || `fallback-${Date.now()}`; // Fallback to avoid undefined
 
-    if (existingIndex >= 0) {
-      // Update existing service
-      const updated = [...selectedServices];
-      updated[existingIndex] = {
-        ...service,
-        _id: serviceId,
-        id: serviceId,
-        quantity,
-        price: service.basePrice || service.price || 0,
-        icon: getServiceIcon(service.category)
-      };
-      setSelectedServices(updated);
-    } else {
-      // Add new service
-      const newService = {
-        ...service,
-        _id: serviceId,
-        id: serviceId,
-        quantity,
-        price: service.basePrice || service.price || 0,
-        icon: getServiceIcon(service.category)
-      };
-      setSelectedServices([...selectedServices, newService]);
-    }
-  };
+  const existingIndex = selectedServices.findIndex(s => s._id === serviceId);
+
+  if (existingIndex >= 0) {
+    // Update existing service
+    setSelectedServices((prev) =>
+      prev.map((s, index) =>
+        index === existingIndex
+          ? {
+              ...service,
+              _id: serviceId,
+              quantity,
+              price: service.basePrice || service.price || 0,
+              icon: getServiceIcon(service.category),
+            }
+          : s
+      )
+    );
+  } else {
+    // Add new service
+    const newService: Service = {
+      ...service,
+      _id: serviceId,
+      quantity,
+      price: service.basePrice || service.price || 0,
+      icon: getServiceIcon(service.category),
+      // Ensure all required Service properties are included
+      name: service.name,
+      description: service.description,
+      category: service.category,
+      // Optional properties can remain as-is or be explicitly set
+      id: service.id,
+      imageUrl: service.imageUrl,
+      estimatedTime: service.estimatedTime,
+      requirements: service.requirements,
+      isActive: service.isActive,
+      isAvailable: service.isAvailable,
+      specialInstructions: service.specialInstructions,
+    };
+    setSelectedServices([...selectedServices, newService]);
+  }
+};
 
   const copyPickupToDelivery = () => {
     setOrderData((prev) => ({

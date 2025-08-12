@@ -40,25 +40,57 @@ import { usePermissions } from '../../hooks/usePermissions';
 import axios from 'axios';
 
 interface Order {
-  id: string;
-  customerId: string;
-  customerName: string;
-  serviceProviderId?: string;
-  serviceProviderName?: string;
-  status: 'pending' | 'assigned' | 'in_progress' | 'completed' | 'cancelled';
+  _id: string;
+  customer: {
+    _id: string;
+    firstName: string;
+    lastName: string;
+    email: string;
+    phoneNumber: string;
+  };
+  serviceProvider?: {
+    _id: string;
+    firstName: string;
+    lastName: string;
+    email: string;
+    phoneNumber: string;
+    businessDetails?: any;
+  };
+  status: 'pending' | 'confirmed' | 'assigned' | 'in_progress' | 'ready_for_pickup' | 'completed' | 'cancelled';
   totalAmount: number;
+  subtotal: number;
+  tax: number;
+  deliveryFee: number;
   items: Array<{
-    serviceId: string;
+    service: string;
     serviceName: string;
     quantity: number;
-    price: number;
+    unitPrice: number;
+    totalPrice: number;
+    specialInstructions?: string;
   }>;
-  pickupAddress: string;
-  deliveryAddress: string;
+  pickupAddress: {
+    type: string;
+    street: string;
+    city: string;
+    state: string;
+    zipCode: string;
+    instructions: string;
+  };
+  deliveryAddress: {
+    type: string;
+    street: string;
+    city: string;
+    state: string;
+    zipCode: string;
+    instructions: string;
+  };
   pickupDate: string;
   deliveryDate: string;
   createdAt: string;
   updatedAt: string;
+  orderNumber: string;
+  formattedTotal: string;
 }
 
 const OrdersManagement: React.FC = () => {
@@ -73,7 +105,6 @@ const OrdersManagement: React.FC = () => {
   const [adminId, setAdminId] = useState<string | null>(null);
 
   useEffect(() => {
-    // Get admin user ID from local storage or context (adjust as needed)
     const userStr = localStorage.getItem('user');
     if (userStr) {
       try {
@@ -83,16 +114,15 @@ const OrdersManagement: React.FC = () => {
     }
   }, []);
 
-  // Fetch real orders data from API
   useEffect(() => {
     const fetchOrders = async () => {
       try {
         setLoading(true);
         setError(null);
-        
-        const response = await fetch(`${'http://localhost:5000'}/api/orders`, {
+
+        const response = await fetch('http://localhost:5000/api/orders', {
           headers: {
-            'Authorization': `Bearer ${localStorage.getItem('token')}`,
+            Authorization: `Bearer ${localStorage.getItem('token')}`,
             'Content-Type': 'application/json',
           },
         });
@@ -102,13 +132,71 @@ const OrdersManagement: React.FC = () => {
         }
 
         const data = await response.json();
-        // Ensure orders is always an array
-        const ordersArray = Array.isArray(data) ? data : (data.orders || data.data || []);
-        setOrders(ordersArray);
+        console.log('Orders API response:', JSON.stringify(data, null, 2));
+
+        const ordersArray = data.success && data.data?.docs ? data.data.docs : [];
+        const mappedOrders = ordersArray.map((order: any) => ({
+          _id: order._id,
+          customer: {
+            _id: order.customer?._id || '',
+            firstName: order.customer?.firstName || '',
+            lastName: order.customer?.lastName || '',
+            email: order.customer?.email || '',
+            phoneNumber: order.customer?.phoneNumber || '',
+          },
+          serviceProvider: order.serviceProvider
+            ? {
+                _id: order.serviceProvider._id,
+                firstName: order.serviceProvider.firstName,
+                lastName: order.serviceProvider.lastName,
+                email: order.serviceProvider.email,
+                phoneNumber: order.serviceProvider.phoneNumber,
+                businessDetails: order.serviceProvider.businessDetails,
+              }
+            : undefined,
+          status: order.status,
+          totalAmount: order.totalAmount,
+          subtotal: order.subtotal,
+          tax: order.tax,
+          deliveryFee: order.deliveryFee,
+          items: order.items.map((item: any) => ({
+            service: item.service,
+            serviceName: item.serviceName,
+            quantity: item.quantity,
+            unitPrice: item.unitPrice,
+            totalPrice: item.totalPrice,
+            specialInstructions: item.specialInstructions,
+          })),
+          pickupAddress: {
+            type: order.pickupAddress?.type || '',
+            street: order.pickupAddress?.street || '',
+            city: order.pickupAddress?.city || '',
+            state: order.pickupAddress?.state || '',
+            zipCode: order.pickupAddress?.zipCode || '',
+            instructions: order.pickupAddress?.instructions || '',
+          },
+          deliveryAddress: {
+            type: order.deliveryAddress?.type || '',
+            street: order.deliveryAddress?.street || '',
+            city: order.deliveryAddress?.city || '',
+            state: order.deliveryAddress?.state || '',
+            zipCode: order.deliveryAddress?.zipCode || '',
+            instructions: order.deliveryAddress?.instructions || '',
+          },
+          pickupDate: order.pickupDate,
+          deliveryDate: order.deliveryDate,
+          createdAt: order.createdAt,
+          updatedAt: order.updatedAt,
+          orderNumber: order.orderNumber,
+          formattedTotal: order.formattedTotal,
+        }));
+        setOrders(mappedOrders);
+        console.log('Mapped orders:', mappedOrders);
       } catch (error) {
-        console.error('Orders fetch error:', error);
+        const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+        console.error('Orders fetch error:', errorMessage, error);
         setError('Failed to load orders');
-        setOrders([]); // Set empty array on error
+        setOrders([]);
       } finally {
         setLoading(false);
       }
@@ -117,43 +205,33 @@ const OrdersManagement: React.FC = () => {
     fetchOrders();
   }, []);
 
-  // Ensure orders is always an array before filtering
-  const ordersArray = Array.isArray(orders) ? orders : [];
-  const filteredOrders = filterStatus === 'all' 
-    ? ordersArray 
-    : ordersArray.filter(order => order.status === filterStatus);
-
   useEffect(() => {
     const fetchUnread = async () => {
       if (!adminId) return;
       const badgeMap: { [orderId: string]: boolean } = {};
-      for (const order of filteredOrders) {
+      for (const order of orders) {
         try {
           const token = localStorage.getItem('token');
-          // Get or create chat room for this order
           const chatRoomRes = await axios.post(
-            `${'http://localhost:5000'}/api/chats/room`,
-            { customerId: order.customerId, orderId: order.id },
+            'http://localhost:5000/api/chats/room',
+            { customerId: order.customer._id, orderId: order._id },
             { headers: { Authorization: `Bearer ${token}` } }
           );
           const chatRoomId = chatRoomRes.data._id;
-          // Fetch messages
           const messagesRes = await axios.get(
-            `${'http://localhost:5000'}/api/chats/${chatRoomId}/messages`,
+            `http://localhost:5000/api/chats/${chatRoomId}/messages`,
             { headers: { Authorization: `Bearer ${token}` } }
           );
           const messages = messagesRes.data;
-          // If any message is not read by this admin, show badge
-          badgeMap[order.id] = messages.some((msg: any) => !msg.readBy || !msg.readBy.includes(adminId));
+          badgeMap[order._id] = messages.some((msg: any) => !msg.readBy || !msg.readBy.includes(adminId));
         } catch {
-          badgeMap[order.id] = false;
+          badgeMap[order._id] = false;
         }
       }
       setUnreadChats(badgeMap);
     };
     fetchUnread();
-    // eslint-disable-next-line
-  }, [filteredOrders, adminId]);
+  }, [orders, adminId]);
 
   const handleViewOrder = (order: Order) => {
     setSelectedOrder(order);
@@ -162,10 +240,10 @@ const OrdersManagement: React.FC = () => {
 
   const handleAssignOrder = async (orderId: string, serviceProviderId: string) => {
     try {
-      const response = await fetch(`${'http://localhost:5000'}/api/orders/${orderId}/assign`, {
+      const response = await fetch(`http://localhost:5000/api/orders/${orderId}/assign`, {
         method: 'PUT',
         headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`,
+          Authorization: `Bearer ${localStorage.getItem('token')}`,
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({ serviceProviderId }),
@@ -176,10 +254,8 @@ const OrdersManagement: React.FC = () => {
       }
 
       const updatedOrder = await response.json();
-      // Ensure orders is always an array
-      const ordersArray = Array.isArray(orders) ? orders : [];
-      setOrders(ordersArray.map(order => 
-        order.id === orderId ? updatedOrder : order
+      setOrders(orders.map(order =>
+        order._id === orderId ? updatedOrder.data : order
       ));
       setError(null);
     } catch (err) {
@@ -189,10 +265,10 @@ const OrdersManagement: React.FC = () => {
 
   const handleUpdateStatus = async (orderId: string, status: Order['status']) => {
     try {
-      const response = await fetch(`${'http://localhost:5000'}/api/orders/${orderId}/status`, {
+      const response = await fetch(`http://localhost:5000/api/orders/${orderId}/status`, {
         method: 'PUT',
         headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`,
+          Authorization: `Bearer ${localStorage.getItem('token')}`,
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({ status }),
@@ -203,10 +279,8 @@ const OrdersManagement: React.FC = () => {
       }
 
       const updatedOrder = await response.json();
-      // Ensure orders is always an array
-      const ordersArray = Array.isArray(orders) ? orders : [];
-      setOrders(ordersArray.map(order => 
-        order.id === orderId ? updatedOrder : order
+      setOrders(orders.map(order =>
+        order._id === orderId ? updatedOrder.data : order
       ));
       setError(null);
     } catch (err) {
@@ -218,8 +292,8 @@ const OrdersManagement: React.FC = () => {
     try {
       const token = localStorage.getItem('token');
       const res = await axios.post(
-        `${'http://localhost:5000'}/api/chats/room`,
-        { customerId: order.customerId, orderId: order.id },
+        'http://localhost:5000/api/chats/room',
+        { customerId: order.customer._id, orderId: order._id },
         { headers: { Authorization: `Bearer ${token}` } }
       );
       const chatRoomId = res.data._id;
@@ -232,8 +306,10 @@ const OrdersManagement: React.FC = () => {
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'pending': return 'warning';
+      case 'confirmed': return 'info';
       case 'assigned': return 'info';
       case 'in_progress': return 'primary';
+      case 'ready_for_pickup': return 'primary';
       case 'completed': return 'success';
       case 'cancelled': return 'error';
       default: return 'default';
@@ -257,6 +333,10 @@ const OrdersManagement: React.FC = () => {
       </Box>
     );
   }
+
+  const filteredOrders = filterStatus === 'all'
+    ? orders
+    : orders.filter(order => order.status === filterStatus);
 
   return (
     <Box sx={{ p: 3 }}>
@@ -288,7 +368,7 @@ const OrdersManagement: React.FC = () => {
                 Total Orders
               </Typography>
               <Typography variant="h4">
-                {ordersArray.length}
+                {orders.length}
               </Typography>
             </CardContent>
           </Card>
@@ -300,7 +380,7 @@ const OrdersManagement: React.FC = () => {
                 Pending
               </Typography>
               <Typography variant="h4" color="warning.main">
-                {ordersArray.filter(o => o.status === 'pending').length}
+                {orders.filter(o => o.status === 'pending').length}
               </Typography>
             </CardContent>
           </Card>
@@ -312,7 +392,7 @@ const OrdersManagement: React.FC = () => {
                 In Progress
               </Typography>
               <Typography variant="h4" color="primary.main">
-                {ordersArray.filter(o => o.status === 'in_progress').length}
+                {orders.filter(o => o.status === 'in_progress').length}
               </Typography>
             </CardContent>
           </Card>
@@ -324,7 +404,7 @@ const OrdersManagement: React.FC = () => {
                 Completed
               </Typography>
               <Typography variant="h4" color="success.main">
-                {ordersArray.filter(o => o.status === 'completed').length}
+                {orders.filter(o => o.status === 'completed').length}
               </Typography>
             </CardContent>
           </Card>
@@ -342,8 +422,10 @@ const OrdersManagement: React.FC = () => {
           >
             <MenuItem value="all">All Orders</MenuItem>
             <MenuItem value="pending">Pending</MenuItem>
+            <MenuItem value="confirmed">Confirmed</MenuItem>
             <MenuItem value="assigned">Assigned</MenuItem>
             <MenuItem value="in_progress">In Progress</MenuItem>
+            <MenuItem value="ready_for_pickup">Ready for Pickup</MenuItem>
             <MenuItem value="completed">Completed</MenuItem>
             <MenuItem value="cancelled">Cancelled</MenuItem>
           </Select>
@@ -352,12 +434,12 @@ const OrdersManagement: React.FC = () => {
 
       <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 3 }}>
         {filteredOrders.map((order) => (
-          <Box key={order.id} sx={{ width: { xs: '100%', sm: 'calc(50% - 12px)', md: 'calc(33.33% - 16px)', lg: 'calc(25% - 18px)' } }}>
+          <Box key={order._id} sx={{ width: { xs: '100%', sm: 'calc(50% - 12px)', md: 'calc(33.33% - 16px)', lg: 'calc(25% - 18px)' } }}>
             <Card sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
               <CardContent sx={{ flexGrow: 1 }}>
                 <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
                   <Typography variant="h6" color="primary">
-                    #{order.id}
+                    #{order.orderNumber}
                   </Typography>
                   <Chip
                     label={order.status.replace('_', ' ')}
@@ -365,19 +447,19 @@ const OrdersManagement: React.FC = () => {
                     size="small"
                   />
                 </Box>
-                
+
                 <Typography variant="subtitle1" gutterBottom>
-                  {order.customerName}
+                  {`${order.customer.firstName} ${order.customer.lastName}`}
                 </Typography>
-                
+
                 <Typography variant="body2" color="text.secondary" gutterBottom>
-                  Provider: {order.serviceProviderName || 'Unassigned'}
+                  Provider: {order.serviceProvider ? `${order.serviceProvider.firstName} ${order.serviceProvider.lastName}` : 'Unassigned'}
                 </Typography>
-                
+
                 <Typography variant="h6" color="primary" gutterBottom>
-                  ${order.totalAmount.toFixed(2)}
+                  {order.formattedTotal}
                 </Typography>
-                
+
                 <Box sx={{ mb: 2 }}>
                   <Typography variant="body2" color="text.secondary">
                     Pickup: {new Date(order.pickupDate).toLocaleDateString()}
@@ -386,7 +468,7 @@ const OrdersManagement: React.FC = () => {
                     Delivery: {new Date(order.deliveryDate).toLocaleDateString()}
                   </Typography>
                 </Box>
-                
+
                 <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
                   {order.items.map((item, index) => (
                     <Chip
@@ -398,7 +480,7 @@ const OrdersManagement: React.FC = () => {
                   ))}
                 </Box>
               </CardContent>
-              
+
               <Box sx={{ p: 2, pt: 0 }}>
                 <Box sx={{ display: 'flex', justifyContent: 'space-around', flexWrap: 'wrap', gap: 1 }}>
                   <Tooltip title="View Details">
@@ -410,7 +492,7 @@ const OrdersManagement: React.FC = () => {
                     </IconButton>
                   </Tooltip>
                   <Tooltip title="View Chat">
-                    <Badge color="error" variant="dot" invisible={!unreadChats[order.id]}>
+                    <Badge color="error" variant="dot" invisible={!unreadChats[order._id]}>
                       <IconButton
                         size="small"
                         color="primary"
@@ -425,7 +507,7 @@ const OrdersManagement: React.FC = () => {
                       <IconButton
                         size="small"
                         color="primary"
-                        onClick={() => handleAssignOrder(order.id, '2')}
+                        onClick={() => handleAssignOrder(order._id, '2')} // Replace '2' with actual service provider ID
                       >
                         <AssignIcon />
                       </IconButton>
@@ -436,29 +518,40 @@ const OrdersManagement: React.FC = () => {
                       <IconButton
                         size="small"
                         color="primary"
-                        onClick={() => handleUpdateStatus(order.id, 'in_progress')}
+                        onClick={() => handleUpdateStatus(order._id, 'in_progress')}
                       >
                         <EditIcon />
                       </IconButton>
                     </Tooltip>
                   )}
                   {order.status === 'in_progress' && (
+                    <Tooltip title="Mark Ready for Pickup">
+                      <IconButton
+                        size="small"
+                        color="primary"
+                        onClick={() => handleUpdateStatus(order._id, 'ready_for_pickup')}
+                      >
+                        <EditIcon />
+                      </IconButton>
+                    </Tooltip>
+                  )}
+                  {order.status === 'ready_for_pickup' && (
                     <Tooltip title="Mark Completed">
                       <IconButton
                         size="small"
                         color="success"
-                        onClick={() => handleUpdateStatus(order.id, 'completed')}
+                        onClick={() => handleUpdateStatus(order._id, 'completed')}
                       >
                         <CompleteIcon />
                       </IconButton>
                     </Tooltip>
                   )}
-                  {['pending', 'assigned'].includes(order.status) && (
+                  {['pending', 'confirmed', 'assigned', 'in_progress', 'ready_for_pickup'].includes(order.status) && (
                     <Tooltip title="Cancel Order">
                       <IconButton
                         size="small"
                         color="error"
-                        onClick={() => handleUpdateStatus(order.id, 'cancelled')}
+                        onClick={() => handleUpdateStatus(order._id, 'cancelled')}
                       >
                         <CancelIcon />
                       </IconButton>
@@ -479,7 +572,7 @@ const OrdersManagement: React.FC = () => {
         fullWidth
       >
         <DialogTitle>
-          Order Details #{selectedOrder?.id}
+          Order Details #{selectedOrder?.orderNumber}
         </DialogTitle>
         <DialogContent>
           {selectedOrder && (
@@ -487,37 +580,60 @@ const OrdersManagement: React.FC = () => {
               <Typography variant="h6" gutterBottom>
                 Customer Information
               </Typography>
-              <Typography>Name: {selectedOrder.customerName}</Typography>
-              <Typography>Order ID: #{selectedOrder.id}</Typography>
-              
+              <Typography>Name: {`${selectedOrder.customer.firstName} ${selectedOrder.customer.lastName}`}</Typography>
+              <Typography>Email: {selectedOrder.customer.email}</Typography>
+              <Typography>Phone: {selectedOrder.customer.phoneNumber}</Typography>
+
               <Typography variant="h6" gutterBottom sx={{ mt: 2 }}>
                 Order Items
               </Typography>
               {selectedOrder.items.map((item, index) => (
                 <Box key={index} sx={{ mb: 1 }}>
                   <Typography>
-                    {item.serviceName} x {item.quantity} - ${item.price.toFixed(2)}
+                    {item.serviceName} x {item.quantity} - ${item.unitPrice.toFixed(2)} (Total: ${item.totalPrice.toFixed(2)})
                   </Typography>
+                  {item.specialInstructions && (
+                    <Typography variant="body2" color="text.secondary">
+                      Instructions: {item.specialInstructions}
+                    </Typography>
+                  )}
                 </Box>
               ))}
-              
+
               <Typography variant="h6" gutterBottom sx={{ mt: 2 }}>
                 Addresses
               </Typography>
-              <Typography>Pickup: {selectedOrder.pickupAddress}</Typography>
-              <Typography>Delivery: {selectedOrder.deliveryAddress}</Typography>
-              
+              <Typography>
+                Pickup: {`${selectedOrder.pickupAddress.street}, ${selectedOrder.pickupAddress.city}, ${selectedOrder.pickupAddress.state} ${selectedOrder.pickupAddress.zipCode}`}
+              </Typography>
+              {selectedOrder.pickupAddress.instructions && (
+                <Typography variant="body2" color="text.secondary">
+                  Instructions: {selectedOrder.pickupAddress.instructions}
+                </Typography>
+              )}
+              <Typography>
+                Delivery: {`${selectedOrder.deliveryAddress.street}, ${selectedOrder.deliveryAddress.city}, ${selectedOrder.deliveryAddress.state} ${selectedOrder.deliveryAddress.zipCode}`}
+              </Typography>
+              {selectedOrder.deliveryAddress.instructions && (
+                <Typography variant="body2" color="text.secondary">
+                  Instructions: {selectedOrder.deliveryAddress.instructions}
+                </Typography>
+              )}
+
               <Typography variant="h6" gutterBottom sx={{ mt: 2 }}>
                 Dates
               </Typography>
               <Typography>Pickup: {new Date(selectedOrder.pickupDate).toLocaleDateString()}</Typography>
               <Typography>Delivery: {new Date(selectedOrder.deliveryDate).toLocaleDateString()}</Typography>
-              
+
               <Typography variant="h6" gutterBottom sx={{ mt: 2 }}>
-                Total Amount
+                Financials
               </Typography>
+              <Typography>Subtotal: ${selectedOrder.subtotal.toFixed(2)}</Typography>
+              <Typography>Tax: ${selectedOrder.tax.toFixed(2)}</Typography>
+              <Typography>Delivery Fee: ${selectedOrder.deliveryFee.toFixed(2)}</Typography>
               <Typography variant="h5" color="primary">
-                ${selectedOrder.totalAmount.toFixed(2)}
+                Total: {selectedOrder.formattedTotal}
               </Typography>
             </Box>
           )}
@@ -532,4 +648,4 @@ const OrdersManagement: React.FC = () => {
   );
 };
 
-export default OrdersManagement; 
+export default OrdersManagement;
