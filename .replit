@@ -8,7 +8,7 @@ channel = "stable-25_05"
 run = ["sh", "-c", "node index.js"]
 
 [workflows]
-runButton = "Start Backend Server"
+runButton = "Start Full Stack"
 
 [[workflows.workflow]]
 name = "Start Backend Server"
