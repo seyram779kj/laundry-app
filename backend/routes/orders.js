@@ -137,12 +137,11 @@ router.post('/', protect, customer, async (req, res) => {
 
     // Validate service IDs exist in static services
     console.log('Available static services:', STATIC_SERVICES.map(s => ({ id: s._id, name: s.name })));
-    
+
     for (const item of items) {
-      console.log('Validating item:', item);
-      
+      console.log(`Checking service: ${item.service}`);
       if (!item.service) {
-        console.log('Missing service in item:', item);
+        console.log('Service ID is missing or null');
         return res.status(400).json({ 
           success: false, 
           error: 'Service is required' 
@@ -158,7 +157,7 @@ router.post('/', protect, customer, async (req, res) => {
           error: `Service ${item.service} not found` 
         });
       }
-      
+
       console.log(`Service ${item.service} found:`, service.name);
     }
 

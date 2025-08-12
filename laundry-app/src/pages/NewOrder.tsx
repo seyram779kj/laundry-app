@@ -40,14 +40,21 @@ import {
 
 // Define interfaces
 interface Service {
-  id: string;
+  _id: string;
+  id?: string;
   name: string;
-  price: number;
-  quantity: number;
   description: string;
-  image: string;
-  estimatedTime: string;
-  icon: React.ReactNode;
+  price?: number;
+  basePrice?: number;
+  category: string;
+  imageUrl?: string;
+  estimatedTime?: string;
+  requirements?: string;
+  isActive?: boolean;
+  isAvailable?: boolean;
+  quantity?: number;
+  icon?: string;
+  specialInstructions?: string;
 }
 
 interface OrderData {
@@ -103,6 +110,19 @@ const NewOrderPage = () => {
     momoNetwork: 'mtn',
   });
 
+  const getServiceIcon = (category: string): string => {
+    switch (category) {
+      case 'wash-fold':
+        return '🧺';
+      case 'dry-cleaning':
+        return '👔';
+      case 'ironing':
+        return '👕';
+      default:
+        return '🏠';
+    }
+  };
+
   // Load services from API
   useEffect(() => {
     const fetchServices = async () => {
@@ -124,30 +144,33 @@ const NewOrderPage = () => {
         const result = await response.json();
         console.log('Services API response:', JSON.stringify(result, null, 2));
 
-        let servicesArray: any[] = [];
-
         if (result.success && result.data) {
-          if (Array.isArray(result.data.docs)) {
-            servicesArray = result.data.docs;
+          if (result.data.docs) {
+            // Paginated response - map to include necessary fields
+            const mappedServices = result.data.docs.map((service: any) => ({
+              ...service,
+              price: service.basePrice || service.price || 0,
+              icon: getServiceIcon(service.category)
+            }));
+            setServices(mappedServices);
+            console.log('Services array extracted:', mappedServices);
           } else if (Array.isArray(result.data)) {
-            servicesArray = result.data;
+            // Direct array response
+            const mappedServices = result.data.map((service: any) => ({
+              ...service,
+              price: service.basePrice || service.price || 0,
+              icon: getServiceIcon(service.category)
+            }));
+            setServices(mappedServices);
+            console.log('Services array extracted:', mappedServices);
+          } else {
+            console.warn('Unexpected services data structure:', result.data);
+            setServices([]);
           }
+        } else {
+          setError('Failed to load services');
+          setServices([]);
         }
-
-        console.log('Services array extracted:', servicesArray);
-
-        setServices(
-          servicesArray.map((service: any, index: number) => ({
-            id: service._id || `service-${index}`,
-            name: service.name,
-            price: service.basePrice || service.price,
-            quantity: 0,
-            description: service.description || '',
-            image: service.imageUrl || service.image || 'https://via.placeholder.com/300x200',
-            estimatedTime: service.estimatedTime || 'Unknown',
-            icon: <Checkroom />,
-          }))
-        );
       } catch (error) {
         const errorMessage = error instanceof Error ? error.message : 'Unknown error';
         console.error('Error loading services:', errorMessage, error);
@@ -169,7 +192,7 @@ const NewOrderPage = () => {
 
   // Calculate totals
   const calculateSubtotal = () => {
-    return selectedServices.reduce((sum, service) => sum + service.price * service.quantity, 0);
+    return selectedServices.reduce((sum, service) => sum + (service.price || 0) * (service.quantity || 0), 0);
   };
 
   const calculateTax = (subtotal: number) => subtotal * 0.1;
@@ -190,18 +213,49 @@ const NewOrderPage = () => {
   };
 
   const handleServiceQuantityChange = (service: Service, change: number) => {
-    const selectedService = selectedServices.find((s) => s.id === service.id);
+    const serviceId = service._id || service.id;
+    const selectedService = selectedServices.find((s) => (s._id || s.id) === serviceId);
     const currentQuantity = selectedService?.quantity || 0;
     const newQuantity = Math.max(0, currentQuantity + change);
 
     if (newQuantity === 0) {
-      setSelectedServices((prev) => prev.filter((s) => s.id !== service.id));
+      setSelectedServices((prev) => prev.filter((s) => (s._id || s.id) !== serviceId));
     } else if (selectedService) {
       setSelectedServices((prev) =>
-        prev.map((s) => (s.id === service.id ? { ...s, quantity: newQuantity } : s))
+        prev.map((s) => ((s._id || s.id) === serviceId ? { ...s, quantity: newQuantity } : s))
       );
     } else {
-      setSelectedServices((prev) => [...prev, { ...service, quantity: newQuantity }]);
+      setSelectedServices((prev) => [...prev, { ...service, quantity: newQuantity, price: service.basePrice || service.price || 0, icon: getServiceIcon(service.category) }]);
+    }
+  };
+
+  const handleServiceSelect = (service: Service, quantity: number) => {
+    const serviceId = service._id || service.id;
+    const existingIndex = selectedServices.findIndex(s => (s._id || s.id) === serviceId);
+
+    if (existingIndex >= 0) {
+      // Update existing service
+      const updated = [...selectedServices];
+      updated[existingIndex] = {
+        ...service,
+        _id: serviceId,
+        id: serviceId,
+        quantity,
+        price: service.basePrice || service.price || 0,
+        icon: getServiceIcon(service.category)
+      };
+      setSelectedServices(updated);
+    } else {
+      // Add new service
+      const newService = {
+        ...service,
+        _id: serviceId,
+        id: serviceId,
+        quantity,
+        price: service.basePrice || service.price || 0,
+        icon: getServiceIcon(service.category)
+      };
+      setSelectedServices([...selectedServices, newService]);
     }
   };
 
@@ -239,18 +293,16 @@ const NewOrderPage = () => {
       const deliveryFee = orderData.isUrgent ? 10 : 5;
       const totalAmount = subtotal + tax + deliveryFee;
 
-      // Prepare items array
-      const items = selectedServices.map(service => ({
-        service: service.id,
-        serviceName: service.name,
-        quantity: service.quantity,
-        unitPrice: service.price,
-        totalPrice: service.price * service.quantity,
-        specialInstructions: orderData.specialInstructions || ''
-      }));
-
+      // Prepare order data
       const orderPayload = {
-        items: items,
+        items: selectedServices.map((service) => ({
+          service: service._id || service.id, // Use _id first, fallback to id
+          serviceName: service.name,
+          quantity: service.quantity,
+          unitPrice: service.price,
+          totalPrice: service.price * service.quantity,
+          specialInstructions: service.specialInstructions || ''
+        })),
         pickupAddress: {
           type: orderData.pickupAddress.type || 'home',
           street: orderData.pickupAddress.street,
@@ -371,11 +423,11 @@ const NewOrderPage = () => {
       {!loading && services.length > 0 && (
         <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 2, justifyContent: 'center' }}>
           {services.map((service) => {
-            const selectedService = selectedServices.find((s) => s.id === service.id);
+            const selectedService = selectedServices.find((s) => (s._id || s.id) === (service._id || service.id));
             const quantity = selectedService?.quantity || 0;
             return (
-              <Card key={service.id} sx={{ width: 300, transition: 'transform 0.3s', '&:hover': { transform: 'translateY(-4px)' } }}>
-                <CardMedia component="img" height="160" image={service.image} alt={service.name} />
+              <Card key={service._id || service.id} sx={{ width: 300, transition: 'transform 0.3s', '&:hover': { transform: 'translateY(-4px)' } }}>
+                <CardMedia component="img" height="160" image={service.imageUrl || 'https://via.placeholder.com/300x200'} alt={service.name} />
                 <CardContent>
                   <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
                     <Box sx={{ bgcolor: 'primary.light', p: 1, borderRadius: '50%', mr: 2 }}>{service.icon}</Box>
@@ -386,10 +438,10 @@ const NewOrderPage = () => {
                   </Typography>
                   <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
                     <Typography variant="h6" color="primary">
-                      ${service.price.toFixed(2)}
+                      ${(service.price || 0).toFixed(2)}
                     </Typography>
                     <Box sx={{ bgcolor: 'success.light', color: 'success.main', px: 2, py: 1, borderRadius: 4, fontSize: '0.75rem' }}>
-                      {service.estimatedTime}
+                      {service.estimatedTime || 'Unknown'}
                     </Box>
                   </Box>
                   <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 2 }}>
@@ -423,9 +475,9 @@ const NewOrderPage = () => {
             Selected Services
           </Typography>
           {selectedServices.map((service) => (
-            <Box key={service.id} sx={{ display: 'flex', justifyContent: 'space-between', py: 1 }}>
+            <Box key={service._id || service.id} sx={{ display: 'flex', justifyContent: 'space-between', py: 1 }}>
               <Typography>{service.name} × {service.quantity}</Typography>
-              <Typography color="primary">${(service.price * service.quantity).toFixed(2)}</Typography>
+              <Typography color="primary">${((service.price || 0) * (service.quantity || 0)).toFixed(2)}</Typography>
             </Box>
           ))}
           <Box sx={{ borderTop: 1, borderColor: 'divider', pt: 2, mt: 2 }}>
@@ -725,17 +777,17 @@ const NewOrderPage = () => {
           Selected Services
         </Typography>
         {selectedServices.map((service) => (
-          <Box key={service.id} sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', p: 2, bgcolor: 'grey.50', borderRadius: 2, mb: 1 }}>
+          <Box key={service._id || service.id} sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', p: 2, bgcolor: 'grey.50', borderRadius: 2, mb: 1 }}>
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
               <Box sx={{ bgcolor: 'primary.light', p: 1, borderRadius: '50%' }}>{service.icon}</Box>
               <Box>
                 <Typography>{service.name}</Typography>
                 <Typography variant="body2" color="text.secondary">
-                  Quantity: {service.quantity} × ${service.price.toFixed(2)}
+                  Quantity: {service.quantity} × ${service.price?.toFixed(2)}
                 </Typography>
               </Box>
             </Box>
-            <Typography color="primary">${(service.price * service.quantity).toFixed(2)}</Typography>
+            <Typography color="primary">${((service.price || 0) * (service.quantity || 0)).toFixed(2)}</Typography>
           </Box>
         ))}
       </Card>
