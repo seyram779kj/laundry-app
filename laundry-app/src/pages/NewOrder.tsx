@@ -123,14 +123,14 @@ const NewOrderPage = () => {
     }
   };
 
-  // Load services from API
+  // Load static services from API
   useEffect(() => {
     const fetchServices = async () => {
       try {
         setLoading(true);
         setError(null);
 
-        const response = await fetch('http://localhost:5000/api/services', {
+        const response = await fetch('http://localhost:5000/api/services/static', {
           headers: {
             'Authorization': `Bearer ${localStorage.getItem('token')}`,
             'Content-Type': 'application/json',
@@ -142,31 +142,17 @@ const NewOrderPage = () => {
         }
 
         const result = await response.json();
-        console.log('Services API response:', JSON.stringify(result, null, 2));
+        console.log('Static Services API response:', JSON.stringify(result, null, 2));
 
-        if (result.success && result.data) {
-          if (result.data.docs) {
-            // Paginated response - map to include necessary fields
-            const mappedServices = result.data.docs.map((service: any) => ({
-              ...service,
-              price: service.basePrice || service.price || 0,
-              icon: getServiceIcon(service.category)
-            }));
-            setServices(mappedServices);
-            console.log('Services array extracted:', mappedServices);
-          } else if (Array.isArray(result.data)) {
-            // Direct array response
-            const mappedServices = result.data.map((service: any) => ({
-              ...service,
-              price: service.basePrice || service.price || 0,
-              icon: getServiceIcon(service.category)
-            }));
-            setServices(mappedServices);
-            console.log('Services array extracted:', mappedServices);
-          } else {
-            console.warn('Unexpected services data structure:', result.data);
-            setServices([]);
-          }
+        if (result.success && Array.isArray(result.data)) {
+          const mappedServices = result.data.map((service: any) => ({
+            ...service,
+            _id: service.id,
+            price: service.basePrice || service.price || 0,
+            icon: getServiceIcon(service.category)
+          }));
+          setServices(mappedServices);
+          console.log('Static services loaded:', mappedServices);
         } else {
           setError('Failed to load services');
           setServices([]);
@@ -524,26 +510,54 @@ const NewOrderPage = () => {
             fullWidth
             label="Street Address"
             value={orderData.pickupAddress.street}
-            onChange={(e) => setOrderData((prev) => ({ ...prev, pickupAddress: { ...prev.pickupAddress, street: e.target.value } }))}
+            onChange={(e) => {
+              const value = e.target.value;
+              setOrderData((prev) => ({ 
+                ...prev, 
+                pickupAddress: { ...prev.pickupAddress, street: value } 
+              }));
+            }}
+            autoComplete="off"
           />
           <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
             <TextField
               sx={{ flex: '1 1 200px' }}
               label="City"
               value={orderData.pickupAddress.city}
-              onChange={(e) => setOrderData((prev) => ({ ...prev, pickupAddress: { ...prev.pickupAddress, city: e.target.value } }))}
+              onChange={(e) => {
+                const value = e.target.value;
+                setOrderData((prev) => ({ 
+                  ...prev, 
+                  pickupAddress: { ...prev.pickupAddress, city: value } 
+                }));
+              }}
+              autoComplete="off"
             />
             <TextField
               sx={{ flex: '1 1 200px' }}
               label="State"
               value={orderData.pickupAddress.state}
-              onChange={(e) => setOrderData((prev) => ({ ...prev, pickupAddress: { ...prev.pickupAddress, state: e.target.value } }))}
+              onChange={(e) => {
+                const value = e.target.value;
+                setOrderData((prev) => ({ 
+                  ...prev, 
+                  pickupAddress: { ...prev.pickupAddress, state: value } 
+                }));
+              }}
+              autoComplete="off"
             />
             <TextField
               sx={{ flex: '1 1 200px' }}
               label="Zip Code"
               value={orderData.pickupAddress.zipCode}
-              onChange={(e) => setOrderData((prev) => ({ ...prev, pickupAddress: { ...prev.pickupAddress, zipCode: e.target.value } }))}
+              onChange={(e) => {
+                const value = e.target.value;
+                setOrderData((prev) => ({ 
+                  ...prev, 
+                  pickupAddress: { ...prev.pickupAddress, zipCode: value } 
+                }));
+              }}
+              autoComplete="off"
             />
           </Box>
           <TextField
@@ -552,7 +566,14 @@ const NewOrderPage = () => {
             rows={3}
             label="Special Instructions"
             value={orderData.pickupAddress.instructions}
-            onChange={(e) => setOrderData((prev) => ({ ...prev, pickupAddress: { ...prev.pickupAddress, instructions: e.target.value } }))}
+            onChange={(e) => {
+              const value = e.target.value;
+              setOrderData((prev) => ({ 
+                ...prev, 
+                pickupAddress: { ...prev.pickupAddress, instructions: value } 
+              }));
+            }}
+            autoComplete="off"
           />
         </Box>
       </Card>
@@ -583,26 +604,54 @@ const NewOrderPage = () => {
             fullWidth
             label="Street Address"
             value={orderData.deliveryAddress.street}
-            onChange={(e) => setOrderData((prev) => ({ ...prev, deliveryAddress: { ...prev.deliveryAddress, street: e.target.value } }))}
+            onChange={(e) => {
+              const value = e.target.value;
+              setOrderData((prev) => ({ 
+                ...prev, 
+                deliveryAddress: { ...prev.deliveryAddress, street: value } 
+              }));
+            }}
+            autoComplete="off"
           />
           <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
             <TextField
               sx={{ flex: '1 1 200px' }}
               label="City"
               value={orderData.deliveryAddress.city}
-              onChange={(e) => setOrderData((prev) => ({ ...prev, deliveryAddress: { ...prev.deliveryAddress, city: e.target.value } }))}
+              onChange={(e) => {
+                const value = e.target.value;
+                setOrderData((prev) => ({ 
+                  ...prev, 
+                  deliveryAddress: { ...prev.deliveryAddress, city: value } 
+                }));
+              }}
+              autoComplete="off"
             />
             <TextField
               sx={{ flex: '1 1 200px' }}
               label="State"
               value={orderData.deliveryAddress.state}
-              onChange={(e) => setOrderData((prev) => ({ ...prev, deliveryAddress: { ...prev.deliveryAddress, state: e.target.value } }))}
+              onChange={(e) => {
+                const value = e.target.value;
+                setOrderData((prev) => ({ 
+                  ...prev, 
+                  deliveryAddress: { ...prev.deliveryAddress, state: value } 
+                }));
+              }}
+              autoComplete="off"
             />
             <TextField
               sx={{ flex: '1 1 200px' }}
               label="Zip Code"
               value={orderData.deliveryAddress.zipCode}
-              onChange={(e) => setOrderData((prev) => ({ ...prev, deliveryAddress: { ...prev.deliveryAddress, zipCode: e.target.value } }))}
+              onChange={(e) => {
+                const value = e.target.value;
+                setOrderData((prev) => ({ 
+                  ...prev, 
+                  deliveryAddress: { ...prev.deliveryAddress, zipCode: value } 
+                }));
+              }}
+              autoComplete="off"
             />
           </Box>
           <TextField
@@ -611,7 +660,14 @@ const NewOrderPage = () => {
             rows={3}
             label="Special Instructions"
             value={orderData.deliveryAddress.instructions}
-            onChange={(e) => setOrderData((prev) => ({ ...prev, deliveryAddress: { ...prev.deliveryAddress, instructions: e.target.value } }))}
+            onChange={(e) => {
+              const value = e.target.value;
+              setOrderData((prev) => ({ 
+                ...prev, 
+                deliveryAddress: { ...prev.deliveryAddress, instructions: value } 
+              }));
+            }}
+            autoComplete="off"
           />
         </Box>
       </Card>
