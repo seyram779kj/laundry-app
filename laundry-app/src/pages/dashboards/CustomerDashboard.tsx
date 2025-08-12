@@ -38,6 +38,7 @@ const CustomerDashboard: React.FC = () => {
   const [paymentLoading, setPaymentLoading] = useState(false);
   const [paymentError, setPaymentError] = useState<string | null>(null);
   const [unreadSupportChat, setUnreadSupportChat] = useState(false);
+  const [error, setError] = useState<string | null>(null); // Added state for error handling
 
   // Fetch up-to-date user profile
   useEffect(() => {
@@ -150,19 +151,23 @@ const CustomerDashboard: React.FC = () => {
   const handleManageAddresses = () => navigate('/customer/profile?tab=addresses');
   const handleManagePayments = () => navigate('/customer/profile?tab=payments');
   const handleManageNotifications = () => navigate('/customer/settings?tab=notifications');
+  
   const handleChatWithSupport = async () => {
-    if (!user?._id) return;
     try {
       const token = localStorage.getItem('token');
-      const res = await axios.post(
+
+      // Find or create general support chat room for this customer
+      const response = await axios.post(
         `${API_BASE_URL}/chats/room`,
-        { customerId: user._id },
+        { customerId: user?._id },
         { headers: { Authorization: `Bearer ${token}` } }
       );
-      const chatRoomId = res.data._id;
-      navigate(`/chat/customer/${chatRoomId}`);
-    } catch (err) {
-      alert('Failed to start chat.');
+
+      const chatRoomId = response.data._id;
+      navigate(`/customer/chat/${chatRoomId}`);
+    } catch (err: any) {
+      console.error('Error opening support chat:', err);
+      setError('Failed to open support chat');
     }
   };
 
@@ -171,6 +176,7 @@ const CustomerDashboard: React.FC = () => {
       <Typography variant="h4" gutterBottom>
         Welcome, {user?.firstName}!
       </Typography>
+      {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
       <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 3 }}>
         {/* Quick Actions */}
         <Box sx={{ width: '100%' }}>
@@ -391,4 +397,4 @@ const CustomerDashboard: React.FC = () => {
   );
 };
 
-export default CustomerDashboard; 
+export default CustomerDashboard;
