@@ -1,610 +1,894 @@
 import React, { useState, useEffect } from 'react';
 import {
   Box,
-  Stepper,
-  Step,
-  StepLabel,
-  Button,
   Typography,
-  Paper,
-  Container,
-  useTheme,
-  useMediaQuery,
   Card,
   CardContent,
   CardMedia,
+  Button,
+  TextField,
+  RadioGroup,
+  FormControlLabel,
+  Radio,
+  Checkbox,
+  FormControl,
+  FormLabel,
+  Collapse,
   IconButton,
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  List,
-  ListItem,
-  ListItemIcon,
-  ListItemText,
   Alert,
   CircularProgress,
+  Stepper,
+  Step,
+  StepLabel,
+  Container,
 } from '@mui/material';
 import {
-  LocalLaundryService,
-  DryCleaning,
-  Iron,
-  CleaningServices,
-  Close,
-  Phone,
-  Email,
-  WhatsApp,
+  Checkroom,
+  LocationOn,
+  Event,
   CreditCard,
+  Add,
+  Remove,
+  CheckCircle,
+  ExpandMore,
+  ExpandLess,
+  Phone,
+  AccountBalance,
+  Smartphone,
+  AttachMoney,
 } from '@mui/icons-material';
-import { useDispatch, useSelector } from 'react-redux';
-import { RootState } from '../app/store';
-import { createOrder } from '../features/orders/orderSlice';
-import { useNavigate, useLocation } from 'react-router-dom';
-import { useAppDispatch } from '../app/hooks';
-import { OrderItem } from '../types';
-import ServiceSelection from '../components/order/ServiceSelection';
-import ItemQuantity from '../components/order/ItemQuantity';
-import AddressSelection from '../components/order/AddressSelection';
-import OrderSummary from '../components/order/OrderSummary';
-import AddIcon from '@mui/icons-material/Add';
-import RemoveIcon from '@mui/icons-material/Remove';
 
+// Define interfaces
 interface Service {
-  id: string;
-  name: string;
-  description: string;
-  basePrice: number;
-  category?: string;
-  imageUrl?: string;
-  provider?: any;
-}
-
-
-interface BackendService {
-  _id: string;
-  name: string;
-  description: string;
-  basePrice: number;
-  category: string;
-  imageUrl?: string;
-  provider?: any;
-  isActive?: boolean;
-  isAvailable?: boolean;
-}
-
-interface Address {
-  id: string;
-  street: string;
-  city: string;
-  state: string;
-  zipCode: string;
-  isDefault: boolean;
-}
-
-interface OrderDates {
-  pickupDate: string;
-  pickupTime: string;
-  deliveryDate: string;
-  deliveryTime: string;
-}
-
-interface Item {
   id: string;
   name: string;
   price: number;
   quantity: number;
-}
-
-interface OrderAddresses {
-  pickup: string;
-  delivery: string;
-}
-
-interface FormattedDates {
-  pickup: string;
-  delivery: string;
-}
-
-interface PaymentMethod {
-  id: string;
-  name: string;
-  icon: React.ReactNode;
   description: string;
+  image: string;
+  estimatedTime: string;
+  icon: React.ReactNode;
 }
 
-const steps = ['Select Service', 'Select Items', 'Pickup Address', 'Delivery Address', 'Order Summary'];
+interface OrderData {
+  items: Service[];
+  pickupAddress: {
+    type: string;
+    street: string;
+    city: string;
+    state: string;
+    zipCode: string;
+    instructions: string;
+  };
+  deliveryAddress: {
+    type: string;
+    street: string;
+    city: string;
+    state: string;
+    zipCode: string;
+    instructions: string;
+  };
+  pickupDate: string;
+  deliveryDate: string;
+  paymentMethod: string;
+  paymentTiming: string;
+  specialInstructions: string;
+  isUrgent: boolean;
+  priority: string;
+  momoPhone: string;
+  momoNetwork: string;
+}
 
-const NewOrder: React.FC = () => {
-  const location = useLocation();
-  const theme = useTheme();
-  const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
+// Mock data for services
+const mockServices = [
+  {
+    _id: "689806fbe5b87b3d276070a3",
+    name: "Wash & Fold",
+    price: 15.0,
+    description: "Regular washing and folding service",
+    image: "https://images.unsplash.com/photo-1545173168-9f1947eebb7f",
+    estimatedTime: "24-48 hours",
+  },
+  {
+    _id: "689806fbe5b87b3d276070a3",
+    name: "Dry Cleaning",
+    price: 25.0,
+    description: "Professional dry cleaning for delicate items",
+    image: "https://images.unsplash.com/photo-1558618666-fcd25c85cd64",
+    estimatedTime: "3-5 days",
+  },
+  {
+    _id: "689806fbe5b87b3d276070a3",
+    name: "Ironing",
+    price: 10.0,
+    description: "Professional ironing for crisp clothes",
+    image: "https://images.unsplash.com/photo-1582738887449-64b35a96973b",
+    estimatedTime: "1-2 days",
+  },
+];
+
+const NewOrderPage = () => {
+  // State
   const [activeStep, setActiveStep] = useState(0);
+  const [loading, setLoading] = useState(false);
+  const [services, setServices] = useState<Service[]>([]);
   const [selectedServices, setSelectedServices] = useState<Service[]>([]);
-  const [orderTitle, setOrderTitle] = useState('');
-  const [addresses, setAddresses] = useState<OrderAddresses>({
-    pickup: '',
-    delivery: ''
-  });
-  const [dates, setDates] = useState<OrderDates>({
+  const [expandedSection, setExpandedSection] = useState('');
+  const [error, setError] = useState<string | null>(null);
+
+  const [orderData, setOrderData] = useState<OrderData>({
+    items: [],
+    pickupAddress: { type: 'home', street: '', city: '', state: '', zipCode: '', instructions: '' },
+    deliveryAddress: { type: 'home', street: '', city: '', state: '', zipCode: '', instructions: '' },
     pickupDate: '',
-    pickupTime: '',
     deliveryDate: '',
-    deliveryTime: ''
+    paymentMethod: '',
+    paymentTiming: 'before_pickup',
+    specialInstructions: '',
+    isUrgent: false,
+    priority: 'normal',
+    momoPhone: '',
+    momoNetwork: 'mtn',
   });
-  const [paymentMethod, setPaymentMethod] = useState('');
-  const [orderId, setOrderId] = useState('');
-  const [selectedService, setSelectedService] = useState<Service | null>(null);
-  const [selectedItems, setSelectedItems] = useState<OrderItem[]>([]);
-  const [totalPrice, setTotalPrice] = useState(0);
-  const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<string>('');
-  const [paymentError, setPaymentError] = useState<string | null>(null);
-  const [isProcessingPayment, setIsProcessingPayment] = useState(false);
-  const [showThankYou, setShowThankYou] = useState(false);
-  
-  // Add state for fetching services directly
-  const [availableServices, setAvailableServices] = useState<Service[]>([]);
-  const [servicesLoading, setServicesLoading] = useState(false);
-  const [servicesError, setServicesError] = useState<string | null>(null);
 
-  const dispatch = useAppDispatch();
-  const { loading } = useSelector((state: RootState) => state.orders);
-  const { user } = useSelector((state: RootState) => state.auth);
-  const navigate = useNavigate();
-
-  // Fetch services directly in this component
- useEffect(() => {
-  const fetchAvailableServices = async () => {
-    setServicesLoading(true);
-    setServicesError(null);
-    
+  // Load mock services
+  useEffect(() => {
     try {
-      const response = await fetch('http://localhost:5000/api/services', {
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`,
-          'Content-Type': 'application/json',
-        },
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to fetch services');
+      setLoading(true);
+      // Simulate API response
+      const result = { success: true, data: mockServices };
+      console.log('Mock services response:', JSON.stringify(result, null, 2));
+      if (!result.success) {
+        throw new Error('Mock service fetch unsuccessful');
       }
-
-      const data = await response.json();
-      console.log('Fetched services for customers:', data);
-      
-      let servicesArray: BackendService[] = [];
-      
-      // Handle your backend response structure
-      if (data.success && data.data) {
-        servicesArray = Array.isArray(data.data.docs) ? data.data.docs : data.data;
-      } else if (Array.isArray(data)) {
-        servicesArray = data;
+      if (!Array.isArray(result.data)) {
+        console.error('Expected array, got:', result.data, 'Type:', typeof result.data);
+        throw new Error('Invalid services data: Expected an array');
       }
-      
-      // Only show active services to customers
-      const activeServices = servicesArray.filter(service => service.isActive !== false);
-      
-      // Convert to frontend format
-      const formattedServices: Service[] = activeServices.map((service: BackendService) => ({
-        id: service._id,
-        name: service.name,
-        description: service.description,
-        basePrice: service.basePrice,
-        category: service.category,
-        imageUrl: service.imageUrl,
-        provider: service.provider
-      }));
-      
-      console.log('Formatted services for customers:', formattedServices);
-      setAvailableServices(formattedServices);
-      
+      setServices(
+        result.data.map((service: any) => ({
+          id: service._id,
+          name: service.name,
+          price: service.price,
+          quantity: 0,
+          description: service.description || '',
+          image: service.image || 'https://via.placeholder.com/300x200',
+          estimatedTime: service.estimatedTime || 'Unknown',
+          icon: <Checkroom />,
+        }))
+      );
     } catch (error) {
-      console.error('Error fetching services:', error);
-      setServicesError('Failed to load services');
-      setAvailableServices([]);
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      console.error('Error loading mock services:', errorMessage, error);
+      setError(`Failed to load services: ${errorMessage}`);
     } finally {
-      setServicesLoading(false);
+      setLoading(false);
     }
+  }, []);
+
+  const steps = [
+    { title: 'Select Services', icon: <Checkroom /> },
+    { title: 'Pickup & Delivery', icon: <LocationOn /> },
+    { title: 'Payment Details', icon: <CreditCard /> },
+    { title: 'Order Summary', icon: <CheckCircle /> },
+  ];
+
+  // Calculate totals
+  const calculateSubtotal = () => {
+    return selectedServices.reduce((sum, service) => sum + service.price * service.quantity, 0);
   };
 
-  fetchAvailableServices();
-}, []); // Ensure the dependency array is empty to run only once on mount
+  const calculateTax = (subtotal: number) => subtotal * 0.1;
 
-  useEffect(() => {
-    // Handle navigation from Services page
-    if (location.state) {
-      const { selectedService: serviceId, initialStep } = location.state as { 
-        selectedService: string;
-        initialStep?: number;
-      };
-      
-      if (serviceId && availableServices.length > 0) {
-        const foundService = availableServices.find(s => s.id === serviceId);
-        if (foundService) {
-          setSelectedServices([foundService]);
-          setOrderTitle(foundService.name);
-          setSelectedService(foundService);
-        }
-      }
-      
-      if (initialStep !== undefined) {
-        setActiveStep(initialStep);
-      }
-    }
-
-    if (showThankYou) {
-      console.log('Thank you message shown, preparing to redirect...');
-      const timer = setTimeout(() => {
-        console.log('Redirecting to orders page...');
-        navigate('/orders', { replace: true });
-      }, 4000);
-      // ... rest of your component remains the same ...
-
-      return () => clearTimeout(timer);
-    }
-  }, [location.state, availableServices, activeStep, showThankYou, navigate]);
-
- const handleItemsChange = (items: Item[], totalPrice: number) => {
-  const orderItems: OrderItem[] = items.map(item => ({
-    serviceId: selectedService?.id || '',
-    quantity: item.quantity,
-    price: item.price
-  }));
-  setSelectedItems(orderItems);
-  setTotalPrice(totalPrice);
-};
-
-// In the getStepContent function, ensure you pass the correct props to ItemQuantit
-
+  const calculateTotal = () => {
+    const subtotal = calculateSubtotal();
+    const tax = calculateTax(subtotal);
+    const deliveryFee = orderData.isUrgent ? 10 : 5;
+    return subtotal + tax + deliveryFee;
+  };
 
   const handleNext = () => {
-    setActiveStep((prevStep) => prevStep + 1);
+    if (activeStep < steps.length - 1) setActiveStep(activeStep + 1);
   };
 
   const handleBack = () => {
-    setActiveStep((prevStep) => prevStep - 1);
+    if (activeStep > 0) setActiveStep(activeStep - 1);
   };
 
-  const handleAddressChange = (newAddresses: OrderAddresses) => {
-    setAddresses(newAddresses);
-  };
+  const handleServiceQuantityChange = (service: Service, change: number) => {
+    const selectedService = selectedServices.find((s) => s.id === service.id);
+    const currentQuantity = selectedService?.quantity || 0;
+    const newQuantity = Math.max(0, currentQuantity + change);
 
-  const handleDateChange = (formattedDates: FormattedDates) => {
-    const [pickupDate, pickupTime] = formattedDates.pickup.split(' ');
-    const [deliveryDate, deliveryTime] = formattedDates.delivery.split(' ');
-    setDates({
-      pickupDate,
-      pickupTime,
-      deliveryDate,
-      deliveryTime,
-    });
-  };
-
-  const handlePaymentMethodChange = (method: string) => {
-    setPaymentMethod(method);
-  };
-
-  const handleSubmit = async () => {
-    try {
-      // Fetch the selected service details to get the provider
-      const serviceId = selectedServices[0]?.id;
-      if (!serviceId) throw new Error('No service selected');
-      const res = await fetch(`http://localhost:5000/api/services/${serviceId}`);
-      if (!res.ok) throw new Error('Failed to fetch service details');
-      const serviceData = await res.json();
-      const providerId = serviceData.data?.provider?._id;
-      if (!providerId) throw new Error('No provider found for selected service');
-      await dispatch(createOrder({
-        serviceId,
-        serviceProviderId: providerId,
-        items: selectedItems,
-        pickupAddress: addresses.pickup,
-        deliveryAddress: addresses.delivery,
-        pickupDate: dates.pickupDate,
-        deliveryDate: dates.deliveryDate,
-      })).unwrap();
-      navigate('/orders', { replace: true });
-    } catch (error) {
-      console.error('Failed to create order:', error);
+    if (newQuantity === 0) {
+      setSelectedServices((prev) => prev.filter((s) => s.id !== service.id));
+    } else if (selectedService) {
+      setSelectedServices((prev) =>
+        prev.map((s) => (s.id === service.id ? { ...s, quantity: newQuantity } : s))
+      );
+    } else {
+      setSelectedServices((prev) => [...prev, { ...service, quantity: newQuantity }]);
     }
   };
 
-  const handleServiceClick = (service: any) => {
-    setSelectedService(service);
+  const copyPickupToDelivery = () => {
+    setOrderData((prev) => ({
+      ...prev,
+      deliveryAddress: { ...prev.pickupAddress },
+    }));
   };
 
-  const handleCloseDialog = () => {
-    setSelectedService(null);
-  };
-
-  const handleBookService = () => {
-    if (selectedService) {
-      setSelectedServices(prev => [...prev, selectedService]);
-      setSelectedService(null);
-    }
-  };
-
-  const handlePaymentMethodSelect = (methodId: string) => {
-    setSelectedPaymentMethod(methodId);
-    setPaymentError(null);
-  };
-
-  const handleMoMoPayment = async () => {
-    setIsProcessingPayment(true);
-    setPaymentError(null);
-
+  const handleSubmitOrder = async () => {
+    setLoading(true);
     try {
-      const response = await fetch('/api/payments/momo', {
+      const selectedService = selectedServices[0];
+      if (!selectedService) {
+        throw new Error('No service selected');
+      }
+      const orderPayload = {
+        serviceId: selectedService.id,
+        serviceProviderId: null,
+        pickupAddress: {
+          type: orderData.pickupAddress.type,
+          street: orderData.pickupAddress.street,
+          city: orderData.pickupAddress.city,
+          state: orderData.pickupAddress.state,
+          zipCode: orderData.pickupAddress.zipCode,
+          instructions: orderData.pickupAddress.instructions,
+        },
+        deliveryAddress: {
+          type: orderData.deliveryAddress.type,
+          street: orderData.deliveryAddress.street,
+          city: orderData.deliveryAddress.city,
+          state: orderData.deliveryAddress.state,
+          zipCode: orderData.deliveryAddress.zipCode,
+          instructions: orderData.deliveryAddress.instructions,
+        },
+        specialInstructions: orderData.specialInstructions,
+        scheduledPickup: orderData.pickupDate,
+        scheduledDelivery: orderData.deliveryDate,
+        pickupDate: orderData.pickupDate,
+        deliveryDate: orderData.deliveryDate,
+        items: [
+          {
+            service: selectedService.id,
+            serviceName: selectedService.name,
+            quantity: selectedService.quantity,
+            unitPrice: selectedService.price,
+            totalPrice: selectedService.price * selectedService.quantity,
+            specialInstructions: orderData.specialInstructions,
+          },
+        ],
+        subtotal: calculateSubtotal(),
+        totalAmount: calculateTotal(),
+        tax: calculateTax(calculateSubtotal()),
+        deliveryFee: orderData.isUrgent ? 10 : 5,
+        paymentMethod: orderData.paymentMethod,
+        isUrgent: orderData.isUrgent,
+        priority: orderData.priority,
+      };
+
+      const token = localStorage.getItem('token');
+      if (!token) {
+        throw new Error('No authentication token found. Please log in.');
+      }
+
+      console.log('Submitting order payload:', JSON.stringify(orderPayload, null, 2));
+
+      const response = await fetch('http://localhost:5000/api/orders', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify({
-          amount: totalPrice,
-          currency: 'GHS',
-          customerPhone: user?.phoneNumber,
-          customerEmail: user?.email,
-          orderId: orderId,
-        }),
+        body: JSON.stringify(orderPayload),
       });
 
-      const data = await response.json();
+      const result = await response.json();
 
-      if (data.success) {
-        setShowThankYou(true);
-      } else {
-        setPaymentError(data.message || 'Failed to initiate payment');
+      if (!response.ok) {
+        throw new Error(result.error || 'Failed to submit order');
       }
+
+      alert('Order submitted successfully!');
+      console.log('Order created:', result.data);
+
+      setOrderData({
+        items: [],
+        pickupAddress: { type: 'home', street: '', city: '', state: '', zipCode: '', instructions: '' },
+        deliveryAddress: { type: 'home', street: '', city: '', state: '', zipCode: '', instructions: '' },
+        pickupDate: '',
+        deliveryDate: '',
+        paymentMethod: '',
+        paymentTiming: 'before_pickup',
+        specialInstructions: '',
+        isUrgent: false,
+        priority: 'normal',
+        momoPhone: '',
+        momoNetwork: 'mtn',
+      });
+      setSelectedServices([]);
+      setActiveStep(0);
     } catch (error) {
-      setPaymentError('An error occurred while processing payment');
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      console.error('Order submission error:', errorMessage, error);
+      alert(`Failed to submit order: ${errorMessage}`);
     } finally {
-      setIsProcessingPayment(false);
+      setLoading(false);
     }
   };
 
-  const isStepValid = (step: number) => {
-    switch (step) {
+  // Stepper Component
+  const StepperComponent = () => (
+    <Box sx={{ mb: 4 }}>
+      <Stepper activeStep={activeStep}>
+        {steps.map((step, index) => (
+          <Step key={index}>
+            <StepLabel icon={step.icon}>{step.title}</StepLabel>
+          </Step>
+        ))}
+      </Stepper>
+    </Box>
+  );
+
+  // Service Selection Component
+  const ServiceSelectionStep = () => (
+    <Box sx={{ py: 4 }}>
+      <Typography variant="h2" align="center" gutterBottom>
+        Select Your Services
+      </Typography>
+      <Typography variant="body1" align="center" color="text.secondary" sx={{ mb: 4 }}>
+        Choose the laundry services you need
+      </Typography>
+      {error && (
+        <Alert severity="error" sx={{ mb: 4 }}>
+          {error}
+        </Alert>
+      )}
+      {loading && (
+        <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
+          <CircularProgress />
+        </Box>
+      )}
+      {!loading && services.length === 0 && !error && (
+        <Alert severity="warning" sx={{ mb: 4 }}>
+          No services available. Please try again later.
+        </Alert>
+      )}
+      {!loading && services.length > 0 && (
+        <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 2, justifyContent: 'center' }}>
+          {services.map((service) => {
+            const selectedService = selectedServices.find((s) => s.id === service.id);
+            const quantity = selectedService?.quantity || 0;
+            return (
+              <Card key={service.id} sx={{ width: 300, transition: 'transform 0.3s', '&:hover': { transform: 'translateY(-4px)' } }}>
+                <CardMedia component="img" height="160" image={service.image} alt={service.name} />
+                <CardContent>
+                  <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
+                    <Box sx={{ bgcolor: 'primary.light', p: 1, borderRadius: '50%', mr: 2 }}>{service.icon}</Box>
+                    <Typography variant="h6">{service.name}</Typography>
+                  </Box>
+                  <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                    {service.description}
+                  </Typography>
+                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+                    <Typography variant="h6" color="primary">
+                      ${service.price.toFixed(2)}
+                    </Typography>
+                    <Box sx={{ bgcolor: 'success.light', color: 'success.main', px: 2, py: 1, borderRadius: 4, fontSize: '0.75rem' }}>
+                      {service.estimatedTime}
+                    </Box>
+                  </Box>
+                  <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 2 }}>
+                    <IconButton
+                      onClick={() => handleServiceQuantityChange(service, -1)}
+                      disabled={quantity === 0}
+                      sx={{ bgcolor: 'grey.200', '&:hover': { bgcolor: 'grey.300' } }}
+                    >
+                      <Remove />
+                    </IconButton>
+                    <Typography variant="body1" sx={{ minWidth: 32, textAlign: 'center' }}>
+                      {quantity}
+                    </Typography>
+                    <IconButton
+                      onClick={() => handleServiceQuantityChange(service, 1)}
+                      sx={{ bgcolor: 'primary.main', color: 'white', '&:hover': { bgcolor: 'primary.dark' } }}
+                      disabled={selectedServices.length >= 1 && !selectedService}
+                    >
+                      <Add />
+                    </IconButton>
+                  </Box>
+                </CardContent>
+              </Card>
+            );
+          })}
+        </Box>
+      )}
+      {selectedServices.length > 0 && (
+        <Card sx={{ mt: 4, p: 3 }}>
+          <Typography variant="h5" gutterBottom>
+            Selected Services
+          </Typography>
+          {selectedServices.map((service) => (
+            <Box key={service.id} sx={{ display: 'flex', justifyContent: 'space-between', py: 1 }}>
+              <Typography>{service.name} × {service.quantity}</Typography>
+              <Typography color="primary">${(service.price * service.quantity).toFixed(2)}</Typography>
+            </Box>
+          ))}
+          <Box sx={{ borderTop: 1, borderColor: 'divider', pt: 2, mt: 2 }}>
+            <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+              <Typography variant="h6">Subtotal:</Typography>
+              <Typography variant="h6" color="primary">
+                ${calculateSubtotal().toFixed(2)}
+              </Typography>
+            </Box>
+          </Box>
+        </Card>
+      )}
+    </Box>
+  );
+
+  // Address Selection Component
+  const AddressSelectionStep = () => (
+    <Box sx={{ py: 4 }}>
+      <Typography variant="h2" align="center" gutterBottom>
+        Pickup & Delivery Details
+      </Typography>
+      <Typography variant="body1" align="center" color="text.secondary" sx={{ mb: 4 }}>
+        Tell us where to collect and deliver your items
+      </Typography>
+      <Card sx={{ mb: 4, p: 3 }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
+          <LocationOn sx={{ mr: 1, color: 'primary.main' }} />
+          <Typography variant="h5">Pickup Address</Typography>
+        </Box>
+        <FormControl component="fieldset" sx={{ mb: 2 }}>
+          <RadioGroup
+            row
+            name="pickupType"
+            value={orderData.pickupAddress.type}
+            onChange={(e) => setOrderData((prev) => ({ ...prev, pickupAddress: { ...prev.pickupAddress, type: e.target.value } }))}
+          >
+            {['home', 'work', 'other'].map((type) => (
+              <FormControlLabel key={type} value={type} control={<Radio />} label={type.charAt(0).toUpperCase() + type.slice(1)} />
+            ))}
+          </RadioGroup>
+        </FormControl>
+        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+          <TextField
+            fullWidth
+            label="Street Address"
+            value={orderData.pickupAddress.street}
+            onChange={(e) => setOrderData((prev) => ({ ...prev, pickupAddress: { ...prev.pickupAddress, street: e.target.value } }))}
+          />
+          <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
+            <TextField
+              sx={{ flex: '1 1 200px' }}
+              label="City"
+              value={orderData.pickupAddress.city}
+              onChange={(e) => setOrderData((prev) => ({ ...prev, pickupAddress: { ...prev.pickupAddress, city: e.target.value } }))}
+            />
+            <TextField
+              sx={{ flex: '1 1 200px' }}
+              label="State"
+              value={orderData.pickupAddress.state}
+              onChange={(e) => setOrderData((prev) => ({ ...prev, pickupAddress: { ...prev.pickupAddress, state: e.target.value } }))}
+            />
+            <TextField
+              sx={{ flex: '1 1 200px' }}
+              label="Zip Code"
+              value={orderData.pickupAddress.zipCode}
+              onChange={(e) => setOrderData((prev) => ({ ...prev, pickupAddress: { ...prev.pickupAddress, zipCode: e.target.value } }))}
+            />
+          </Box>
+          <TextField
+            fullWidth
+            multiline
+            rows={3}
+            label="Special Instructions"
+            value={orderData.pickupAddress.instructions}
+            onChange={(e) => setOrderData((prev) => ({ ...prev, pickupAddress: { ...prev.pickupAddress, instructions: e.target.value } }))}
+          />
+        </Box>
+      </Card>
+      <Card sx={{ mb: 4, p: 3 }}>
+        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+          <Box sx={{ display: 'flex', alignItems: 'center' }}>
+            <LocationOn sx={{ mr: 1, color: 'success.main' }} />
+            <Typography variant="h5">Delivery Address</Typography>
+          </Box>
+          <Button variant="outlined" onClick={copyPickupToDelivery}>
+            Same as pickup
+          </Button>
+        </Box>
+        <FormControl component="fieldset" sx={{ mb: 2 }}>
+          <RadioGroup
+            row
+            name="deliveryType"
+            value={orderData.deliveryAddress.type}
+            onChange={(e) => setOrderData((prev) => ({ ...prev, deliveryAddress: { ...prev.deliveryAddress, type: e.target.value } }))}
+          >
+            {['home', 'work', 'other'].map((type) => (
+              <FormControlLabel key={type} value={type} control={<Radio />} label={type.charAt(0).toUpperCase() + type.slice(1)} />
+            ))}
+          </RadioGroup>
+        </FormControl>
+        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+          <TextField
+            fullWidth
+            label="Street Address"
+            value={orderData.deliveryAddress.street}
+            onChange={(e) => setOrderData((prev) => ({ ...prev, deliveryAddress: { ...prev.deliveryAddress, street: e.target.value } }))}
+          />
+          <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
+            <TextField
+              sx={{ flex: '1 1 200px' }}
+              label="City"
+              value={orderData.deliveryAddress.city}
+              onChange={(e) => setOrderData((prev) => ({ ...prev, deliveryAddress: { ...prev.deliveryAddress, city: e.target.value } }))}
+            />
+            <TextField
+              sx={{ flex: '1 1 200px' }}
+              label="State"
+              value={orderData.deliveryAddress.state}
+              onChange={(e) => setOrderData((prev) => ({ ...prev, deliveryAddress: { ...prev.deliveryAddress, state: e.target.value } }))}
+            />
+            <TextField
+              sx={{ flex: '1 1 200px' }}
+              label="Zip Code"
+              value={orderData.deliveryAddress.zipCode}
+              onChange={(e) => setOrderData((prev) => ({ ...prev, deliveryAddress: { ...prev.deliveryAddress, zipCode: e.target.value } }))}
+            />
+          </Box>
+          <TextField
+            fullWidth
+            multiline
+            rows={3}
+            label="Special Instructions"
+            value={orderData.deliveryAddress.instructions}
+            onChange={(e) => setOrderData((prev) => ({ ...prev, deliveryAddress: { ...prev.deliveryAddress, instructions: e.target.value } }))}
+          />
+        </Box>
+      </Card>
+      <Card sx={{ p: 3 }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
+          <Event sx={{ mr: 1, color: 'secondary.main' }} />
+          <Typography variant="h5">Schedule Service</Typography>
+        </Box>
+        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, mb: 2 }}>
+          <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
+            <TextField
+              sx={{ flex: '1 1 200px' }}
+              type="date"
+              label="Pickup Date"
+              value={orderData.pickupDate}
+              onChange={(e) => setOrderData((prev) => ({ ...prev, pickupDate: e.target.value }))}
+              InputLabelProps={{ shrink: true }}
+            />
+            <TextField
+              sx={{ flex: '1 1 200px' }}
+              type="date"
+              label="Delivery Date"
+              value={orderData.deliveryDate}
+              onChange={(e) => setOrderData((prev) => ({ ...prev, deliveryDate: e.target.value }))}
+              InputLabelProps={{ shrink: true }}
+            />
+          </Box>
+          <FormControlLabel
+            control={<Checkbox checked={orderData.isUrgent} onChange={(e) => setOrderData((prev) => ({ ...prev, isUrgent: e.target.checked }))} />}
+            label="Urgent Service (+$10.00)"
+          />
+        </Box>
+      </Card>
+    </Box>
+  );
+
+  const PaymentSelectionStep = () => (
+    <Box sx={{ py: 4 }}>
+      <Typography variant="h2" align="center" gutterBottom>
+        Payment Details
+      </Typography>
+      <Typography variant="body1" align="center" color="text.secondary" sx={{ mb: 4 }}>
+        Choose when and how you'd like to pay
+      </Typography>
+      <Card sx={{ mb: 4, p: 3 }}>
+        <Typography variant="h5" gutterBottom>
+          When would you like to pay?
+        </Typography>
+        <RadioGroup
+          name="paymentTiming"
+          value={orderData.paymentTiming}
+          onChange={(e) => setOrderData((prev) => ({ ...prev, paymentTiming: e.target.value }))}
+        >
+          <FormControlLabel
+            value="before_pickup"
+            control={<Radio />}
+            label={
+              <Box>
+                <Typography>Pay Before Pickup</Typography>
+                <Typography variant="body2" color="text.secondary">
+                  Secure your order with advance payment
+                </Typography>
+              </Box>
+            }
+          />
+          <FormControlLabel
+            value="before_delivery"
+            control={<Radio />}
+            label={
+              <Box>
+                <Typography>Pay Before Delivery</Typography>
+                <Typography variant="body2" color="text.secondary">
+                  Pay after your items are cleaned and ready for delivery
+                </Typography>
+              </Box>
+            }
+          />
+        </RadioGroup>
+      </Card>
+      <Card sx={{ p: 3 }}>
+        <Typography variant="h5" gutterBottom>
+          Select Payment Method
+        </Typography>
+        <RadioGroup
+          name="paymentMethod"
+          value={orderData.paymentMethod}
+          onChange={(e) => setOrderData((prev) => ({ ...prev, paymentMethod: e.target.value }))}
+        >
+          {[
+            { value: 'momo', label: 'Mobile Money (MoMo)', sublabel: 'Pay securely with MTN MoMo or AirtelTigo Money', icon: <Smartphone />, color: '#FFC107' },
+            { value: 'credit_card', label: 'Credit/Debit Card', sublabel: 'Visa, Mastercard, American Express', icon: <CreditCard />, color: 'primary.main' },
+            { value: 'bank_transfer', label: 'Bank Transfer', sublabel: 'Direct bank account transfer', icon: <AccountBalance />, color: 'success.main' },
+            { value: 'cash', label: 'Cash Payment', sublabel: 'Pay with cash upon pickup or delivery', icon: <AttachMoney />, color: '#F57C00' },
+          ].map((method) => (
+            <FormControlLabel
+              key={method.value}
+              value={method.value}
+              control={<Radio />}
+              label={
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, p: 2, border: 1, borderColor: orderData.paymentMethod === method.value ? 'primary.main' : 'grey.300', borderRadius: 2, bgcolor: orderData.paymentMethod === method.value ? 'primary.light' : 'transparent' }}>
+                  <Box sx={{ bgcolor: method.color, p: 1, borderRadius: '50%' }}>{method.icon}</Box>
+                  <Box>
+                    <Typography>{method.label}</Typography>
+                    <Typography variant="body2" color="text.secondary">
+                      {method.sublabel}
+                    </Typography>
+                  </Box>
+                </Box>
+              }
+            />
+          ))}
+        </RadioGroup>
+        {orderData.paymentMethod === 'momo' && (
+          <Box sx={{ mt: 2, p: 2, bgcolor: 'grey.50', borderRadius: 2 }}>
+            <Typography variant="h6" gutterBottom>
+              Mobile Money Details
+            </Typography>
+            <TextField
+              fullWidth
+              label="Phone Number (024XXXXXXX)"
+              value={orderData.momoPhone}
+              onChange={(e) => setOrderData((prev) => ({ ...prev, momoPhone: e.target.value }))}
+              sx={{ mb: 2 }}
+            />
+            <FormControl component="fieldset">
+              <FormLabel component="legend">Network</FormLabel>
+              <RadioGroup
+                row
+                name="momoNetwork"
+                value={orderData.momoNetwork}
+                onChange={(e) => setOrderData((prev) => ({ ...prev, momoNetwork: e.target.value }))}
+              >
+                {[
+                  { value: 'mtn', label: 'MTN' },
+                  { value: 'airteltigo', label: 'AirtelTigo' },
+                  { value: 'vodafone', label: 'Vodafone' },
+                ].map((network) => (
+                  <FormControlLabel key={network.value} value={network.value} control={<Radio />} label={network.label} />
+                ))}
+              </RadioGroup>
+            </FormControl>
+          </Box>
+        )}
+        <Alert severity="info" sx={{ mt: 2 }}>
+          {orderData.paymentTiming === 'before_pickup'
+            ? "Payment will be processed immediately after order confirmation. You'll receive a receipt via email."
+            : "You'll receive payment instructions before delivery. Payment must be completed before handover."}
+        </Alert>
+      </Card>
+    </Box>
+  );
+
+  const OrderSummaryStep = () => (
+    <Box sx={{ py: 4 }}>
+      <Typography variant="h2" align="center" gutterBottom>
+        Order Summary
+      </Typography>
+      <Typography variant="body1" align="center" color="text.secondary" sx={{ mb: 4 }}>
+        Review your order before confirming
+      </Typography>
+      <Card sx={{ mb: 4, p: 3 }}>
+        <Typography variant="h5" gutterBottom>
+          Selected Services
+        </Typography>
+        {selectedServices.map((service) => (
+          <Box key={service.id} sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', p: 2, bgcolor: 'grey.50', borderRadius: 2, mb: 1 }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+              <Box sx={{ bgcolor: 'primary.light', p: 1, borderRadius: '50%' }}>{service.icon}</Box>
+              <Box>
+                <Typography>{service.name}</Typography>
+                <Typography variant="body2" color="text.secondary">
+                  Quantity: {service.quantity} × ${service.price.toFixed(2)}
+                </Typography>
+              </Box>
+            </Box>
+            <Typography color="primary">${(service.price * service.quantity).toFixed(2)}</Typography>
+          </Box>
+        ))}
+      </Card>
+      <Card sx={{ mb: 4, p: 3 }}>
+        <Typography variant="h5" gutterBottom>
+          Service Details
+        </Typography>
+        <Box sx={{ border: 1, borderColor: 'divider', borderRadius: 2, overflow: 'hidden' }}>
+          <Box sx={{ p: 2, bgcolor: 'grey.50', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }} onClick={() => setExpandedSection(expandedSection === 'addresses' ? '' : 'addresses')}>
+            <Typography variant="subtitle1">Pickup & Delivery Addresses</Typography>
+            <IconButton>{expandedSection === 'addresses' ? <ExpandLess /> : <ExpandMore />}</IconButton>
+          </Box>
+          <Collapse in={expandedSection === 'addresses'}>
+            <Box sx={{ p: 2 }}>
+              <Typography variant="subtitle2" color="primary" gutterBottom>
+                Pickup Address:
+              </Typography>
+              <Typography variant="body2">
+                {orderData.pickupAddress.street}, {orderData.pickupAddress.city}, {orderData.pickupAddress.state} {orderData.pickupAddress.zipCode}
+              </Typography>
+              <Typography variant="body2" color="text.secondary">
+                Date: {orderData.pickupDate}
+              </Typography>
+              <Typography variant="subtitle2" color="success.main" sx={{ mt: 2 }} gutterBottom>
+                Delivery Address:
+              </Typography>
+              <Typography variant="body2">
+                {orderData.deliveryAddress.street}, {orderData.deliveryAddress.city}, {orderData.deliveryAddress.state} {orderData.deliveryAddress.zipCode}
+              </Typography>
+              <Typography variant="body2" color="text.secondary">
+                Date: {orderData.deliveryDate}
+              </Typography>
+            </Box>
+          </Collapse>
+        </Box>
+        <Box sx={{ border: 1, borderColor: 'divider', borderRadius: 2, overflow: 'hidden', mt: 2 }}>
+          <Box sx={{ p: 2, bgcolor: 'grey.50', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }} onClick={() => setExpandedSection(expandedSection === 'payment' ? '' : 'payment')}>
+            <Typography variant="subtitle1">Payment Information</Typography>
+            <IconButton>{expandedSection === 'payment' ? <ExpandLess /> : <ExpandMore />}</IconButton>
+          </Box>
+          <Collapse in={expandedSection === 'payment'}>
+            <Box sx={{ p: 2 }}>
+              <Typography variant="body2">
+                <strong>Method:</strong> {orderData.paymentMethod?.replace('_', ' ').replace(/\b\w/g, (l) => l.toUpperCase())}
+              </Typography>
+              <Typography variant="body2">
+                <strong>Timing:</strong> {orderData.paymentTiming === 'before_pickup' ? 'Pay Before Pickup' : 'Pay Before Delivery'}
+              </Typography>
+              {orderData.paymentMethod === 'momo' && orderData.momoPhone && (
+                <Typography variant="body2">
+                  <strong>MoMo Number:</strong> {orderData.momoPhone} ({orderData.momoNetwork.toUpperCase()})
+                </Typography>
+              )}
+            </Box>
+          </Collapse>
+        </Box>
+      </Card>
+      <Card sx={{ p: 3 }}>
+        <Typography variant="h5" gutterBottom>
+          Order Total
+        </Typography>
+        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+          <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+            <Typography>Subtotal:</Typography>
+            <Typography>${calculateSubtotal().toFixed(2)}</Typography>
+          </Box>
+          <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+            <Typography>Tax (10%):</Typography>
+            <Typography>${calculateTax(calculateSubtotal()).toFixed(2)}</Typography>
+          </Box>
+          <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+            <Typography>Delivery Fee:</Typography>
+            <Typography>${orderData.isUrgent ? '10.00' : '5.00'}</Typography>
+          </Box>
+          {orderData.isUrgent && (
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', color: 'warning.main' }}>
+              <Typography>Urgent Service:</Typography>
+              <Typography>Included</Typography>
+            </Box>
+          )}
+          <Box sx={{ borderTop: 1, borderColor: 'divider', pt: 2, mt: 2, display: 'flex', justifyContent: 'space-between' }}>
+            <Typography variant="h6">Total:</Typography>
+            <Typography variant="h6" color="primary">
+              ${calculateTotal().toFixed(2)}
+            </Typography>
+          </Box>
+        </Box>
+      </Card>
+    </Box>
+  );
+
+  const canProceed = () => {
+    switch (activeStep) {
       case 0:
-        return !!selectedService;
+        return services.length > 0 && selectedServices.length === 1;
       case 1:
-        return selectedItems.length > 0;
+        return orderData.pickupAddress.street && orderData.deliveryAddress.street && orderData.pickupDate && orderData.deliveryDate;
       case 2:
-        return !!addresses.pickup && !!dates.pickupDate;
+        return orderData.paymentMethod && orderData.paymentTiming;
       case 3:
-        return !!addresses.delivery && !!dates.deliveryDate;
-      case 4:
         return true;
       default:
         return false;
     }
   };
 
-  const formatDates = (dates: OrderDates) => ({
-    pickup: `${dates.pickupDate} ${dates.pickupTime}`,
-    delivery: `${dates.deliveryDate} ${dates.deliveryTime}`
-  });
-
-  const getStepContent = (step: number) => {
-    if (!user) return null;
-
-    if (showThankYou) {
-      return (
-        <Box sx={{ textAlign: 'center', py: 4 }}>
-          <Typography variant="h4" color="primary" gutterBottom>
-            Thank You!
-          </Typography>
-          <Typography variant="h6" color="text.secondary">
-            Your order has been placed successfully.
-          </Typography>
-          <Typography variant="body1" color="text.secondary" sx={{ mt: 2 }}>
-            Redirecting to orders...
-          </Typography>
-        </Box>
-      );
-    }
-
-    switch (step) {
-      case 0:
-        if (servicesLoading) {
-          return (
-            <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
-              <CircularProgress />
-            </Box>
-          );
-        }
-        
-        if (servicesError) {
-          return (
-            <Alert severity="error" sx={{ my: 2 }}>
-              {servicesError}
-            </Alert>
-          );
-        }
-        
-        if (availableServices.length === 0) {
-          return (
-            <Alert severity="info" sx={{ my: 2 }}>
-              No services available at the moment.
-            </Alert>
-          );
-        }
-        
-        return (
-          <Box>
-            <Typography variant="h6" gutterBottom>
-              Select a Service
-            </Typography>
-            <Box display="flex" flexWrap="wrap" sx={{ mt: 1 }}>
-              {availableServices.map((service) => (
-                <Box key={service.id} sx={{ width: { xs: '100%', sm: '50%', md: '33.33%' }, p: 1 }}>
-                  <Card
-                    sx={{
-                      cursor: 'pointer',
-                      '&:hover': {
-                        boxShadow: 4,
-                      },
-                      border: selectedService?.id === service.id ? '2px solid' : '1px solid',
-                      borderColor: selectedService?.id === service.id ? 'primary.main' : 'divider',
-                    }}
-                    onClick={() => handleServiceClick(service)}
-                  >
-                    {service.imageUrl && (
-                      <CardMedia
-                        component="img"
-                        height="140"
-                        image={service.imageUrl.startsWith('http') 
-                          ? service.imageUrl 
-                          : `http://localhost:5000${service.imageUrl}`
-                        }
-                        alt={service.name}
-                      />
-                    )}
-                    <CardContent>
-                      <Typography gutterBottom variant="h6" component="div">
-                        {service.name}
-                      </Typography>
-                      <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
-                        {service.description}
-                      </Typography>
-                      <Typography variant="h6" color="primary">
-                        ${service.basePrice}
-                      </Typography>
-                      {service.category && (
-                        <Typography variant="caption" color="text.secondary" sx={{ textTransform: 'capitalize' }}>
-                          {service.category.replace('-', ' ')}
-                        </Typography>
-                      )}
-                    </CardContent>
-                  </Card>
-                </Box>
-              ))}
-            </Box>
-            
-            {selectedService && (
-              <Box sx={{ mt: 3, display: 'flex', justifyContent: 'flex-end' }}>
-                <Button
-                  variant="contained"
-                  onClick={() => setActiveStep(1)}
-                >
-                  Continue with {selectedService.name}
-                </Button>
-              </Box>
-            )}
-          </Box>
-        );
-        
-      case 1:
-        return (
-          <ItemQuantity
-            selectedServiceId={selectedServices[0]?.id || ''}
-            onItemsChange={handleItemsChange}
-          />
-        );
-        
-      case 2:
-        return (
-          <AddressSelection
-            addresses={addresses}
-            dates={formatDates(dates)}
-            onAddressChange={handleAddressChange}
-            onDateChange={handleDateChange}
-            user={user}
-          />
-        );
-      case 3:
-        return (
-          <Box>
-            <Typography variant="h6" gutterBottom>
-              Delivery Details for {selectedService?.name}
-            </Typography>
-            <AddressSelection
-              addresses={addresses}
-              dates={formatDates(dates)}
-              onAddressChange={handleAddressChange}
-              onDateChange={handleDateChange}
-              user={user}
-              isDelivery
-            />
-          </Box>
-        );
-      case 4:
-        return (
-          <Box>
-            <OrderSummary
-              items={selectedItems}
-              addresses={addresses}
-              dates={formatDates(dates)}
-              onEdit={() => setActiveStep(2)}
-              totalPrice={totalPrice}
-            />
-            <Box sx={{ mt: 4, display: 'flex', justifyContent: 'flex-end' }}>
-              <Button
-                variant="contained"
-                size="large"
-                onClick={handleSubmit}
-              >
-                Place Order
-              </Button>
-            </Box>
-          </Box>
-        );
-        
-      default:
-        return null;
-    }
-  };
-
-  // ... rest of your component remains the same ...
-
   return (
-    <Container maxWidth="lg" sx={{ py: 4 }}>
-      <Paper sx={{ p: 3 }}>
-        <Typography variant="h4" gutterBottom>
-          New Order
-        </Typography>
-        <Typography variant="subtitle1" color="text.secondary" gutterBottom>
-          {orderTitle || 'Select a service to get started'}
-        </Typography>
-
-        <Stepper activeStep={activeStep} sx={{ my: 4 }}>
-          {steps.map((label) => (
-            <Step key={label}>
-              <StepLabel>{label}</StepLabel>
-            </Step>
-          ))}
-        </Stepper>
-
-        {getStepContent(activeStep)}
-
-        {activeStep !== 0 && activeStep !== steps.length - 1 && (
-          <Box sx={{ display: 'flex', justifyContent: 'space-between', mt: 3 }}>
-            <Button
-              variant="outlined"
-              onClick={handleBack}
-            >
-              Back
-            </Button>
+    <Container maxWidth="lg" sx={{ py: 4, bgcolor: 'background.default', minHeight: '100vh' }}>
+      <Typography variant="h1" align="center" gutterBottom>
+        Create New Order
+      </Typography>
+      <Typography variant="body1" align="center" color="text.secondary" sx={{ mb: 4 }}>
+        Get your laundry done with our professional service
+      </Typography>
+      <StepperComponent />
+      {renderStepContent()}
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', mt: 4 }}>
+        <Button
+          variant="outlined"
+          onClick={handleBack}
+          disabled={activeStep === 0}
+          sx={{ px: 4, py: 1.5 }}
+        >
+          Back
+        </Button>
+        <Box sx={{ display: 'flex', gap: 2 }}>
+          {activeStep < steps.length - 1 ? (
             <Button
               variant="contained"
               onClick={handleNext}
-              disabled={activeStep === 1 && selectedItems.length === 0}
+              disabled={!canProceed()}
+              sx={{ px: 4, py: 1.5 }}
             >
-              Continue
+              Next
             </Button>
-          </Box>
-        )}
-        {activeStep === steps.length - 1 && (
-          <Box sx={{ display: 'flex', justifyContent: 'flex-start', mt: 3 }}>
+          ) : (
             <Button
-              variant="outlined"
-              onClick={handleBack}
+              variant="contained"
+              color="success"
+              onClick={handleSubmitOrder}
+              disabled={loading || !canProceed()}
+              sx={{ px: 4, py: 1.5, display: 'flex', gap: 1 }}
             >
-              Back
+              {loading && <CircularProgress size={20} color="inherit" />}
+              <span>{loading ? 'Submitting...' : 'Submit Order'}</span>
             </Button>
-          </Box>
-        )}
-      </Paper>
+          )}
+        </Box>
+      </Box>
     </Container>
   );
+
+  function renderStepContent() {
+    switch (activeStep) {
+      case 0:
+        return <ServiceSelectionStep />;
+      case 1:
+        return <AddressSelectionStep />;
+      case 2:
+        return <PaymentSelectionStep />;
+      case 3:
+        return <OrderSummaryStep />;
+      default:
+        return <ServiceSelectionStep />;
+    }
+  }
 };
 
-export default NewOrder;
+export default NewOrderPage;

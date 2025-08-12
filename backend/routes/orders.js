@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const Order = require('../models/Order');
+const Service = require('../models/Service');
 const { protect, admin, serviceProvider } = require('../middleware/auth');
 
 // Get all orders (with filtering)
@@ -92,17 +93,51 @@ router.post('/', protect, async (req, res) => {
       deliveryAddress,
       specialInstructions,
       scheduledPickup,
-      scheduledDelivery
+      scheduledDelivery,
+      deliveryDate,
+      pickupDate
     } = req.body;
 
     // Validate required fields
-    if (!serviceId || !serviceProviderId) {
+    if (!serviceId) {
       return res.status(400).json({ 
         success: false, 
-        error: 'Service and service provider are required' 
+        error: 'Service is required' 
       });
     }
 
+    // Retrieve the actual service object from the database
+    const service = await Service.findById(serviceId);
+
+    if (!service) {
+      return res.status(404).json({ 
+        success: false, 
+        error: 'Service not found' 
+      });
+    }
+
+    // Define dates object
+    const dates = {
+      deliveryDate,
+      pickupDate
+    };
+
+    // Define calculateSubtotal function
+    const calculateSubtotal = (service) => {
+      // For simplicity, let's assume the subtotal is the price of the service
+      // In a real-world scenario, you would calculate the subtotal based on the order items and prices
+      return service.price;
+    };
+
+    // Define calculateTotalAmount function
+    const calculateTotalAmount = (subtotal) => {
+      // For simplicity, let's assume the total amount is the subtotal plus a 10% tax
+      // In a real-world scenario, you would calculate the total amount based on the subtotal and other factors
+      const tax = subtotal * 0.1;
+      return subtotal + tax;
+    };
+
+    // Create orderData object
     const orderData = {
       customer: req.user.id,
       service: serviceId,
@@ -112,7 +147,11 @@ router.post('/', protect, async (req, res) => {
       specialInstructions,
       scheduledPickup,
       scheduledDelivery,
-      status: 'pending'
+      status: 'pending',
+      deliveryDate: dates.deliveryDate,
+      pickupDate: dates.pickupDate,
+      subtotal: calculateSubtotal(service),
+      totalAmount: calculateTotalAmount(calculateSubtotal(service))
     };
 
     const order = await Order.create(orderData);
