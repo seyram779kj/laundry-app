@@ -136,8 +136,13 @@ router.post('/', protect, customer, async (req, res) => {
     }
 
     // Validate service IDs exist in static services
+    console.log('Available static services:', STATIC_SERVICES.map(s => ({ id: s._id, name: s.name })));
+    
     for (const item of items) {
+      console.log('Validating item:', item);
+      
       if (!item.service) {
+        console.log('Missing service in item:', item);
         return res.status(400).json({ 
           success: false, 
           error: 'Service is required' 
@@ -146,11 +151,15 @@ router.post('/', protect, customer, async (req, res) => {
 
       const service = STATIC_SERVICES.find(s => s._id === item.service);
       if (!service) {
+        console.log(`Service ${item.service} not found in static services`);
+        console.log('Available service IDs:', STATIC_SERVICES.map(s => s._id));
         return res.status(400).json({ 
           success: false, 
           error: `Service ${item.service} not found` 
         });
       }
+      
+      console.log(`Service ${item.service} found:`, service.name);
     }
 
     // --- Existing logic for calculating totals and creating order remains largely the same ---
@@ -186,7 +195,7 @@ router.post('/', protect, customer, async (req, res) => {
     // Create order data
     const orderData = {
       customer: req.user.id,
-      serviceProvider: serviceProviderId || null, // Still needs a serviceProviderId if applicable in the flow
+      serviceProvider: null, // Will be assigned later by admin
       items: processedItems,
       status: 'pending',
       subtotal: finalSubtotal,

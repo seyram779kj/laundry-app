@@ -137,13 +137,13 @@ const NewOrderPage = () => {
         console.log('Services array extracted:', servicesArray);
 
         setServices(
-          servicesArray.map((service: any) => ({
-            id: service._id,
+          servicesArray.map((service: any, index: number) => ({
+            id: service._id || `service-${index}`,
             name: service.name,
-            price: service.basePrice,
+            price: service.basePrice || service.price,
             quantity: 0,
             description: service.description || '',
-            image: service.imageUrl || 'https://via.placeholder.com/300x200',
+            image: service.imageUrl || service.image || 'https://via.placeholder.com/300x200',
             estimatedTime: service.estimatedTime || 'Unknown',
             icon: <Checkroom />,
           }))
