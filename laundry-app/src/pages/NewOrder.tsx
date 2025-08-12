@@ -284,9 +284,9 @@ const NewOrderPage = () => {
         items: selectedServices.map((service) => ({
           service: service._id || service.id, // Use _id first, fallback to id
           serviceName: service.name,
-          quantity: service.quantity,
-          unitPrice: service.price,
-          totalPrice: service.price * service.quantity,
+          quantity: service.quantity || 0,
+          unitPrice: service.price || 0,
+          totalPrice: (service.price || 0) * (service.quantity || 0),
           specialInstructions: service.specialInstructions || ''
         })),
         pickupAddress: {
@@ -512,9 +512,9 @@ const NewOrderPage = () => {
             value={orderData.pickupAddress.street}
             onChange={(e) => {
               const value = e.target.value;
-              setOrderData((prev) => ({ 
-                ...prev, 
-                pickupAddress: { ...prev.pickupAddress, street: value } 
+              setOrderData((prev) => ({
+                ...prev,
+                pickupAddress: { ...prev.pickupAddress, street: value }
               }));
             }}
             autoComplete="off"
@@ -526,9 +526,9 @@ const NewOrderPage = () => {
               value={orderData.pickupAddress.city}
               onChange={(e) => {
                 const value = e.target.value;
-                setOrderData((prev) => ({ 
-                  ...prev, 
-                  pickupAddress: { ...prev.pickupAddress, city: value } 
+                setOrderData((prev) => ({
+                  ...prev,
+                  pickupAddress: { ...prev.pickupAddress, city: value }
                 }));
               }}
               autoComplete="off"
@@ -539,9 +539,9 @@ const NewOrderPage = () => {
               value={orderData.pickupAddress.state}
               onChange={(e) => {
                 const value = e.target.value;
-                setOrderData((prev) => ({ 
-                  ...prev, 
-                  pickupAddress: { ...prev.pickupAddress, state: value } 
+                setOrderData((prev) => ({
+                  ...prev,
+                  pickupAddress: { ...prev.pickupAddress, state: value }
                 }));
               }}
               autoComplete="off"
@@ -552,9 +552,9 @@ const NewOrderPage = () => {
               value={orderData.pickupAddress.zipCode}
               onChange={(e) => {
                 const value = e.target.value;
-                setOrderData((prev) => ({ 
-                  ...prev, 
-                  pickupAddress: { ...prev.pickupAddress, zipCode: value } 
+                setOrderData((prev) => ({
+                  ...prev,
+                  pickupAddress: { ...prev.pickupAddress, zipCode: value }
                 }));
               }}
               autoComplete="off"
@@ -568,9 +568,9 @@ const NewOrderPage = () => {
             value={orderData.pickupAddress.instructions}
             onChange={(e) => {
               const value = e.target.value;
-              setOrderData((prev) => ({ 
-                ...prev, 
-                pickupAddress: { ...prev.pickupAddress, instructions: value } 
+              setOrderData((prev) => ({
+                ...prev,
+                pickupAddress: { ...prev.pickupAddress, instructions: value }
               }));
             }}
             autoComplete="off"
@@ -606,9 +606,9 @@ const NewOrderPage = () => {
             value={orderData.deliveryAddress.street}
             onChange={(e) => {
               const value = e.target.value;
-              setOrderData((prev) => ({ 
-                ...prev, 
-                deliveryAddress: { ...prev.deliveryAddress, street: value } 
+              setOrderData((prev) => ({
+                ...prev,
+                deliveryAddress: { ...prev.deliveryAddress, street: value }
               }));
             }}
             autoComplete="off"
@@ -620,9 +620,9 @@ const NewOrderPage = () => {
               value={orderData.deliveryAddress.city}
               onChange={(e) => {
                 const value = e.target.value;
-                setOrderData((prev) => ({ 
-                  ...prev, 
-                  deliveryAddress: { ...prev.deliveryAddress, city: value } 
+                setOrderData((prev) => ({
+                  ...prev,
+                  deliveryAddress: { ...prev.deliveryAddress, city: value }
                 }));
               }}
               autoComplete="off"
@@ -633,9 +633,9 @@ const NewOrderPage = () => {
               value={orderData.deliveryAddress.state}
               onChange={(e) => {
                 const value = e.target.value;
-                setOrderData((prev) => ({ 
-                  ...prev, 
-                  deliveryAddress: { ...prev.deliveryAddress, state: value } 
+                setOrderData((prev) => ({
+                  ...prev,
+                  deliveryAddress: { ...prev.deliveryAddress, state: value }
                 }));
               }}
               autoComplete="off"
@@ -646,9 +646,9 @@ const NewOrderPage = () => {
               value={orderData.deliveryAddress.zipCode}
               onChange={(e) => {
                 const value = e.target.value;
-                setOrderData((prev) => ({ 
-                  ...prev, 
-                  deliveryAddress: { ...prev.deliveryAddress, zipCode: value } 
+                setOrderData((prev) => ({
+                  ...prev,
+                  deliveryAddress: { ...prev.deliveryAddress, zipCode: value }
                 }));
               }}
               autoComplete="off"
@@ -662,9 +662,9 @@ const NewOrderPage = () => {
             value={orderData.deliveryAddress.instructions}
             onChange={(e) => {
               const value = e.target.value;
-              setOrderData((prev) => ({ 
-                ...prev, 
-                deliveryAddress: { ...prev.deliveryAddress, instructions: value } 
+              setOrderData((prev) => ({
+                ...prev,
+                deliveryAddress: { ...prev.deliveryAddress, instructions: value }
               }));
             }}
             autoComplete="off"
