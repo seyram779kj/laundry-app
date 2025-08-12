@@ -1,8 +1,8 @@
 const express = require('express');
 const router = express.Router();
 const Order = require('../models/Order');
-const Service = require('../models/Service');
-const { protect, admin, serviceProvider } = require('../middleware/auth');
+const Service = require('../models/Service'); // This import might become unused for order creation if services are purely static
+const { protect, admin, serviceProvider, customer } = require('../middleware/auth'); // Assuming 'customer' middleware is needed here
 
 // Get all orders (with filtering)
 router.get('/', protect, async (req, res) => {
@@ -84,11 +84,13 @@ router.get('/:id', protect, async (req, res) => {
 });
 
 // Create new order
-router.post('/', protect, async (req, res) => {
+router.post('/', protect, customer, async (req, res) => {
   try {
+    console.log('Received order data:', req.body);
+
+    const { STATIC_SERVICES } = require('../config/staticServices');
+
     const {
-      serviceId,
-      serviceProviderId,
       items,
       pickupAddress,
       deliveryAddress,
@@ -99,48 +101,73 @@ router.post('/', protect, async (req, res) => {
       priority,
       specialInstructions,
       subtotal,
-      totalAmount,
       tax,
-      deliveryFee
+      deliveryFee,
+      totalAmount
     } = req.body;
-
-    console.log('Order creation payload:', JSON.stringify(req.body, null, 2));
 
     // Validate required fields
     if (!items || !Array.isArray(items) || items.length === 0) {
       return res.status(400).json({ 
         success: false, 
-        error: 'Order items are required' 
+        error: 'At least one item is required' 
       });
     }
 
-    if (!pickupAddress || !deliveryAddress || !pickupDate || !deliveryDate) {
+    if (!pickupAddress || !deliveryAddress) {
       return res.status(400).json({ 
         success: false, 
-        error: 'Pickup/delivery addresses and dates are required' 
+        error: 'Pickup and delivery addresses are required' 
       });
     }
 
-    // Validate and process items
+    if (!pickupDate || !deliveryDate) {
+      return res.status(400).json({ 
+        success: false, 
+        error: 'Pickup and delivery dates are required' 
+      });
+    }
+
+    if (!paymentMethod) {
+      return res.status(400).json({ 
+        success: false, 
+        error: 'Payment method is required' 
+      });
+    }
+
+    // Validate service IDs exist in static services
+    for (const item of items) {
+      if (!item.service) {
+        return res.status(400).json({ 
+          success: false, 
+          error: 'Service is required' 
+        });
+      }
+
+      const service = STATIC_SERVICES.find(s => s._id === item.service);
+      if (!service) {
+        return res.status(400).json({ 
+          success: false, 
+          error: `Service ${item.service} not found` 
+        });
+      }
+    }
+
+    // --- Existing logic for calculating totals and creating order remains largely the same ---
+
+    // Process items for the order document
     const processedItems = [];
     let calculatedSubtotal = 0;
 
     for (const item of items) {
-      const service = await Service.findById(item.service);
-      if (!service) {
-        return res.status(404).json({ 
-          success: false, 
-          error: `Service not found: ${item.service}` 
-        });
-      }
-
+      const service = STATIC_SERVICES.find(s => s._id === item.service); // Use static service
       const quantity = parseInt(item.quantity) || 1;
-      const unitPrice = parseFloat(item.unitPrice) || service.price || 0;
+      const unitPrice = parseFloat(item.unitPrice) || service.price || 0; // Use price from static service
       const totalPrice = quantity * unitPrice;
 
       processedItems.push({
-        service: item.service,
-        serviceName: item.serviceName || service.name,
+        service: item.service, // Store the static service ID
+        serviceName: item.serviceName || service.name, // Use name from static service
         quantity: quantity,
         unitPrice: unitPrice,
         totalPrice: totalPrice,
@@ -152,14 +179,14 @@ router.post('/', protect, async (req, res) => {
 
     // Calculate totals
     const finalSubtotal = parseFloat(subtotal) || calculatedSubtotal;
-    const finalTax = parseFloat(tax) || (finalSubtotal * 0.1);
-    const finalDeliveryFee = parseFloat(deliveryFee) || (isUrgent ? 10 : 5);
+    const finalTax = parseFloat(tax) || (finalSubtotal * 0.1); // Example tax calculation
+    const finalDeliveryFee = parseFloat(deliveryFee) || (isUrgent ? 10 : 5); // Example delivery fee
     const finalTotal = parseFloat(totalAmount) || (finalSubtotal + finalTax + finalDeliveryFee);
 
     // Create order data
     const orderData = {
       customer: req.user.id,
-      serviceProvider: serviceProviderId || null,
+      serviceProvider: serviceProviderId || null, // Still needs a serviceProviderId if applicable in the flow
       items: processedItems,
       status: 'pending',
       subtotal: finalSubtotal,
@@ -198,9 +225,12 @@ router.post('/', protect, async (req, res) => {
     console.log('Final order data:', JSON.stringify(orderData, null, 2));
 
     const order = await Order.create(orderData);
+    // Populate relevant fields for the response, using static service details if needed
     await order.populate([
       { path: 'customer', select: 'firstName lastName email phoneNumber' },
       { path: 'serviceProvider', select: 'firstName lastName email phoneNumber businessDetails' }
+      // For service, you might not need to populate from DB if it's static and details are already in processedItems
+      // { path: 'service', select: 'name price description' } 
     ]);
 
     res.status(201).json({
@@ -371,4 +401,4 @@ router.get('/stats/overview', protect, async (req, res) => {
   }
 });
 
-module.exports = router; 
+module.exports = router;

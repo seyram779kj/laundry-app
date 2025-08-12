@@ -79,34 +79,6 @@ interface OrderData {
   momoNetwork: string;
 }
 
-// Mock data for services
-const mockServices = [
-  {
-    _id: "689806fbe5b87b3d276070a3",
-    name: "Wash & Fold",
-    price: 15.0,
-    description: "Regular washing and folding service",
-    image: "https://images.unsplash.com/photo-1545173168-9f1947eebb7f",
-    estimatedTime: "24-48 hours",
-  },
-  {
-    _id: "689806fbe5b87b3d276070a3",
-    name: "Dry Cleaning",
-    price: 25.0,
-    description: "Professional dry cleaning for delicate items",
-    image: "https://images.unsplash.com/photo-1558618666-fcd25c85cd64",
-    estimatedTime: "3-5 days",
-  },
-  {
-    _id: "689806fbe5b87b3d276070a3",
-    name: "Ironing",
-    price: 10.0,
-    description: "Professional ironing for crisp clothes",
-    image: "https://images.unsplash.com/photo-1582738887449-64b35a96973b",
-    estimatedTime: "1-2 days",
-  },
-];
-
 const NewOrderPage = () => {
   // State
   const [activeStep, setActiveStep] = useState(0);
@@ -131,39 +103,61 @@ const NewOrderPage = () => {
     momoNetwork: 'mtn',
   });
 
-  // Load mock services
+  // Load services from API
   useEffect(() => {
-    try {
-      setLoading(true);
-      // Simulate API response
-      const result = { success: true, data: mockServices };
-      console.log('Mock services response:', JSON.stringify(result, null, 2));
-      if (!result.success) {
-        throw new Error('Mock service fetch unsuccessful');
+    const fetchServices = async () => {
+      try {
+        setLoading(true);
+        setError(null);
+
+        const response = await fetch('http://localhost:5000/api/services', {
+          headers: {
+            'Authorization': `Bearer ${localStorage.getItem('token')}`,
+            'Content-Type': 'application/json',
+          },
+        });
+
+        if (!response.ok) {
+          throw new Error('Failed to fetch services');
+        }
+
+        const result = await response.json();
+        console.log('Services API response:', JSON.stringify(result, null, 2));
+
+        let servicesArray: any[] = [];
+
+        if (result.success && result.data) {
+          if (Array.isArray(result.data.docs)) {
+            servicesArray = result.data.docs;
+          } else if (Array.isArray(result.data)) {
+            servicesArray = result.data;
+          }
+        }
+
+        console.log('Services array extracted:', servicesArray);
+
+        setServices(
+          servicesArray.map((service: any) => ({
+            id: service._id,
+            name: service.name,
+            price: service.basePrice,
+            quantity: 0,
+            description: service.description || '',
+            image: service.imageUrl || 'https://via.placeholder.com/300x200',
+            estimatedTime: service.estimatedTime || 'Unknown',
+            icon: <Checkroom />,
+          }))
+        );
+      } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+        console.error('Error loading services:', errorMessage, error);
+        setError(`Failed to load services: ${errorMessage}`);
+      } finally {
+        setLoading(false);
       }
-      if (!Array.isArray(result.data)) {
-        console.error('Expected array, got:', result.data, 'Type:', typeof result.data);
-        throw new Error('Invalid services data: Expected an array');
-      }
-      setServices(
-        result.data.map((service: any) => ({
-          id: service._id,
-          name: service.name,
-          price: service.price,
-          quantity: 0,
-          description: service.description || '',
-          image: service.image || 'https://via.placeholder.com/300x200',
-          estimatedTime: service.estimatedTime || 'Unknown',
-          icon: <Checkroom />,
-        }))
-      );
-    } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-      console.error('Error loading mock services:', errorMessage, error);
-      setError(`Failed to load services: ${errorMessage}`);
-    } finally {
-      setLoading(false);
-    }
+    };
+
+    fetchServices();
   }, []);
 
   const steps = [
@@ -226,15 +220,15 @@ const NewOrderPage = () => {
       if (selectedServices.length === 0) {
         throw new Error('Please select at least one service');
       }
-      
+
       if (!orderData.pickupAddress.street || !orderData.deliveryAddress.street) {
         throw new Error('Pickup and delivery addresses are required');
       }
-      
+
       if (!orderData.pickupDate || !orderData.deliveryDate) {
         throw new Error('Pickup and delivery dates are required');
       }
-      
+
       if (!orderData.paymentMethod) {
         throw new Error('Payment method is required');
       }
@@ -839,13 +833,13 @@ const NewOrderPage = () => {
         return selectedServices.length > 0;
       case 1:
         return (
-          orderData.pickupAddress.street && 
-          orderData.pickupAddress.city && 
-          orderData.pickupAddress.state && 
-          orderData.deliveryAddress.street && 
-          orderData.deliveryAddress.city && 
-          orderData.deliveryAddress.state && 
-          orderData.pickupDate && 
+          orderData.pickupAddress.street &&
+          orderData.pickupAddress.city &&
+          orderData.pickupAddress.state &&
+          orderData.deliveryAddress.street &&
+          orderData.deliveryAddress.city &&
+          orderData.deliveryAddress.state &&
+          orderData.pickupDate &&
           orderData.deliveryDate
         );
       case 2:
