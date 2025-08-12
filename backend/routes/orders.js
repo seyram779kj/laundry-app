@@ -6,7 +6,7 @@ const { protect, admin, serviceProvider, customer } = require('../middleware/aut
 // Get all orders (with filtering)
 router.get('/', protect, async (req, res) => {
   try {
-    const { page = 1, limit = 10, status, role, userId } = req.query;
+    const { page = 1, limit = 10, status, role, userId, include_available } = req.query;
     const query = {};
 
     if (status) {
@@ -16,7 +16,18 @@ router.get('/', protect, async (req, res) => {
     if (role === 'customer') {
       query.customer = req.user.id;
     } else if (role === 'service_provider') {
-      query.serviceProvider = req.user.id;
+      if (include_available === 'true') {
+        // Include both assigned orders and available orders for self-assignment
+        query.$or = [
+          { serviceProvider: req.user.id },
+          { 
+            serviceProvider: null, 
+            status: { $in: ['pending', 'confirmed'] } 
+          }
+        ];
+      } else {
+        query.serviceProvider = req.user.id;
+      }
     }
 
     if (userId) {
@@ -255,7 +266,7 @@ router.put('/:id/status', protect, async (req, res) => {
       return res.status(404).json({ success: false, error: 'Order not found' });
     }
 
-    if (req.user.role === 'service_provider' && order.serviceProvider.toString() !== req.user.id) {
+    if (req.user.role === 'service_provider' && order.serviceProvider && order.serviceProvider.toString() !== req.user.id) {
       return res.status(403).json({ success: false, error: 'Access denied' });
     }
 
@@ -266,7 +277,7 @@ router.put('/:id/status', protect, async (req, res) => {
     const validTransitions = {
       pending: ['confirmed', 'cancelled'],
       confirmed: ['assigned', 'in_progress', 'cancelled'],
-      assigned: ['in_progress', 'cancelled'],
+      assigned: ['confirmed', 'in_progress', 'cancelled'],
       in_progress: ['ready_for_pickup', 'cancelled'],
       ready_for_pickup: ['completed', 'cancelled'],
       completed: [],
@@ -327,6 +338,60 @@ router.put('/:id', protect, admin, async (req, res) => {
   } catch (error) {
     console.error('Update order error:', error);
     res.status(500).json({ success: false, error: 'Failed to update order' });
+  }
+});
+
+// Self-assign order (service providers only)
+router.put('/:id/assign-self', protect, serviceProvider, async (req, res) => {
+  try {
+    const order = await Order.findById(req.params.id);
+
+    if (!order) {
+      return res.status(404).json({ success: false, error: 'Order not found' });
+    }
+
+    // Check if order is available for assignment
+    if (order.status !== 'pending' && order.status !== 'confirmed') {
+      return res.status(400).json({ 
+        success: false, 
+        error: 'Order is not available for assignment' 
+      });
+    }
+
+    // Check if order already has a service provider assigned
+    if (order.serviceProvider) {
+      return res.status(400).json({ 
+        success: false, 
+        error: 'Order is already assigned to a service provider' 
+      });
+    }
+
+    // Assign the order to the current service provider
+    order.serviceProvider = req.user.id;
+    order.status = 'assigned';
+    
+    // Add to status history
+    order.statusHistory.push({
+      status: 'assigned',
+      changedBy: req.user.id,
+      changedAt: new Date(),
+      notes: 'Service provider self-assigned to order',
+    });
+
+    await order.save();
+    await order.populate([
+      { path: 'customer', select: 'firstName lastName email phoneNumber' },
+      { path: 'serviceProvider', select: 'firstName lastName email phoneNumber businessDetails' },
+    ]);
+
+    res.json({
+      success: true,
+      data: order,
+      message: 'Successfully assigned to order',
+    });
+  } catch (error) {
+    console.error('Self-assign order error:', error);
+    res.status(500).json({ success: false, error: 'Failed to assign order' });
   }
 });
 

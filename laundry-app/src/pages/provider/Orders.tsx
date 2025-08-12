@@ -125,7 +125,7 @@ const Orders: React.FC = () => {
         setLoading(true);
         setError(null);
 
-        const response = await fetch('http://localhost:5000/api/orders?role=service_provider', {
+        const response = await fetch('http://localhost:5000/api/orders?role=service_provider&include_available=true', {
           headers: {
             Authorization: `Bearer ${localStorage.getItem('token')}`,
             'Content-Type': 'application/json',
@@ -223,6 +223,34 @@ const Orders: React.FC = () => {
   const handleMenuClose = () => {
     setAnchorEl(null);
     setSelectedOrder(null);
+  };
+
+  const handleSelfAssign = async (orderId: string) => {
+    try {
+      const response = await fetch(`http://localhost:5000/api/orders/${orderId}/assign-self`, {
+        method: 'PUT',
+        headers: {
+          Authorization: `Bearer ${localStorage.getItem('token')}`,
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to assign order');
+      }
+
+      const updatedOrder = await response.json();
+      setOrders(orders.map(order =>
+        order._id === orderId ? updatedOrder.data : order
+      ));
+      setError(null);
+      handleMenuClose();
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      console.error('Self-assign error:', errorMessage, error);
+      setError('Failed to assign order to yourself');
+    }
   };
 
   const handleStatusChange = async (newStatus: OrderStatus) => {
@@ -353,7 +381,21 @@ const Orders: React.FC = () => {
             {orders.map((order) => (
               <TableRow key={order._id}>
                 <TableCell>{order.orderNumber}</TableCell>
-                <TableCell>{`${order.customer.firstName} ${order.customer.lastName}`}</TableCell>
+                <TableCell>
+                  <Stack direction="column" spacing={0.5}>
+                    <Typography variant="body2">
+                      {`${order.customer.firstName} ${order.customer.lastName}`}
+                    </Typography>
+                    {!order.serviceProvider && (order.status === 'pending' || order.status === 'confirmed') && (
+                      <Chip
+                        label="Available"
+                        color="success"
+                        size="small"
+                        variant="outlined"
+                      />
+                    )}
+                  </Stack>
+                </TableCell>
                 <TableCell>
                   {order.items.map((item, index) => (
                     <div key={index}>{`${item.serviceName} x${item.quantity}`}</div>
@@ -398,6 +440,14 @@ const Orders: React.FC = () => {
         open={Boolean(anchorEl)}
         onClose={handleMenuClose}
       >
+        {/* Self-assignment option for available orders */}
+        {(selectedOrder?.status === 'pending' || selectedOrder?.status === 'confirmed') && !selectedOrder?.serviceProvider && (
+          <MenuItem onClick={() => selectedOrder && handleSelfAssign(selectedOrder._id)}>
+            Assign to Myself
+          </MenuItem>
+        )}
+        
+        {/* Status progression options */}
         {selectedOrder?.status === 'assigned' && (
           <MenuItem onClick={() => handleStatusChange('in_progress')}>
             Mark as In Progress
@@ -413,11 +463,22 @@ const Orders: React.FC = () => {
             Mark as Completed
           </MenuItem>
         )}
-        {['assigned', 'in_progress', 'ready_for_pickup'].includes(selectedOrder?.status || '') && (
+        
+        {/* Confirmation option for pending orders assigned to provider */}
+        {selectedOrder?.status === 'pending' && selectedOrder?.serviceProvider && (
+          <MenuItem onClick={() => handleStatusChange('confirmed')}>
+            Confirm Order
+          </MenuItem>
+        )}
+        
+        {/* Cancel option for orders that can be cancelled */}
+        {['pending', 'confirmed', 'assigned', 'in_progress', 'ready_for_pickup'].includes(selectedOrder?.status || '') && (
           <MenuItem onClick={() => handleStatusChange('cancelled')}>
             Cancel Order
           </MenuItem>
         )}
+        
+        {/* Notes option for all orders */}
         <MenuItem onClick={handleAddNotes}>
           Add Notes
         </MenuItem>
