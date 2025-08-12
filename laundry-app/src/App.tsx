@@ -17,7 +17,7 @@ import Login from './pages/Login';
 import Register from './pages/Register';
 import Dashboard from './pages/Dashboard';
 import NewOrder from './pages/NewOrder';
-import Orders from './pages/Orders';
+import Orders from './pages/provider/Orders';
 import Profile from './pages/Profile';
 import Settings from './pages/Settings';
 import Services from './pages/Services';
