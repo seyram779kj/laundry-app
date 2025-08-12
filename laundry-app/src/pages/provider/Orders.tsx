@@ -26,7 +26,6 @@ import {
   TableRow,
   Card,
   CardContent,
-  Grid,
 } from '@mui/material';
 import MoreVertIcon from '@mui/icons-material/MoreVert';
 import MessageIcon from '@mui/icons-material/Message';
@@ -439,9 +438,25 @@ const Orders: React.FC = () => {
           </Button>
         </Paper>
       ) : (
-        <Grid container spacing={3}>
+        <Box sx={{ 
+          display: 'flex', 
+          flexWrap: 'wrap', 
+          gap: 3,
+          justifyContent: 'flex-start'
+        }}>
           {orders.map((order) => (
-            <Grid item xs={12} md={6} lg={4} key={order._id}>
+            <Box 
+              key={order._id} 
+              sx={{ 
+                width: { 
+                  xs: '100%', 
+                  sm: 'calc(50% - 12px)', 
+                  md: 'calc(33.33% - 16px)', 
+                  lg: 'calc(25% - 18px)' 
+                },
+                minWidth: '300px'
+              }}
+            >
               <Card sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
                 <CardContent sx={{ flexGrow: 1 }}>
                   <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
@@ -513,9 +528,9 @@ const Orders: React.FC = () => {
                   </Stack>
                 </CardContent>
               </Card>
-            </Grid>
+            </Box>
           ))}
-        </Grid>
+        </Box>
       )}
 
       {/* Menu for additional actions */}
