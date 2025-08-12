@@ -142,14 +142,15 @@ const Orders: React.FC = () => {
         return;
       }
 
-      const response = await axios.get('http://localhost:5000/api/orders/provider/assigned', {
+      const response = await axios.get('http://localhost:5000/api/orders?role=service_provider&include_available=true', {
         headers: { Authorization: `Bearer ${token}` }
       });
 
       if (response.data.success) {
-        setOrders(response.data.data);
+        const ordersData = response.data.data.docs || response.data.data;
+        setOrders(ordersData);
         // Check for unread messages for each order
-        await checkUnreadMessages(response.data.data, token);
+        await checkUnreadMessages(ordersData, token);
       } else {
         setError('Failed to fetch orders');
       }
@@ -202,9 +203,10 @@ const Orders: React.FC = () => {
   };
 
   const handleMenuClick = (event: React.MouseEvent<HTMLElement>, order: Order) => {
-    console.log('Menu clicked for order:', order);
+    console.log('Menu clicked for order:', order._id);
     console.log('Order status:', order.status);
     console.log('Service provider:', order.serviceProvider);
+    console.log('Can assign to self:', !order.serviceProvider && (order.status === 'pending' || order.status === 'confirmed'));
     setAnchorEl(event.currentTarget);
     setSelectedOrder(order);
   };
@@ -386,7 +388,45 @@ const Orders: React.FC = () => {
                 <TableCell>{formatDate(order.createdAt)}</TableCell>
                 <TableCell>{formatDate(order.deliveryDate)}</TableCell>
                 <TableCell>
-                  <Stack direction="row" spacing={1}>
+                  <Stack direction="row" spacing={1} flexWrap="wrap">
+                    {/* Direct assign button for unassigned orders */}
+                    {!order.serviceProvider && (order.status === 'pending' || order.status === 'confirmed') && (
+                      <Button
+                        size="small"
+                        variant="contained"
+                        color="primary"
+                        onClick={() => handleAssignToSelf(order._id)}
+                        sx={{ minWidth: 'auto', fontSize: '0.7rem', py: 0.5 }}
+                      >
+                        Assign
+                      </Button>
+                    )}
+                    
+                    {/* Status progression buttons */}
+                    {order.status === 'assigned' && order.serviceProvider && (
+                      <Button
+                        size="small"
+                        variant="outlined"
+                        color="primary"
+                        onClick={() => handleStatusChange('in_progress')}
+                        sx={{ minWidth: 'auto', fontSize: '0.7rem', py: 0.5 }}
+                      >
+                        Start
+                      </Button>
+                    )}
+                    
+                    {order.status === 'in_progress' && (
+                      <Button
+                        size="small"
+                        variant="outlined"
+                        color="secondary"
+                        onClick={() => handleStatusChange('ready_for_pickup')}
+                        sx={{ minWidth: 'auto', fontSize: '0.7rem', py: 0.5 }}
+                      >
+                        Ready
+                      </Button>
+                    )}
+                    
                     <IconButton
                       size="small"
                       onClick={(e) => handleMenuClick(e, order)}
@@ -419,57 +459,71 @@ const Orders: React.FC = () => {
         anchorEl={anchorEl}
         open={Boolean(anchorEl)}
         onClose={handleMenuClose}
+        PaperProps={{
+          style: {
+            maxHeight: 300,
+            width: '20ch',
+          },
+        }}
       >
-        {/* Self-assignment option for available orders */}
-        {selectedOrder && (selectedOrder.status === 'pending' || selectedOrder.status === 'confirmed') && !selectedOrder.serviceProvider && (
-          <MenuItem onClick={() => handleAssignToSelf(selectedOrder._id)}>
-            Assign to Myself
-          </MenuItem>
-        )}
-
-        {/* Confirmation option for pending orders assigned to provider */}
-        {selectedOrder && selectedOrder.status === 'pending' && selectedOrder.serviceProvider && (
-          <MenuItem onClick={() => handleStatusChange('confirmed')}>
-            Confirm Order
-          </MenuItem>
-        )}
-
-        {/* Status progression options */}
-        {selectedOrder && selectedOrder.status === 'assigned' && (
-          <MenuItem onClick={() => handleStatusChange('in_progress')}>
-            Mark as In Progress
-          </MenuItem>
-        )}
-        {selectedOrder && selectedOrder.status === 'in_progress' && (
-          <MenuItem onClick={() => handleStatusChange('ready_for_pickup')}>
-            Mark as Ready for Pickup
-          </MenuItem>
-        )}
-        {selectedOrder && selectedOrder.status === 'ready_for_pickup' && (
-          <MenuItem onClick={() => handleStatusChange('completed')}>
-            Mark as Completed
-          </MenuItem>
-        )}
-
-        {/* Cancel option for orders that can be cancelled */}
-        {selectedOrder && ['pending', 'confirmed', 'assigned', 'in_progress', 'ready_for_pickup'].includes(selectedOrder.status) && (
-          <MenuItem onClick={() => handleStatusChange('cancelled')}>
-            Cancel Order
-          </MenuItem>
-        )}
-
-        {/* Notes option for all orders */}
         {selectedOrder && (
-          <MenuItem onClick={handleAddNotes}>
-            Add Notes
-          </MenuItem>
-        )}
+          <>
+            {/* Debug info */}
+            <MenuItem disabled>
+              Status: {selectedOrder.status}
+            </MenuItem>
+            <MenuItem disabled>
+              Assigned: {selectedOrder.serviceProvider ? 'Yes' : 'No'}
+            </MenuItem>
+            
+            {/* Self-assignment option for available orders */}
+            {(!selectedOrder.serviceProvider && (selectedOrder.status === 'pending' || selectedOrder.status === 'confirmed')) && (
+              <MenuItem onClick={() => handleAssignToSelf(selectedOrder._id)}>
+                🎯 Assign to Myself
+              </MenuItem>
+            )}
 
-        {/* View Details option */}
-        {selectedOrder && (
-          <MenuItem onClick={() => console.log('View details:', selectedOrder)}>
-            View Details
-          </MenuItem>
+            {/* Confirmation option for pending orders assigned to provider */}
+            {(selectedOrder.status === 'pending' && selectedOrder.serviceProvider) && (
+              <MenuItem onClick={() => handleStatusChange('confirmed')}>
+                ✅ Confirm Order
+              </MenuItem>
+            )}
+
+            {/* Status progression options */}
+            {selectedOrder.status === 'assigned' && (
+              <MenuItem onClick={() => handleStatusChange('in_progress')}>
+                🔄 Mark as In Progress
+              </MenuItem>
+            )}
+            {selectedOrder.status === 'in_progress' && (
+              <MenuItem onClick={() => handleStatusChange('ready_for_pickup')}>
+                📦 Mark as Ready for Pickup
+              </MenuItem>
+            )}
+            {selectedOrder.status === 'ready_for_pickup' && (
+              <MenuItem onClick={() => handleStatusChange('completed')}>
+                ✅ Mark as Completed
+              </MenuItem>
+            )}
+
+            {/* Cancel option for orders that can be cancelled */}
+            {['pending', 'confirmed', 'assigned', 'in_progress', 'ready_for_pickup'].includes(selectedOrder.status) && (
+              <MenuItem onClick={() => handleStatusChange('cancelled')}>
+                ❌ Cancel Order
+              </MenuItem>
+            )}
+
+            {/* Notes option for all orders */}
+            <MenuItem onClick={handleAddNotes}>
+              📝 Add Notes
+            </MenuItem>
+
+            {/* View Details option */}
+            <MenuItem onClick={() => console.log('View details:', selectedOrder)}>
+              👁️ View Details
+            </MenuItem>
+          </>
         )}
       </Menu>
 

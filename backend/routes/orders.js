@@ -542,6 +542,12 @@ router.get('/provider/assigned', protect, serviceProvider, async (req, res) => {
       .sort({ createdAt: -1 });
 
     console.log('Found orders count:', orders.length);
+    console.log('Sample order data:', orders.length > 0 ? {
+      id: orders[0]._id,
+      status: orders[0].status,
+      serviceProvider: orders[0].serviceProvider ? 'assigned' : 'unassigned',
+      customer: orders[0].customer?.firstName
+    } : 'No orders found');
 
     const formattedOrders = orders.map(order => ({
       ...order.toObject(),
