@@ -202,6 +202,9 @@ const Orders: React.FC = () => {
   };
 
   const handleMenuClick = (event: React.MouseEvent<HTMLElement>, order: Order) => {
+    console.log('Menu clicked for order:', order);
+    console.log('Order status:', order.status);
+    console.log('Service provider:', order.serviceProvider);
     setAnchorEl(event.currentTarget);
     setSelectedOrder(order);
   };
@@ -418,47 +421,56 @@ const Orders: React.FC = () => {
         onClose={handleMenuClose}
       >
         {/* Self-assignment option for available orders */}
-        {(selectedOrder?.status === 'pending' || selectedOrder?.status === 'confirmed') && !selectedOrder?.serviceProvider && (
-          <MenuItem onClick={() => selectedOrder && handleAssignToSelf(selectedOrder._id)}>
+        {selectedOrder && (selectedOrder.status === 'pending' || selectedOrder.status === 'confirmed') && !selectedOrder.serviceProvider && (
+          <MenuItem onClick={() => handleAssignToSelf(selectedOrder._id)}>
             Assign to Myself
           </MenuItem>
         )}
 
-        {/* Status progression options */}
-        {selectedOrder?.status === 'assigned' && (
-          <MenuItem onClick={() => handleStatusChange('in_progress')}>
-            Mark as In Progress
-          </MenuItem>
-        )}
-        {selectedOrder?.status === 'in_progress' && (
-          <MenuItem onClick={() => handleStatusChange('ready_for_pickup')}>
-            Mark as Ready for Pickup
-          </MenuItem>
-        )}
-        {selectedOrder?.status === 'ready_for_pickup' && (
-          <MenuItem onClick={() => handleStatusChange('completed')}>
-            Mark as Completed
-          </MenuItem>
-        )}
-
         {/* Confirmation option for pending orders assigned to provider */}
-        {selectedOrder?.status === 'pending' && selectedOrder?.serviceProvider && (
+        {selectedOrder && selectedOrder.status === 'pending' && selectedOrder.serviceProvider && (
           <MenuItem onClick={() => handleStatusChange('confirmed')}>
             Confirm Order
           </MenuItem>
         )}
 
+        {/* Status progression options */}
+        {selectedOrder && selectedOrder.status === 'assigned' && (
+          <MenuItem onClick={() => handleStatusChange('in_progress')}>
+            Mark as In Progress
+          </MenuItem>
+        )}
+        {selectedOrder && selectedOrder.status === 'in_progress' && (
+          <MenuItem onClick={() => handleStatusChange('ready_for_pickup')}>
+            Mark as Ready for Pickup
+          </MenuItem>
+        )}
+        {selectedOrder && selectedOrder.status === 'ready_for_pickup' && (
+          <MenuItem onClick={() => handleStatusChange('completed')}>
+            Mark as Completed
+          </MenuItem>
+        )}
+
         {/* Cancel option for orders that can be cancelled */}
-        {['pending', 'confirmed', 'assigned', 'in_progress', 'ready_for_pickup'].includes(selectedOrder?.status || '') && (
+        {selectedOrder && ['pending', 'confirmed', 'assigned', 'in_progress', 'ready_for_pickup'].includes(selectedOrder.status) && (
           <MenuItem onClick={() => handleStatusChange('cancelled')}>
             Cancel Order
           </MenuItem>
         )}
 
         {/* Notes option for all orders */}
-        <MenuItem onClick={handleAddNotes}>
-          Add Notes
-        </MenuItem>
+        {selectedOrder && (
+          <MenuItem onClick={handleAddNotes}>
+            Add Notes
+          </MenuItem>
+        )}
+
+        {/* View Details option */}
+        {selectedOrder && (
+          <MenuItem onClick={() => console.log('View details:', selectedOrder)}>
+            View Details
+          </MenuItem>
+        )}
       </Menu>
 
       {/* Notes Dialog */}

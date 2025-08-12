@@ -60,15 +60,15 @@ const Chat: React.FC = () => {
         const chatRoomResponse = await axios.get(`http://localhost:5000/api/chats/${chatRoomId}/messages`, {
           headers: { Authorization: `Bearer ${token}` },
         });
-        
+
         // Get chat room details
         const allChatRooms = await axios.get('http://localhost:5000/api/chats', {
           headers: { Authorization: `Bearer ${token}` },
         });
-        
+
         const currentChatRoom = allChatRooms.data.find((room: any) => room._id === chatRoomId);
         setChatRoom(currentChatRoom);
-        
+
         // Fetch customer info if we have the chat room
         if (currentChatRoom?.customerId) {
           try {

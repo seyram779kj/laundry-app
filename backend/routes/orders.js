@@ -521,6 +521,8 @@ router.get('/stats-overview', protect, async (req, res) => {
 // GET /api/orders/provider/assigned - Get orders assigned to the service provider and available orders
 router.get('/provider/assigned', protect, serviceProvider, async (req, res) => {
   try {
+    console.log('Provider ID:', req.user.id);
+    
     // Get both assigned orders and available orders for self-assignment
     const query = {
       $or: [
@@ -532,10 +534,14 @@ router.get('/provider/assigned', protect, serviceProvider, async (req, res) => {
       ]
     };
 
+    console.log('Query:', JSON.stringify(query, null, 2));
+
     const orders = await Order.find(query)
       .populate('customer', 'firstName lastName email phoneNumber')
       .populate('serviceProvider', 'firstName lastName email phoneNumber businessDetails')
       .sort({ createdAt: -1 });
+
+    console.log('Found orders count:', orders.length);
 
     const formattedOrders = orders.map(order => ({
       ...order.toObject(),
@@ -546,7 +552,14 @@ router.get('/provider/assigned', protect, serviceProvider, async (req, res) => {
         lastName: order.customer.lastName,
         email: order.customer.email,
         phoneNumber: order.customer.phoneNumber
-      }
+      },
+      serviceProvider: order.serviceProvider ? {
+        _id: order.serviceProvider._id,
+        firstName: order.serviceProvider.firstName,
+        lastName: order.serviceProvider.lastName,
+        email: order.serviceProvider.email,
+        phoneNumber: order.serviceProvider.phoneNumber
+      } : null
     }));
 
     res.json({
