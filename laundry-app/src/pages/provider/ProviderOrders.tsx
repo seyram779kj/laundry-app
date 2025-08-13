@@ -21,12 +21,32 @@ import { format } from 'date-fns';
 import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
-import { RootState } from '../app/store';
-import { fetchOrders, setError } from '../features/orders/orderSlice';
+import { RootState, AppDispatch } from '../../app/store';
 import { shallowEqual } from 'react-redux';
+import { createAsyncThunk } from '@reduxjs/toolkit';
 
 type OrderStatus = 'pending' | 'confirmed' | 'assigned' | 'in_progress' | 'ready_for_pickup' | 'completed' | 'cancelled';
 type PaymentStatus = 'pending' | 'completed' | 'failed';
+
+interface Payment {
+  _id: string;
+  order: string;
+  customer: string;
+  serviceProvider?: string | null;
+  amount: number;
+  paymentMethod: string;
+  paymentDetails: {
+    phoneNumber?: string;
+    momoNetwork?: string;
+  };
+  status: PaymentStatus;
+  statusHistory: Array<{
+    status: string;
+    changedBy: string;
+    changedAt: string;
+    notes: string;
+  }>;
+}
 
 interface Order {
   _id: string;
@@ -44,7 +64,7 @@ interface Order {
     email: string;
     phoneNumber: string;
     businessDetails?: any;
-  };
+  } | null;
   items: Array<{
     service: string;
     serviceName: string;
@@ -54,8 +74,7 @@ interface Order {
     specialInstructions?: string;
   }>;
   status: OrderStatus;
-  paymentStatus: PaymentStatus;
-  paymentMethod?: string;
+  payment: Payment;
   totalAmount: number;
   subtotal: number;
   tax: number;
@@ -87,7 +106,37 @@ interface Order {
   };
   orderNumber: string;
   formattedTotal: string;
+  statusHistory?: Array<{
+    status: string;
+    changedBy: string;
+    changedAt: string;
+    notes: string;
+  }>;
 }
+
+interface OrdersState {
+  orders: Order[];
+  loading: boolean;
+  error: string | null;
+}
+
+// Redux actions
+export const fetchOrders = createAsyncThunk(
+  'orders/fetchOrders',
+  async ({ role, includeAvailable = false }: { role: string; includeAvailable?: boolean }) => {
+    const token = localStorage.getItem('token');
+    const endpoint = role === 'service_provider' ? `/api/orders/provider/assigned?include_available=${includeAvailable}` : `/api/orders?role=${role}`;
+    const response = await axios.get(`http://localhost:5000${endpoint}`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    return role === 'service_provider' ? response.data.data : response.data.data.docs;
+  }
+);
+
+export const setError = (error: string) => ({
+  type: 'orders/setError',
+  payload: error,
+});
 
 const statusColors: Record<OrderStatus, 'default' | 'primary' | 'secondary' | 'error' | 'info' | 'success' | 'warning'> = {
   pending: 'warning',
@@ -121,9 +170,9 @@ const paymentStatusLabels: Record<PaymentStatus, string> = {
   failed: 'Payment Failed',
 };
 
-const Orders: React.FC = () => {
-  const dispatch = useDispatch();
-  const { orders, loading, error } = useSelector((state: RootState) => state.orders, shallowEqual);
+const Orders_t: React.FC = () => {
+  const dispatch = useDispatch<AppDispatch>();
+  const { orders, loading, error } = useSelector((state: RootState) => state.orders || { orders: [], loading: false, error: null }, shallowEqual);
   const [openPaymentDialog, setOpenPaymentDialog] = useState(false);
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
   const [phoneNumber, setPhoneNumber] = useState('');
@@ -131,13 +180,33 @@ const Orders: React.FC = () => {
   const navigate = useNavigate();
 
   useEffect(() => {
-    dispatch(fetchOrders({ role: 'customer' }));
+    dispatch(fetchOrders({ role: 'service_provider', includeAvailable: true }));
   }, [dispatch]);
 
   const handlePayNow = (order: Order) => {
     setSelectedOrder(order);
-    setPhoneNumber('');
+    setPhoneNumber(order.payment.paymentDetails.phoneNumber || '');
     setOpenPaymentDialog(true);
+  };
+
+  const handleSelfAssign = async (order: Order) => {
+    try {
+      const token = localStorage.getItem('token');
+      const response = await axios.put(
+        `http://localhost:5000/api/orders/${order._id}/assign-self`,
+        {},
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+
+      if (response.data.success) {
+        dispatch(fetchOrders({ role: 'service_provider', includeAvailable: true }));
+      } else {
+        dispatch(setError('Failed to assign order'));
+      }
+    } catch (err: any) {
+      console.error('Self-assign error:', err);
+      dispatch(setError(err.response?.data?.error || 'Failed to assign order'));
+    }
   };
 
   const handlePaymentSubmit = async () => {
@@ -157,7 +226,7 @@ const Orders: React.FC = () => {
       );
 
       if (response.data.success) {
-        dispatch(fetchOrders({ role: 'customer' }));
+        dispatch(fetchOrders({ role: 'service_provider', includeAvailable: true }));
         setOpenPaymentDialog(false);
       } else {
         dispatch(setError('Failed to process payment'));
@@ -175,9 +244,11 @@ const Orders: React.FC = () => {
   };
 
   const getActionButtons = (order: Order) => {
-    if (order.paymentStatus === 'pending' && ['pending', 'confirmed', 'assigned', 'in_progress', 'ready_for_pickup'].includes(order.status)) {
-      return (
+    const buttons = [];
+    if (order.payment.status === 'pending' && ['pending', 'confirmed', 'assigned', 'in_progress', 'ready_for_pickup'].includes(order.status)) {
+      buttons.push(
         <Button
+          key="pay-now"
           size="small"
           variant="contained"
           color="primary"
@@ -189,7 +260,21 @@ const Orders: React.FC = () => {
         </Button>
       );
     }
-    return null;
+    if (!order.serviceProvider && ['pending', 'confirmed'].includes(order.status)) {
+      buttons.push(
+        <Button
+          key="assign-self"
+          size="small"
+          variant="outlined"
+          color="secondary"
+          onClick={() => handleSelfAssign(order)}
+          sx={{ mb: 1 }}
+        >
+          Assign to Me
+        </Button>
+      );
+    }
+    return buttons.length > 0 ? buttons : null;
   };
 
   if (loading) {
@@ -206,7 +291,7 @@ const Orders: React.FC = () => {
         <Alert severity="error" sx={{ mb: 2 }}>
           {error}
           <Button
-            onClick={() => dispatch(fetchOrders({ role: 'customer' }))}
+            onClick={() => dispatch(fetchOrders({ role: 'service_provider', includeAvailable: true }))}
             sx={{ ml: 2 }}
             variant="outlined"
             size="small"
@@ -230,7 +315,7 @@ const Orders: React.FC = () => {
             No orders available
           </Typography>
           <Button
-            onClick={() => dispatch(fetchOrders({ role: 'customer' }))}
+            onClick={() => dispatch(fetchOrders({ role: 'service_provider', includeAvailable: true }))}
             sx={{ mt: 2 }}
             variant="outlined"
             color="primary"
@@ -239,13 +324,15 @@ const Orders: React.FC = () => {
           </Button>
         </Paper>
       ) : (
-        <Box sx={{
-          display: 'flex',
-          flexWrap: 'wrap',
-          gap: 3,
-          justifyContent: 'flex-start',
-        }}>
-          {orders.map((order: Order) => (
+        <Box
+          sx={{
+            display: 'flex',
+            flexWrap: 'wrap',
+            gap: 3,
+            justifyContent: 'flex-start',
+          }}
+        >
+          {orders.map((order) => (
             <Box
               key={order._id}
               sx={{
@@ -271,8 +358,8 @@ const Orders: React.FC = () => {
                         size="small"
                       />
                       <Chip
-                        label={paymentStatusLabels[order.paymentStatus]}
-                        color={paymentStatusColors[order.paymentStatus]}
+                        label={paymentStatusLabels[order.payment.status]}
+                        color={paymentStatusColors[order.payment.status]}
                         size="small"
                       />
                     </Box>
@@ -284,8 +371,12 @@ const Orders: React.FC = () => {
                       : 'Provider: Not assigned'}
                   </Typography>
 
+                  <Typography variant="subtitle1" gutterBottom>
+                    Customer: {order.customer.firstName} {order.customer.lastName}
+                  </Typography>
+
                   <Typography variant="body2" color="text.secondary" gutterBottom>
-                    Items: {order.items.map((item: any) => `${item.serviceName} (${item.quantity})`).join(', ')}
+                    Items: {order.items.map((item) => `${item.serviceName} (${item.quantity})`).join(', ')}
                   </Typography>
 
                   <Typography variant="h6" color="primary" gutterBottom>
@@ -342,4 +433,4 @@ const Orders: React.FC = () => {
   );
 };
 
-export default Orders;
+export default Orders_t;

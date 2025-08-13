@@ -1,381 +1,390 @@
-import React, { useEffect, useState } from 'react';
-import { Box, Typography, Paper, CircularProgress, List, ListItem, ListItemText, Chip, Button, Dialog, DialogTitle, DialogContent, DialogActions, TextField, MenuItem } from '@mui/material';
-import { useDispatch, useSelector, shallowEqual } from 'react-redux';
-import { fetchOrders } from '../features/orders/orderSlice';
-import { RootState } from '../app/store';
+import React, { useState, useEffect } from 'react';
+import {
+  Box,
+  Typography,
+  Paper,
+  Chip,
+  Button,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  TextField,
+  Alert,
+  CircularProgress,
+  Stack,
+  Card,
+  CardContent,
+} from '@mui/material';
+import CheckCircleIcon from '@mui/icons-material/CheckCircle';
+import { format } from 'date-fns';
 import axios from 'axios';
+import { useNavigate } from 'react-router-dom';
+import { useDispatch, useSelector } from 'react-redux';
+import { RootState, AppDispatch } from '../../app/store';
+import { shallowEqual } from 'react-redux';
+import { createAsyncThunk } from '@reduxjs/toolkit';
 
-interface Tracking {
+type OrderStatus = 'pending' | 'confirmed' | 'assigned' | 'in_progress' | 'ready_for_pickup' | 'completed' | 'cancelled';
+type PaymentStatus = 'pending' | 'completed' | 'failed';
+
+interface Payment {
   _id: string;
   order: string;
-  currentLocation: string;
-  trackingSteps: Array<{
+  customer: string;
+  serviceProvider?: string | null;
+  amount: number;
+  paymentMethod: string;
+  paymentDetails: {
+    phoneNumber?: string;
+    momoNetwork?: string;
+  };
+  status: PaymentStatus;
+  statusHistory: Array<{
     status: string;
-    timestamp: string;
-    location?: string;
-    notes?: string;
-    updatedBy?: {
-      _id: string;
-      firstName: string;
-      lastName: string;
-    };
+    changedBy: string;
+    changedAt: string;
+    notes: string;
   }>;
-  estimatedDelivery?: string;
-  actualDelivery?: string;
-  driverInfo?: {
-    name?: string;
-    phone?: string;
-    vehicleNumber?: string;
-  };
-  coordinates?: {
-    latitude: number;
-    longitude: number;
-    lastUpdated: string;
-  };
-}
-
-interface PaymentWithHistory {
-  _id: string;
-  status: string;
-  statusHistory?: Array<{
-    status: string;
-    lastUpdated: string;
-  };
 }
 
 interface Order {
-  id: string;
-  status: string;
-  totalAmount: number;
-  payment?: { // Assuming payment details are nested within the order
+  _id: string;
+  customer: {
     _id: string;
-    status: string;
-    paymentMethod?: string;
-    // Combine payment details here directly or reference a dedicated payment details interface if needed
-    phoneNumber?: string;
-    transactionRef?: string;
-    momoStatus?: string;
-    // Include payment history within the payment object
-    statusHistory?: Array<{
-      status: string;
-      changedAt: string;
-      changedBy: string;
-      notes?: string;
-    }>;
+    firstName: string;
+    lastName: string;
+    email: string;
+    phoneNumber: string;
+  };
   serviceProvider?: {
     _id: string;
     firstName: string;
     lastName: string;
+    email: string;
+    phoneNumber: string;
+    businessDetails?: any;
   } | null;
-  customer?: {
-    _id: string;
-    firstName: string;
-    lastName: string;
+  items: Array<{
+    service: string;
+    serviceName: string;
+    quantity: number;
+    unitPrice: number;
+    totalPrice: number;
+    specialInstructions?: string;
+  }>;
+  status: OrderStatus;
+  payment: Payment;
+  totalAmount: number;
+  subtotal: number;
+  tax: number;
+  deliveryFee: number;
+  pickupAddress: {
+    type: string;
+    street: string;
+    city: string;
+    state: string;
+    zipCode: string;
+    instructions: string;
   };
-  statusHistory?: Array<{ // This seems to be Order status history, not payment history
+  deliveryAddress: {
+    type: string;
+    street: string;
+    city: string;
+    state: string;
+    zipCode: string;
+    instructions: string;
+  };
+  pickupDate: string;
+  deliveryDate: string;
+  createdAt: string;
+  updatedAt: string;
+  notes: {
+    customer: string;
+    serviceProvider: string;
+    admin: string;
+  };
+  orderNumber: string;
+  formattedTotal: string;
+  statusHistory?: Array<{
     status: string;
     changedBy: string;
     changedAt: string;
-    notes?: string;
+    notes: string;
   }>;
 }
 
+interface OrdersState {
+  orders: Order[];
+  loading: boolean;
+  error: string | null;
+}
+
+// Redux actions
+export const fetchOrders = createAsyncThunk(
+  'orders/fetchOrders',
+  async (role: string) => {
+    const token = localStorage.getItem('token');
+    const response = await axios.get(`http://localhost:5000/api/orders?role=${role}`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    return response.data.data.docs; // Adjust based on backend response structure
+  }
+);
+
+export const setError = (error: string) => ({
+  type: 'orders/setError',
+  payload: error,
+});
+
+const statusColors: Record<OrderStatus, 'default' | 'primary' | 'secondary' | 'error' | 'info' | 'success' | 'warning'> = {
+  pending: 'warning',
+  confirmed: 'info',
+  assigned: 'info',
+  in_progress: 'primary',
+  ready_for_pickup: 'secondary',
+  completed: 'success',
+  cancelled: 'error',
+};
+
+const paymentStatusColors: Record<PaymentStatus, 'default' | 'primary' | 'secondary' | 'error' | 'info' | 'success' | 'warning'> = {
+  pending: 'error',
+  completed: 'success',
+  failed: 'error',
+};
+
+const statusLabels: Record<OrderStatus, string> = {
+  pending: 'Pending',
+  confirmed: 'Confirmed',
+  assigned: 'Assigned',
+  in_progress: 'In Progress',
+  ready_for_pickup: 'Ready for Pickup',
+  completed: 'Completed',
+  cancelled: 'Cancelled',
+};
+
+const paymentStatusLabels: Record<PaymentStatus, string> = {
+  pending: 'Payment Pending',
+  completed: 'Payment Completed',
+  failed: 'Payment Failed',
+};
+
 const Orders: React.FC = () => {
-  const dispatch = useDispatch();
-  const { orders, loading, error } = useSelector((state: RootState) => state.orders, shallowEqual);
+  const dispatch = useDispatch<AppDispatch>();
+  const { orders, loading, error } = useSelector((state: RootState) => state.orders || { orders: [], loading: false, error: null }, shallowEqual);
   const [openPaymentDialog, setOpenPaymentDialog] = useState(false);
-  const [selectedOrderId, setSelectedOrderId] = useState<string | null>(null);
-  const [trackingData, setTrackingData] = useState<{ [orderId: string]: Tracking }>({});
+  const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
   const [phoneNumber, setPhoneNumber] = useState('');
-  const [paymentMethod, setPaymentMethod] = useState('momo');
-  const [paymentError, setPaymentError] = useState<string | null>(null);
-
-  // Always use a safe array
-  const safeOrders: Order[] = Array.isArray(orders) ? orders : [];
-
-  // Find the selected order to access its payment details
-  const selectedOrder = safeOrders.find(order => order.id === selectedOrderId);
-
-  // Add interface for Payment with statusHistory
-  // This interface seems misplaced and should be part of the Order interface above
+  const [paymentLoading, setPaymentLoading] = useState(false);
+  const navigate = useNavigate();
 
   useEffect(() => {
-    dispatch(fetchOrders() as any);
+    dispatch(fetchOrders('customer'));
   }, [dispatch]);
 
-  useEffect(() => {
-    const fetchOrderData = async () => {
-      dispatch(fetchOrders() as any);
-    };
-    fetchOrderData();
-  }, [dispatch]);
-
-  useEffect(() => {
-    const fetchTrackingData = async () => {
-      const newTrackingData: { [orderId: string]: Tracking } = {};
-      for (const order of safeOrders) {
-        try {
-          const response = await axios.get(`/api/tracking/${order.id}`);
-          if (response.data.success) {
-            newTrackingData[order.id] = response.data.data;
-          }
-        } catch (err) {
-          console.error(`Failed to fetch tracking for order ${order.id}:`, err);
-        }
-      }
-      setTrackingData(newTrackingData);
-    };
-
-    if (safeOrders.length > 0) {
-      fetchTrackingData();
-    }
-  }, [safeOrders]); // Fetch tracking data when orders change
-
-
-  const handlePayNow = (orderId: string) => {
-    setSelectedOrderId(orderId);
+  const handlePayNow = (order: Order) => {
+    setSelectedOrder(order);
+    setPhoneNumber(order.payment.paymentDetails.phoneNumber || '');
     setOpenPaymentDialog(true);
   };
 
-  const handleCloseDialog = () => {
-    setOpenPaymentDialog(false);
-    setSelectedOrderId(null);
-    setPhoneNumber('');
-    setPaymentMethod('momo');
-    setPaymentError(null);
-  };
-
-  const handleProcessPayment = async () => {
-    if (!selectedOrder?.payment?._id || !phoneNumber) {
-      setPaymentError('Payment details not available or phone number missing.');
-      return;
-    }
+  const handlePaymentSubmit = async () => {
+    if (!selectedOrder) return;
 
     try {
-      // Initiate MoMo payment using the new payment endpoint
-      const response = await axios.post(`/api/payments/${selectedOrder.payment._id}/momo`, {
-        phoneNumber,
-      });
+      setPaymentLoading(true);
+      const token = localStorage.getItem('token');
+      const response = await axios.post(
+        `http://localhost:5000/api/payments/momo`,
+        {
+          orderId: selectedOrder._id,
+          phoneNumber,
+          amount: selectedOrder.totalAmount,
+        },
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
 
       if (response.data.success) {
-        // Refresh orders to reflect updated payment and order status
-        dispatch(fetchOrders() as any);
-        handleCloseDialog();
-        // Optionally show a success message
-        alert('Payment initiated successfully. Please check your phone to complete the transaction.');
+        dispatch(fetchOrders('customer'));
+        setOpenPaymentDialog(false);
       } else {
-        setPaymentError(response.data.message || response.data.error || 'Failed to process payment');
+        dispatch(setError('Failed to process payment'));
       }
-    } catch (err) {
-      setPaymentError('Failed to process payment');
+    } catch (err: any) {
+      console.error('Payment error:', err);
+      dispatch(setError(err.response?.data?.error || 'Failed to process payment'));
+    } finally {
+      setPaymentLoading(false);
     }
   };
 
-  const getChangedByLabel = (changedBy: string, order: Order) => {
-    if (order.serviceProvider && changedBy === order.serviceProvider._id) {
-      return 'Provider';
-    } else if (order.customer && changedBy === order.customer._id) {
-      return 'Customer';
-    } else {
-      return 'Admin';
+  const formatDate = (dateString: string) => {
+    return format(new Date(dateString), 'MMM dd, yyyy hh:mm a');
+  };
+
+  const getActionButtons = (order: Order) => {
+    if (order.payment.status === 'pending' && ['pending', 'confirmed', 'assigned', 'in_progress', 'ready_for_pickup'].includes(order.status)) {
+      return (
+        <Button
+          size="small"
+          variant="contained"
+          color="primary"
+          onClick={() => handlePayNow(order)}
+          startIcon={<CheckCircleIcon />}
+          sx={{ mb: 1 }}
+        >
+          Pay Now
+        </Button>
+      );
     }
+    return null;
   };
 
-  const getChangedByLabelPayment = (changedBy: string, order: Order) => {
-    if (order.serviceProvider && changedBy === order.serviceProvider._id) {
-      return 'Provider';
-    } else if (order.customer && changedBy === order.customer._id) {
-       return 'Customer';
-    } else {
-      return 'Admin';
-    }}
+  if (loading) {
+    return (
+      <Box sx={{ display: 'flex', justifyContent: 'center', p: 3 }}>
+        <CircularProgress />
+      </Box>
+    );
+  }
 
-  // Group orders by status
-  const statusGroups = {
-    pending: safeOrders.filter(order => order.status === 'pending'),
-    confirmed: safeOrders.filter(order => order.status === 'confirmed'),
-    assigned: safeOrders.filter(order => order.status === 'assigned'),
-    in_progress: safeOrders.filter(order => order.status === 'in_progress'),
-    ready_for_pickup: safeOrders.filter(order => order.status === 'ready_for_pickup'),
-    completed: safeOrders.filter(order => order.status === 'completed'),
-    cancelled: safeOrders.filter(order => order.status === 'cancelled'),
-  };
-
-  const statusColors: { [key: string]: 'default' | 'primary' | 'warning' | 'success' | 'error' } = {
-    pending: 'warning',
-    confirmed: 'primary',
-    assigned: 'primary',
-    in_progress: 'primary',
-    ready_for_pickup: 'primary',
-    completed: 'success',
-    cancelled: 'error',
-  };
+  if (error) {
+    return (
+      <Box sx={{ p: 3 }}>
+        <Alert severity="error" sx={{ mb: 2 }}>
+          {error}
+          <Button
+            onClick={() => dispatch(fetchOrders('customer'))}
+            sx={{ ml: 2 }}
+            variant="outlined"
+            size="small"
+          >
+            Retry
+          </Button>
+        </Alert>
+      </Box>
+    );
+  }
 
   return (
-    <Box className="p-4 max-w-4xl mx-auto">
-      <Typography variant="h4" gutterBottom className="text-gray-800 font-bold">
+    <Box sx={{ p: 3 }}>
+      <Typography variant="h4" gutterBottom color="primary">
         My Orders
       </Typography>
-      <Paper className="p-6 shadow-lg">
-        {loading ? (
-          <CircularProgress className="mx-auto" />
-        ) : error ? (
-          <Typography color="error">{error}</Typography>
-        ) : safeOrders.length === 0 ? (
-          <Typography>No orders found</Typography>
-        ) : (
-          <>
-            {Object.entries(statusGroups).map(([status, orders]) => (
-              orders.length > 0 && (
-                <div key={status}>
-                  <Typography variant="h6" gutterBottom className="text-gray-700 mt-4">
-                    {status.charAt(0).toUpperCase() + status.slice(1).replace('_', ' ')} Orders
-                  </Typography>
-                  <List>
-                    {orders.map(order => (
-                      <ListItem key={order.id} className="border-b py-4">
-                        <ListItemText
-                          primary={`Order #${order.id}`}
-                          secondary={
-                            <>
-                              <span>Status: {order.status}</span>
-                              <br />
-                              <span>Total: ${order.totalAmount.toFixed(2)}</span>
-                              <br />
-                              <span>
-                                Payment Status: {order.payment?.status || 'No payment initiated'}
-                             </span>
-                              {order.paymentMethod === 'momo' && (
-                                <>
-                                  <br />
-                                  <span>MoMo Details:</span>
-                                  <ul className="list-disc pl-5">
-                                    <li>Phone: {order.phoneNumber || 'N/A'}</li>
-                                    <li>Transaction Ref: {order.transactionRef || 'N/A'}</li>
-                                    <li>MoMo Status: {order.momoStatus || 'N/A'}</li>
-                                  </ul>
-                                </>
-                              )}
-                              {order.statusHistory && (
-                                // This is Order Status History
-                                <>
-                                  <br />
-                                  <span>Order Status History:</span>
-                                  <ul className="list-disc pl-5">
-                                    {order.statusHistory.map((history, index) => (
-                                      <li key={index}>
-                                        {history.status} by {getChangedByLabel(history.changedBy, order)} - {new Date(history.changedAt).toLocaleString()}
-                                        {history.notes && ` (${history.notes})`}
-                                      </li>
-                                    ))}
-                                  </ul>
-                                </>
-                              )}
-                               {order.payment?.statusHistory && (
-                                <>
-                                  <br />
-                                  <span>Payment History:</span>
-                                  <ul className="list-disc pl-5">
-                                    {order.payment.statusHistory.map((history, index) => (
-                                      <li key={index}>
-                                        {history.status} by {getChangedByLabelPayment(history.changedBy, order)} - {new Date(history.changedAt).toLocaleString()}
-                                        {history.notes && ` (${history.notes})`}
-                                      </li>
-                                    ))}
-                                  </ul>
-                                </>
-                              )}
-                              {trackingData[order.id] && (
-       <>
-         <br />
-         <span>Tracking Information:</span>
-         <ul className="list-disc pl-5">
-           <li>Current Location: {trackingData[order.id].currentLocation}</li>
-           {trackingData[order.id].trackingSteps.length > 0 && (
-             <li>
-               Tracking History:
-               <ul className="list-disc pl-5">
-                 {trackingData[order.id].trackingSteps.map((step, stepIndex) => (
-                   <li key={stepIndex}>
-                     {step.status} at {new Date(step.timestamp).toLocaleString()}
-                     {step.notes && ` (${step.notes})`}
-                     {step.updatedBy && ` by ${step.updatedBy.firstName} ${step.updatedBy.lastName}`}
-                   </li>
-                 ))}
-               </ul>
-             </li>
-           )}
-         </ul>
-       </>
-     )}
 
-                            </>
-                          }
-                        />
-                        <div className="flex items-center space-x-2">
-                          <Chip
-                            label={order.status.charAt(0).toUpperCase() + order.status.replace('_', ' ').slice(1)}
-                            color={statusColors[order.status] || 'default'}
-                          />
-                          {order.paymentStatus === 'pending' && (
-                           <Button
-                              variant="contained"
-                              color="primary"
-                              onClick={() => handlePayNow(order.id)}
-                              className="bg-blue-600 hover:bg-blue-700"
-                            >
-                              Pay Now
-                            </Button>
-                          )}
-                        </div>
-                      </ListItem>
-                    ))}
-                  </List>
-                </div>
-              )
-            ))}
-          </>
-        )}
-      </Paper>
-
-      {/* Payment Dialog */}
-      <Dialog open={openPaymentDialog} onClose={handleCloseDialog}>
-        <DialogTitle>Initiate Payment</DialogTitle>
-        <DialogContent>
-          {paymentError && (
-            <Typography color="error" className="mb-4">
-              {paymentError}
-            </Typography>
-          )}
-          <TextField
-            select
-            label="Payment Method"
-            value={paymentMethod}
-            onChange={(e) => setPaymentMethod(e.target.value)}
-            fullWidth
-            margin="normal"
-            disabled
+      {orders.length === 0 ? (
+        <Paper sx={{ p: 3, textAlign: 'center', bgcolor: 'background.paper', borderRadius: 2, boxShadow: 1 }}>
+          <Typography variant="h6" color="text.secondary">
+            No orders available
+          </Typography>
+          <Button
+            onClick={() => dispatch(fetchOrders('customer'))}
+            sx={{ mt: 2 }}
+            variant="outlined"
+            color="primary"
           >
-            <MenuItem value="momo">Mobile Money (MoMo)</MenuItem>
-          </TextField>
+            Refresh
+          </Button>
+        </Paper>
+      ) : (
+        <Box
+          sx={{
+            display: 'flex',
+            flexWrap: 'wrap',
+            gap: 3,
+            justifyContent: 'flex-start',
+          }}
+        >
+          {orders.map((order) => (
+            <Box
+              key={order._id}
+              sx={{
+                width: {
+                  xs: '100%',
+                  sm: 'calc(50% - 12px)',
+                  md: 'calc(33.33% - 16px)',
+                  lg: 'calc(25% - 18px)',
+                },
+                minWidth: '300px',
+              }}
+            >
+              <Card sx={{ height: '100%', display: 'flex', flexDirection: 'column', bgcolor: 'background.paper', borderRadius: 2, boxShadow: 1 }}>
+                <CardContent sx={{ flexGrow: 1 }}>
+                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+                    <Typography variant="h6" color="primary">
+                      #{order.orderNumber}
+                    </Typography>
+                    <Box sx={{ display: 'flex', gap: 1 }}>
+                      <Chip
+                        label={statusLabels[order.status]}
+                        color={statusColors[order.status]}
+                        size="small"
+                      />
+                      <Chip
+                        label={paymentStatusLabels[order.payment.status]}
+                        color={paymentStatusColors[order.payment.status]}
+                        size="small"
+                      />
+                    </Box>
+                  </Box>
+
+                  <Typography variant="subtitle1" gutterBottom>
+                    {order.serviceProvider
+                      ? `Provider: ${order.serviceProvider.firstName} ${order.serviceProvider.lastName}`
+                      : 'Provider: Not assigned'}
+                  </Typography>
+
+                  <Typography variant="body2" color="text.secondary" gutterBottom>
+                    Items: {order.items.map((item) => `${item.serviceName} (${item.quantity})`).join(', ')}
+                  </Typography>
+
+                  <Typography variant="h6" color="primary" gutterBottom>
+                    Total: {order.formattedTotal}
+                  </Typography>
+
+                  <Typography variant="body2" color="text.secondary" gutterBottom>
+                    Created: {formatDate(order.createdAt)}
+                  </Typography>
+
+                  <Typography variant="body2" color="text.secondary" gutterBottom>
+                    Delivery: {formatDate(order.deliveryDate)}
+                  </Typography>
+
+                  <Stack spacing={1}>
+                    {getActionButtons(order)}
+                  </Stack>
+                </CardContent>
+              </Card>
+            </Box>
+          ))}
+        </Box>
+      )}
+
+      <Dialog open={openPaymentDialog} onClose={() => setOpenPaymentDialog(false)}>
+        <DialogTitle>Pay for Order #{selectedOrder?.orderNumber}</DialogTitle>
+        <DialogContent>
           <TextField
-            label="Phone Number"
+            autoFocus
+            margin="dense"
+            label="Phone Number (MoMo)"
+            fullWidth
             value={phoneNumber}
             onChange={(e) => setPhoneNumber(e.target.value)}
-            fullWidth
-            margin="normal"
-            placeholder="Enter MoMo phone number"
+            disabled={paymentLoading}
           />
         </DialogContent>
         <DialogActions>
-          <Button onClick={handleCloseDialog}>Cancel</Button>
+          <Button onClick={() => setOpenPaymentDialog(false)} disabled={paymentLoading} color="primary">
+            Cancel
+          </Button>
           <Button
-            onClick={handleProcessPayment}
-            color="primary"
+            onClick={handlePaymentSubmit}
             variant="contained"
-            disabled={!phoneNumber}
+            color="primary"
+            disabled={paymentLoading}
+            startIcon={paymentLoading ? <CircularProgress size={16} /> : null}
           >
-            Process Payment
+            {paymentLoading ? 'Processing...' : 'Pay Now'}
           </Button>
         </DialogActions>
       </Dialog>

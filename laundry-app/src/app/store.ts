@@ -6,7 +6,7 @@ import paymentReducer from '../features/payment/paymentSlice';
 
 export const store = configureStore({
   reducer: {
-    auth: authReducer,
+    auth: authReducer,  
     orders: orderReducer,
     services: serviceReducer,
     payment: paymentReducer,
