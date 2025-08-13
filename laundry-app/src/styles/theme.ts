@@ -3,31 +3,36 @@ import { createTheme } from '@mui/material/styles';
 export const theme = createTheme({
   palette: {
     primary: {
-      main: '#4285F4', // Medium Blue
-      light: '#80B3FF',
-      dark: '#0056B3',
+      main: '#FF6F61', // Vibrant Coral
+      light: '#FFA29A',
+      dark: '#C63F33',
+      contrastText: '#FFFFFF',
     },
     secondary: {
-      main: '#8BC34A', // Mint Green
-      light: '#AED581',
-      dark: '#558B2F',
+      main: '#26A69A', // Lively Teal
+      light: '#4DD0E1',
+      dark: '#00766C',
+      contrastText: '#FFFFFF',
     },
     background: {
-      default: '#FFFFFF',
-      paper: '#F5F5F5',
+      default: '#FAFAFA', // Off-White
+      paper: '#F0F2F5', // Soft Gray
     },
     text: {
-      primary: '#333333', // Charcoal Grey
-      secondary: '#1a237e', // Dark Blue
+      primary: '#212121', // Dark Charcoal
+      secondary: '#00695C', // Muted Teal
     },
     success: {
-      main: '#4CAF50',
+      main: '#4CAF50', // Vibrant Green (unchanged, fits the lively theme)
+      contrastText: '#FFFFFF',
     },
     error: {
-      main: '#F44336',
+      main: '#D32F2F', // Bold Red
+      contrastText: '#FFFFFF',
     },
     warning: {
-      main: '#FFEB3B', // Soft Yellow
+      main: '#FFB300', // Bright Amber
+      contrastText: '#212121',
     },
   },
   typography: {
@@ -82,4 +87,4 @@ export const theme = createTheme({
       },
     },
   },
-}); 
+});

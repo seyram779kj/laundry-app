@@ -260,18 +260,35 @@ router.post('/', protect, customer, async (req, res) => {
 router.put('/:id/status', protect, async (req, res) => {
   try {
     const { status } = req.body;
+    
+    // Validate status
+    const validStatuses = ['pending', 'confirmed', 'assigned', 'in_progress', 'ready_for_pickup', 'completed', 'cancelled'];
+    if (!validStatuses.includes(status)) {
+      return res.status(400).json({ 
+        success: false, 
+        error: `Invalid status: ${status}` 
+      });
+    }
+
     const order = await Order.findById(req.params.id);
 
     if (!order) {
       return res.status(404).json({ success: false, error: 'Order not found' });
     }
 
-    if (req.user.role === 'service_provider' && order.serviceProvider && order.serviceProvider.toString() !== req.user.id) {
-      return res.status(403).json({ success: false, error: 'Access denied' });
-    }
-
-    if (req.user.role === 'customer' && order.customer.toString() !== req.user.id) {
-      return res.status(403).json({ success: false, error: 'Access denied' });
+    // Check permissions
+    if (req.user.role === 'service_provider') {
+      // Service providers can only update orders assigned to them
+      if (!order.serviceProvider || order.serviceProvider.toString() !== req.user.id) {
+        return res.status(403).json({ 
+          success: false, 
+          error: 'You can only update orders assigned to you' 
+        });
+      }
+    } else if (req.user.role === 'customer') {
+      if (order.customer.toString() !== req.user.id) {
+        return res.status(403).json({ success: false, error: 'Access denied' });
+      }
     }
 
     const validTransitions = {
@@ -287,11 +304,18 @@ router.put('/:id/status', protect, async (req, res) => {
     if (!validTransitions[order.status].includes(status)) {
       return res.status(400).json({
         success: false,
-        error: `Invalid status transition from ${order.status} to ${status}`,
+        error: `Cannot change status from ${order.status} to ${status}`,
       });
     }
 
+    // Update the order
     order.status = status;
+    
+    // Initialize statusHistory if it doesn't exist
+    if (!order.statusHistory) {
+      order.statusHistory = [];
+    }
+
     order.statusHistory.push({
       status,
       changedBy: req.user.id,
@@ -300,20 +324,35 @@ router.put('/:id/status', protect, async (req, res) => {
     });
 
     await order.save();
+    
+    // Populate the order with user details
     await order.populate([
       { path: 'customer', select: 'firstName lastName email phoneNumber' },
       { path: 'serviceProvider', select: 'firstName lastName email phoneNumber businessDetails' },
     ]);
 
+    // Add formatted total for frontend
+    const orderWithFormatted = {
+      ...order.toObject(),
+      formattedTotal: `$${order.totalAmount.toFixed(2)}`
+    };
+
+    console.log(`Order ${order._id} status updated from ${order.status} to ${status} by user ${req.user.id}`);
+
     res.json({
       success: true,
-      data: order,
+      data: orderWithFormatted,
+      message: `Order status updated to ${status}`,
     });
   } catch (error) {
     console.error('Update order status error:', error);
-    res.status(500).json({ success: false, error: 'Failed to update order status' });
+    res.status(500).json({ 
+      success: false, 
+      error: error.message || 'Failed to update order status' 
+    });
   }
 });
+
 
 // Update order details (admin and service providers can update notes)
 router.put('/:id', protect, async (req, res) => {
@@ -358,19 +397,24 @@ router.put('/:id', protect, async (req, res) => {
 });
 
 // Self-assign order (service providers only) - PATCH method
-router.patch('/:id/assign-self', protect, serviceProvider, async (req, res) => {
+router.put('/:id/assign-self', protect, serviceProvider, async (req, res) => {
   try {
+    console.log(`Service provider ${req.user.id} attempting to assign order ${req.params.id}`);
+    
     const order = await Order.findById(req.params.id);
 
     if (!order) {
+      console.log(`Order ${req.params.id} not found`);
       return res.status(404).json({ success: false, error: 'Order not found' });
     }
+
+    console.log(`Order status: ${order.status}, serviceProvider: ${order.serviceProvider}`);
 
     // Check if order is available for assignment
     if (order.status !== 'pending' && order.status !== 'confirmed') {
       return res.status(400).json({ 
         success: false, 
-        error: 'Order is not available for assignment' 
+        error: `Order is not available for assignment. Current status: ${order.status}` 
       });
     }
 
@@ -386,22 +430,48 @@ router.patch('/:id/assign-self', protect, serviceProvider, async (req, res) => {
     order.serviceProvider = req.user.id;
     order.status = 'assigned';
 
+    // Initialize statusHistory if it doesn't exist
+    if (!order.statusHistory) {
+      order.statusHistory = [];
+    }
+
+    order.statusHistory.push({
+      status: 'assigned',
+      changedBy: req.user.id,
+      changedAt: new Date(),
+      notes: 'Self-assigned by service provider',
+    });
+
     await order.save();
+    
+    // Populate the order with user details
     await order.populate([
       { path: 'customer', select: 'firstName lastName email phoneNumber' },
       { path: 'serviceProvider', select: 'firstName lastName email phoneNumber businessDetails' },
     ]);
 
+    // Add formatted total for frontend
+    const orderWithFormatted = {
+      ...order.toObject(),
+      formattedTotal: `$${order.totalAmount.toFixed(2)}`
+    };
+
+    console.log(`Order ${order._id} successfully assigned to service provider ${req.user.id}`);
+
     res.json({
       success: true,
-      data: order,
-      message: 'Successfully assigned to order',
+      data: orderWithFormatted,
+      message: 'Successfully assigned order to yourself',
     });
   } catch (error) {
     console.error('Self-assign order error:', error);
-    res.status(500).json({ success: false, error: 'Failed to assign order' });
+    res.status(500).json({ 
+      success: false, 
+      error: error.message || 'Failed to assign order' 
+    });
   }
 });
+
 
 // Self-assign order (service providers only) - PUT method
 router.put('/:id/assign-self', protect, serviceProvider, async (req, res) => {
@@ -522,6 +592,7 @@ router.get('/stats-overview', protect, async (req, res) => {
 router.get('/provider/assigned', protect, serviceProvider, async (req, res) => {
   try {
     console.log('Provider ID:', req.user.id);
+    console.log('User role:', req.user.role);
     
     // Get both assigned orders and available orders for self-assignment
     const query = {
@@ -542,41 +613,36 @@ router.get('/provider/assigned', protect, serviceProvider, async (req, res) => {
       .sort({ createdAt: -1 });
 
     console.log('Found orders count:', orders.length);
-    console.log('Sample order data:', orders.length > 0 ? {
-      id: orders[0]._id,
-      status: orders[0].status,
-      serviceProvider: orders[0].serviceProvider ? 'assigned' : 'unassigned',
-      customer: orders[0].customer?.firstName
-    } : 'No orders found');
 
-    const formattedOrders = orders.map(order => ({
-      ...order.toObject(),
-      formattedTotal: `$${order.totalAmount.toFixed(2)}`,
-      customer: {
-        _id: order.customer._id,
-        firstName: order.customer.firstName,
-        lastName: order.customer.lastName,
-        email: order.customer.email,
-        phoneNumber: order.customer.phoneNumber
-      },
-      serviceProvider: order.serviceProvider ? {
-        _id: order.serviceProvider._id,
-        firstName: order.serviceProvider.firstName,
-        lastName: order.serviceProvider.lastName,
-        email: order.serviceProvider.email,
-        phoneNumber: order.serviceProvider.phoneNumber
-      } : null
-    }));
+    // Format orders with consistent structure
+    const formattedOrders = orders.map(order => {
+      const orderObj = order.toObject();
+      return {
+        ...orderObj,
+        formattedTotal: `$${order.totalAmount.toFixed(2)}`,
+        orderNumber: orderObj.orderNumber || `ORD-${orderObj._id.toString().slice(-6).toUpperCase()}`,
+        notes: orderObj.notes || { customer: '', serviceProvider: '', admin: '' }
+      };
+    });
+
+    console.log('Formatted orders sample:', formattedOrders.length > 0 ? {
+      id: formattedOrders[0]._id,
+      status: formattedOrders[0].status,
+      serviceProvider: formattedOrders[0].serviceProvider ? 'assigned' : 'unassigned',
+      customer: formattedOrders[0].customer?.firstName,
+      total: formattedOrders[0].formattedTotal
+    } : 'No orders found');
 
     res.json({
       success: true,
-      data: formattedOrders
+      data: formattedOrders,
+      count: formattedOrders.length
     });
   } catch (error) {
     console.error('Get assigned orders error:', error);
     res.status(500).json({
       success: false,
-      error: 'Failed to fetch assigned orders'
+      error: error.message || 'Failed to fetch assigned orders'
     });
   }
 });

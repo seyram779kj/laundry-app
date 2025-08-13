@@ -120,6 +120,15 @@ const Dashboard: React.FC = () => {
                       View Orders
                     </Button>
                   </Box>
+                   <Box sx={{ width: { xs: '100%', sm: '50%' } }}>
+                    <Button
+                      variant="contained"
+                      fullWidth
+                      onClick={() => navigate('/provider/chat/:chatRoomId')}
+                    >
+                      Chat
+                    </Button>
+                  </Box>
                   <Box sx={{ width: { xs: '100%', sm: '50%' } }}>
                     <Button
                       variant="contained"

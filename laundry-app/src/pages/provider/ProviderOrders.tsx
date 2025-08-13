@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import {
   Box,
@@ -18,12 +17,6 @@ import {
   Menu,
   MenuItem,
   Badge,
-  Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableHead,
-  TableRow,
   Card,
   CardContent,
 } from '@mui/material';
@@ -127,6 +120,7 @@ const Orders_t: React.FC = () => {
   const [notes, setNotes] = useState('');
   const [unreadChats, setUnreadChats] = useState<{[orderId: string]: boolean}>({});
   const [updating, setUpdating] = useState<string | null>(null);
+  const [chatLoading, setChatLoading] = useState<string | null>(null);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -201,6 +195,97 @@ const Orders_t: React.FC = () => {
     }
 
     setUnreadChats(unreadStatus);
+  };
+
+  const handleViewChat = async (order: Order) => {
+    try {
+      setChatLoading(order._id);
+      console.log('Opening chat for order:', order._id);
+      console.log('Customer ID:', order.customer._id);
+      
+      const token = localStorage.getItem('token');
+      if (!token) {
+        throw new Error('No authentication token found');
+      }
+
+      console.log('Creating/finding chat room...');
+      
+      // Create or find the chat room
+      const response = await axios.post(
+        'http://localhost:5000/api/chats/room',
+        { 
+          customerId: order.customer._id, 
+          orderId: order._id 
+        },
+        { 
+          headers: { Authorization: `Bearer ${token}` },
+          timeout: 10000
+        }
+      );
+
+      console.log('Chat room response:', response.data);
+      
+      if (!response.data || !response.data._id) {
+        throw new Error('Invalid chat room response - missing room ID');
+      }
+
+      const chatRoomId = response.data._id;
+      console.log('Chat room ID:', chatRoomId);
+      
+      // Test if we can fetch messages before navigating
+      console.log('Testing message fetch...');
+      const messagesTest = await axios.get(
+        `http://localhost:5000/api/chats/${chatRoomId}/messages`,
+        { 
+          headers: { Authorization: `Bearer ${token}` },
+          timeout: 5000
+        }
+      );
+      
+      console.log('Messages test successful, count:', messagesTest.data?.length || 0);
+      
+      // Navigate to chat page
+      const chatRoute = `/provider/Providerchat/${chatRoomId}`;
+      console.log('Navigating to:', chatRoute);
+      
+      // Add order and customer info to sessionStorage for the chat component
+      sessionStorage.setItem('currentChatOrder', JSON.stringify({
+        orderId: order._id,
+        orderNumber: order.orderNumber,
+        customerId: order.customer._id,
+        customerName: `${order.customer.firstName} ${order.customer.lastName}`,
+        chatRoomId: chatRoomId
+      }));
+      
+      navigate(chatRoute);
+      
+    } catch (err: any) {
+      console.error('Error opening chat:', err);
+      console.error('Error details:', {
+        message: err.message,
+        response: err.response?.data,
+        status: err.response?.status
+      });
+      
+      let errorMessage = 'Failed to open chat';
+      
+      if (err.code === 'ECONNABORTED') {
+        errorMessage = 'Chat request timed out. Please try again.';
+      } else if (err.response?.status === 404) {
+        errorMessage = 'Chat service not found. Please check your connection.';
+      } else if (err.response?.status === 401) {
+        errorMessage = 'Authentication failed. Please log in again.';
+      } else if (err.response?.status === 403) {
+        errorMessage = 'Not authorized to access this chat.';
+      } else if (err.response?.data?.error) {
+        errorMessage = err.response.data.error;
+      }
+      
+      setError(errorMessage);
+      
+    } finally {
+      setChatLoading(null);
+    }
   };
 
   const handleAssignToSelf = async (orderId: string) => {
@@ -301,23 +386,6 @@ const Orders_t: React.FC = () => {
     }
   };
 
-  const handleViewChat = async (order: Order) => {
-    try {
-      const token = localStorage.getItem('token');
-      const response = await axios.post(
-        'http://localhost:5000/api/chats/room',
-        { customerId: order.customer._id, orderId: order._id },
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
-
-      const chatRoomId = response.data._id;
-      navigate(`/provider/chat/${chatRoomId}`);
-    } catch (err: any) {
-      console.error('Error opening chat:', err);
-      setError('Failed to open chat');
-    }
-  };
-
   const formatDate = (dateString: string) => {
     return format(new Date(dateString), 'MMM dd, yyyy hh:mm a');
   };
@@ -392,6 +460,28 @@ const Orders_t: React.FC = () => {
     return null;
   };
 
+  const getChatButton = (order: Order) => {
+    const isLoading = chatLoading === order._id;
+    
+    return (
+      <Badge 
+        color="error" 
+        variant="dot" 
+        invisible={!unreadChats[order._id]}
+      >
+        <IconButton
+          size="small"
+          color="primary"
+          onClick={() => handleViewChat(order)}
+          disabled={isLoading}
+          title={isLoading ? 'Opening chat...' : 'Open chat with customer'}
+        >
+          {isLoading ? <CircularProgress size={16} /> : <MessageIcon />}
+        </IconButton>
+      </Badge>
+    );
+  };
+
   if (loading) {
     return (
       <Box sx={{ display: 'flex', justifyContent: 'center', p: 3 }}>
@@ -406,7 +496,10 @@ const Orders_t: React.FC = () => {
         <Alert severity="error" sx={{ mb: 2 }}>
           {error}
           <Button 
-            onClick={fetchOrders} 
+            onClick={() => {
+              setError(null);
+              fetchOrders();
+            }} 
             sx={{ ml: 2 }}
             variant="outlined"
             size="small"
@@ -504,19 +597,7 @@ const Orders_t: React.FC = () => {
                     {getActionButtons(order)}
                     
                     <Stack direction="row" spacing={1} justifyContent="center">
-                      <Badge 
-                        color="error" 
-                        variant="dot" 
-                        invisible={!unreadChats[order._id]}
-                      >
-                        <IconButton
-                          size="small"
-                          color="primary"
-                          onClick={() => handleViewChat(order)}
-                        >
-                          <MessageIcon />
-                        </IconButton>
-                      </Badge>
+                      {getChatButton(order)}
                       
                       <IconButton
                         size="small"

@@ -17,7 +17,8 @@ import Login from './pages/Login';
 import Register from './pages/Register';
 import Dashboard from './pages/Dashboard';
 import NewOrder from './pages/NewOrder';
-import Orders from './pages/provider/ProviderOrders';
+import Orders from './pages/Orders';
+import Orders_t from './pages/provider/ProviderOrders';
 import Profile from './pages/Profile';
 import Settings from './pages/Settings';
 import Services from './pages/Services';
@@ -252,7 +253,7 @@ const App: React.FC = () => {
                     <MainLayout title="Provider Dashboard">
                       <Routes>
                         <Route index element={<ServiceProviderDashboard />} />
-                        <Route path="orders" element={<Orders />} />
+                        <Route path="orders" element={<Orders_t />} />
                         <Route path="earnings" element={<ProviderEarnings />} />
                         <Route path="availability" element={<ProviderAvailability />} />
                         <Route path="profile" element={<Profile />} />

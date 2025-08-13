@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Box,
   Typography,
@@ -9,35 +9,168 @@ import {
   TableContainer,
   TableHead,
   TableRow,
+  CircularProgress,
+  Alert,
+  Chip,
+  Card,
+  CardContent,
 } from '@mui/material';
-import { useAppSelector } from '../../app/hooks';
-import { ServiceProviderUser } from '../../types/auth';
+import { format } from 'date-fns';
+import axios from 'axios';
 
 interface EarningHistory {
-  date: string;
-  orderId: string;
-  service: string;
-  amount: number;
-  status: 'pending' | 'completed';
+  _id: string;
+  orderNumber: string;
+  customer: {
+    firstName: string;
+    lastName: string;
+  };
+  items: Array<{
+    serviceName: string;
+    quantity: number;
+    unitPrice: number;
+    totalPrice: number;
+  }>;
+  totalAmount: number;
+  status: string;
+  createdAt: string;
+  completedAt?: string;
 }
 
-interface Earnings {
-  total: number;
-  pending: number;
-  completed: number;
+interface EarningsData {
+  totalEarnings: number;
+  pendingEarnings: number;
+  completedEarnings: number;
+  totalOrders: number;
+  completedOrders: number;
+  pendingOrders: number;
   history: EarningHistory[];
 }
 
 const ProviderEarnings: React.FC = () => {
-  const { user } = useAppSelector((state) => state.auth);
-  const serviceProvider = user as ServiceProviderUser;
-  
-  const earnings: Earnings = {
-    total: serviceProvider.earnings?.total ?? 0,
-    pending: serviceProvider.earnings?.pending ?? 0,
-    completed: serviceProvider.earnings?.completed ?? 0,
-    history: [], // TODO: Add actual earnings history from API
+  const [earnings, setEarnings] = useState<EarningsData>({
+    totalEarnings: 0,
+    pendingEarnings: 0,
+    completedEarnings: 0,
+    totalOrders: 0,
+    completedOrders: 0,
+    pendingOrders: 0,
+    history: []
+  });
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    fetchEarnings();
+  }, []);
+
+  const fetchEarnings = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      const token = localStorage.getItem('token');
+
+      if (!token) {
+        setError('Authentication token not found');
+        return;
+      }
+
+      // Fetch orders assigned to this provider
+      const response = await axios.get(
+        'http://localhost:5000/api/orders?role=service_provider&include_available=false',
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+
+      if (response.data.success) {
+        const orders = response.data.data.docs || response.data.data;
+        console.log('Orders for earnings:', orders);
+
+        // Calculate earnings
+        let totalEarnings = 0;
+        let pendingEarnings = 0;
+        let completedEarnings = 0;
+        let completedOrders = 0;
+        let pendingOrders = 0;
+
+        const earningHistory: EarningHistory[] = orders.map((order: any) => {
+          const amount = order.totalAmount;
+          
+          if (order.status === 'completed') {
+            completedEarnings += amount;
+            completedOrders++;
+          } else if (['assigned', 'in_progress', 'ready_for_pickup'].includes(order.status)) {
+            pendingEarnings += amount;
+            pendingOrders++;
+          }
+
+          totalEarnings += amount;
+
+          return {
+            _id: order._id,
+            orderNumber: order.orderNumber,
+            customer: order.customer,
+            items: order.items,
+            totalAmount: amount,
+            status: order.status,
+            createdAt: order.createdAt,
+            completedAt: order.status === 'completed' ? order.updatedAt : undefined
+          };
+        });
+
+        setEarnings({
+          totalEarnings,
+          pendingEarnings,
+          completedEarnings,
+          totalOrders: orders.length,
+          completedOrders,
+          pendingOrders,
+          history: earningHistory
+        });
+      } else {
+        setError('Failed to fetch earnings data');
+      }
+    } catch (err: any) {
+      console.error('Fetch earnings error:', err);
+      setError(err.response?.data?.error || 'Failed to fetch earnings');
+    } finally {
+      setLoading(false);
+    }
   };
+
+  const formatDate = (dateString: string) => {
+    return format(new Date(dateString), 'MMM dd, yyyy');
+  };
+
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case 'completed':
+        return 'success';
+      case 'in_progress':
+        return 'primary';
+      case 'ready_for_pickup':
+        return 'secondary';
+      case 'assigned':
+        return 'info';
+      default:
+        return 'default';
+    }
+  };
+
+  if (loading) {
+    return (
+      <Box sx={{ display: 'flex', justifyContent: 'center', p: 3 }}>
+        <CircularProgress />
+      </Box>
+    );
+  }
+
+  if (error) {
+    return (
+      <Box sx={{ p: 3 }}>
+        <Alert severity="error">{error}</Alert>
+      </Box>
+    );
+  }
 
   return (
     <Box sx={{ p: 3 }}>
@@ -45,39 +178,52 @@ const ProviderEarnings: React.FC = () => {
         Earnings Overview
       </Typography>
 
-      <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 3, mb: 4 }}>
-        <Box sx={{ flex: '1 1 300px', minWidth: 0 }}>
-          <Paper sx={{ p: 3, textAlign: 'center', bgcolor: 'primary.light' }}>
-            <Typography variant="h4" color="white">
-              ${earnings.total}
+      {/* Summary Cards */}
+      <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: 3, mb: 4 }}>
+        <Card>
+          <CardContent sx={{ textAlign: 'center', bgcolor: 'primary.light', color: 'white' }}>
+            <Typography variant="h4">
+              ${earnings.totalEarnings.toFixed(2)}
             </Typography>
-            <Typography variant="subtitle1" color="white">
+            <Typography variant="subtitle1">
               Total Earnings
             </Typography>
-          </Paper>
-        </Box>
-        <Box sx={{ flex: '1 1 300px', minWidth: 0 }}>
-          <Paper sx={{ p: 3, textAlign: 'center', bgcolor: 'warning.light' }}>
-            <Typography variant="h4" color="white">
-              ${earnings.pending}
+            <Typography variant="body2">
+              {earnings.totalOrders} orders
             </Typography>
-            <Typography variant="subtitle1" color="white">
-              Pending Orders
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardContent sx={{ textAlign: 'center', bgcolor: 'success.light', color: 'white' }}>
+            <Typography variant="h4">
+              ${earnings.completedEarnings.toFixed(2)}
             </Typography>
-          </Paper>
-        </Box>
-        <Box sx={{ flex: '1 1 300px', minWidth: 0 }}>
-          <Paper sx={{ p: 3, textAlign: 'center', bgcolor: 'success.light' }}>
-            <Typography variant="h4" color="white">
-              ${earnings.completed}
+            <Typography variant="subtitle1">
+              Completed Earnings
             </Typography>
-            <Typography variant="subtitle1" color="white">
-              Completed Orders
+            <Typography variant="body2">
+              {earnings.completedOrders} completed orders
             </Typography>
-          </Paper>
-        </Box>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardContent sx={{ textAlign: 'center', bgcolor: 'warning.light', color: 'white' }}>
+            <Typography variant="h4">
+              ${earnings.pendingEarnings.toFixed(2)}
+            </Typography>
+            <Typography variant="subtitle1">
+              Pending Earnings
+            </Typography>
+            <Typography variant="body2">
+              {earnings.pendingOrders} pending orders
+            </Typography>
+          </CardContent>
+        </Card>
       </Box>
 
+      {/* Earnings History */}
       <Paper sx={{ p: 3 }}>
         <Typography variant="h6" gutterBottom>
           Earnings History
@@ -86,33 +232,52 @@ const ProviderEarnings: React.FC = () => {
           <Table>
             <TableHead>
               <TableRow>
-                <TableCell>Date</TableCell>
-                <TableCell>Order ID</TableCell>
-                <TableCell>Service</TableCell>
+                <TableCell>Order #</TableCell>
+                <TableCell>Customer</TableCell>
+                <TableCell>Services</TableCell>
                 <TableCell>Amount</TableCell>
                 <TableCell>Status</TableCell>
+                <TableCell>Date</TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
-              {earnings.history.map((earning: EarningHistory, index: number) => (
-                <TableRow key={index}>
-                  <TableCell>{new Date(earning.date).toLocaleDateString()}</TableCell>
-                  <TableCell>{earning.orderId}</TableCell>
-                  <TableCell>{earning.service}</TableCell>
-                  <TableCell>${earning.amount}</TableCell>
-                  <TableCell>
-                    <Typography
-                      color={earning.status === 'completed' ? 'success.main' : 'warning.main'}
-                    >
-                      {earning.status.charAt(0).toUpperCase() + earning.status.slice(1)}
-                    </Typography>
-                  </TableCell>
-                </TableRow>
-              ))}
-              {earnings.history.length === 0 && (
+              {earnings.history.length > 0 ? (
+                earnings.history.map((earning) => (
+                  <TableRow key={earning._id}>
+                    <TableCell>{earning.orderNumber}</TableCell>
+                    <TableCell>
+                      {`${earning.customer.firstName} ${earning.customer.lastName}`}
+                    </TableCell>
+                    <TableCell>
+                      {earning.items.map((item, index) => (
+                        <div key={index}>
+                          {item.serviceName} (x{item.quantity})
+                        </div>
+                      ))}
+                    </TableCell>
+                    <TableCell>
+                      <Typography fontWeight="bold">
+                        ${earning.totalAmount.toFixed(2)}
+                      </Typography>
+                    </TableCell>
+                    <TableCell>
+                      <Chip
+                        label={earning.status.replace('_', ' ').toUpperCase()}
+                        color={getStatusColor(earning.status) as any}
+                        size="small"
+                      />
+                    </TableCell>
+                    <TableCell>
+                      {formatDate(earning.completedAt || earning.createdAt)}
+                    </TableCell>
+                  </TableRow>
+                ))
+              ) : (
                 <TableRow>
-                  <TableCell colSpan={5} align="center">
-                    No earnings history available
+                  <TableCell colSpan={6} align="center">
+                    <Typography variant="body1" color="text.secondary" sx={{ py: 3 }}>
+                      No earnings history available. Start taking orders to see your earnings!
+                    </Typography>
                   </TableCell>
                 </TableRow>
               )}
@@ -124,4 +289,4 @@ const ProviderEarnings: React.FC = () => {
   );
 };
 
-export default ProviderEarnings; 
+export default ProviderEarnings;
