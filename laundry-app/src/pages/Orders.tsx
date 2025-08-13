@@ -21,7 +21,7 @@ import { format } from 'date-fns';
 import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
-import { RootState, AppDispatch } from '../../app/store';
+import { RootState, AppDispatch } from '../app/store';
 import { shallowEqual } from 'react-redux';
 import { createAsyncThunk } from '@reduxjs/toolkit';
 
