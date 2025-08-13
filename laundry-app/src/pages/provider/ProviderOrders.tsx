@@ -13,23 +13,20 @@ import {
   Alert,
   CircularProgress,
   Stack,
-  IconButton,
-  Menu,
-  MenuItem,
-  Badge,
   Card,
   CardContent,
 } from '@mui/material';
-import MoreVertIcon from '@mui/icons-material/MoreVert';
-import MessageIcon from '@mui/icons-material/Message';
-import AssignmentIcon from '@mui/icons-material/Assignment';
-import PlayArrowIcon from '@mui/icons-material/PlayArrow';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import { format } from 'date-fns';
 import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
+import { useDispatch, useSelector } from 'react-redux';
+import { RootState } from '../app/store';
+import { fetchOrders, setError } from '../features/orders/orderSlice';
+import { shallowEqual } from 'react-redux';
 
 type OrderStatus = 'pending' | 'confirmed' | 'assigned' | 'in_progress' | 'ready_for_pickup' | 'completed' | 'cancelled';
+type PaymentStatus = 'pending' | 'completed' | 'failed';
 
 interface Order {
   _id: string;
@@ -57,6 +54,8 @@ interface Order {
     specialInstructions?: string;
   }>;
   status: OrderStatus;
+  paymentStatus: PaymentStatus;
+  paymentMethod?: string;
   totalAmount: number;
   subtotal: number;
   tax: number;
@@ -100,6 +99,12 @@ const statusColors: Record<OrderStatus, 'default' | 'primary' | 'secondary' | 'e
   cancelled: 'error',
 };
 
+const paymentStatusColors: Record<PaymentStatus, 'default' | 'primary' | 'secondary' | 'error' | 'info' | 'success' | 'warning'> = {
+  pending: 'error',
+  completed: 'success',
+  failed: 'error',
+};
+
 const statusLabels: Record<OrderStatus, string> = {
   pending: 'Pending',
   confirmed: 'Confirmed',
@@ -110,279 +115,58 @@ const statusLabels: Record<OrderStatus, string> = {
   cancelled: 'Cancelled',
 };
 
-const Orders_t: React.FC = () => {
-  const [orders, setOrders_t] = useState<Order[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
+const paymentStatusLabels: Record<PaymentStatus, string> = {
+  pending: 'Payment Pending',
+  completed: 'Payment Completed',
+  failed: 'Payment Failed',
+};
+
+const Orders: React.FC = () => {
+  const dispatch = useDispatch();
+  const { orders, loading, error } = useSelector((state: RootState) => state.orders, shallowEqual);
+  const [openPaymentDialog, setOpenPaymentDialog] = useState(false);
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
-  const [notesDialogOpen, setNotesDialogOpen] = useState(false);
-  const [notes, setNotes] = useState('');
-  const [unreadChats, setUnreadChats] = useState<{[orderId: string]: boolean}>({});
-  const [updating, setUpdating] = useState<string | null>(null);
-  const [chatLoading, setChatLoading] = useState<string | null>(null);
+  const [phoneNumber, setPhoneNumber] = useState('');
+  const [paymentLoading, setPaymentLoading] = useState(false);
   const navigate = useNavigate();
 
   useEffect(() => {
-    fetchOrders();
-  }, []);
+    dispatch(fetchOrders({ role: 'customer' }));
+  }, [dispatch]);
 
-  const fetchOrders = async () => {
-    try {
-      setLoading(true);
-      setError(null);
-      const token = localStorage.getItem('token');
-
-      if (!token) {
-        setError('Authentication token not found');
-        return;
-      }
-
-      console.log('Fetching orders...');
-      const response = await axios.get('http://localhost:5000/api/orders?role=service_provider&include_available=true', {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-
-      console.log('Orders response:', response.data);
-
-      if (response.data.success) {
-        const ordersData = response.data.data.docs || response.data.data;
-        console.log('Orders data:', ordersData);
-        setOrders_t(ordersData);
-        await checkUnreadMessages(ordersData, token);
-      } else {
-        setError('Failed to fetch orders');
-      }
-    } catch (err: any) {
-      console.error('Fetch orders error:', err);
-      setError(err.response?.data?.error || 'Failed to fetch orders');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const checkUnreadMessages = async (ordersList: Order[], token: string) => {
-    const user = JSON.parse(localStorage.getItem('user') || '{}');
-    const userId = user._id || user.id;
-
-    if (!userId) return;
-
-    const unreadStatus: {[orderId: string]: boolean} = {};
-
-    for (const order of ordersList) {
-      try {
-        const chatRoomRes = await axios.post(
-          'http://localhost:5000/api/chats/room',
-          { customerId: order.customer._id, orderId: order._id },
-          { headers: { Authorization: `Bearer ${token}` } }
-        );
-
-        const chatRoomId = chatRoomRes.data._id;
-        const messagesRes = await axios.get(
-          `http://localhost:5000/api/chats/${chatRoomId}/messages`,
-          { headers: { Authorization: `Bearer ${token}` } }
-        );
-
-        const messages = messagesRes.data;
-        unreadStatus[order._id] = messages.some((msg: any) => 
-          msg.senderType !== 'service_provider' && 
-          (!msg.readBy || !msg.readBy.includes(userId))
-        );
-      } catch (err) {
-        console.error(`Error checking messages for order ${order._id}:`, err);
-        unreadStatus[order._id] = false;
-      }
-    }
-
-    setUnreadChats(unreadStatus);
-  };
-
-  const handleViewChat = async (order: Order) => {
-    try {
-      setChatLoading(order._id);
-      console.log('Opening chat for order:', order._id);
-      console.log('Customer ID:', order.customer._id);
-      
-      const token = localStorage.getItem('token');
-      if (!token) {
-        throw new Error('No authentication token found');
-      }
-
-      console.log('Creating/finding chat room...');
-      
-      // Create or find the chat room
-      const response = await axios.post(
-        'http://localhost:5000/api/chats/room',
-        { 
-          customerId: order.customer._id, 
-          orderId: order._id 
-        },
-        { 
-          headers: { Authorization: `Bearer ${token}` },
-          timeout: 10000
-        }
-      );
-
-      console.log('Chat room response:', response.data);
-      
-      if (!response.data || !response.data._id) {
-        throw new Error('Invalid chat room response - missing room ID');
-      }
-
-      const chatRoomId = response.data._id;
-      console.log('Chat room ID:', chatRoomId);
-      
-      // Test if we can fetch messages before navigating
-      console.log('Testing message fetch...');
-      const messagesTest = await axios.get(
-        `http://localhost:5000/api/chats/${chatRoomId}/messages`,
-        { 
-          headers: { Authorization: `Bearer ${token}` },
-          timeout: 5000
-        }
-      );
-      
-      console.log('Messages test successful, count:', messagesTest.data?.length || 0);
-      
-      // Navigate to chat page
-      const chatRoute = `/provider/Providerchat/${chatRoomId}`;
-      console.log('Navigating to:', chatRoute);
-      
-      // Add order and customer info to sessionStorage for the chat component
-      sessionStorage.setItem('currentChatOrder', JSON.stringify({
-        orderId: order._id,
-        orderNumber: order.orderNumber,
-        customerId: order.customer._id,
-        customerName: `${order.customer.firstName} ${order.customer.lastName}`,
-        chatRoomId: chatRoomId
-      }));
-      
-      navigate(chatRoute);
-      
-    } catch (err: any) {
-      console.error('Error opening chat:', err);
-      console.error('Error details:', {
-        message: err.message,
-        response: err.response?.data,
-        status: err.response?.status
-      });
-      
-      let errorMessage = 'Failed to open chat';
-      
-      if (err.code === 'ECONNABORTED') {
-        errorMessage = 'Chat request timed out. Please try again.';
-      } else if (err.response?.status === 404) {
-        errorMessage = 'Chat service not found. Please check your connection.';
-      } else if (err.response?.status === 401) {
-        errorMessage = 'Authentication failed. Please log in again.';
-      } else if (err.response?.status === 403) {
-        errorMessage = 'Not authorized to access this chat.';
-      } else if (err.response?.data?.error) {
-        errorMessage = err.response.data.error;
-      }
-      
-      setError(errorMessage);
-      
-    } finally {
-      setChatLoading(null);
-    }
-  };
-
-  const handleAssignToSelf = async (orderId: string) => {
-    try {
-      setUpdating(orderId);
-      const token = localStorage.getItem('token');
-
-      console.log('Assigning order to self:', orderId);
-      const response = await axios.put(
-        `http://localhost:5000/api/orders/${orderId}/assign-self`,
-        {},
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
-
-      console.log('Assign response:', response.data);
-
-      if (response.data.success) {
-        await fetchOrders();
-        setError(null);
-      } else {
-        setError('Failed to assign order to yourself');
-      }
-    } catch (err: any) {
-      console.error('Assign order error:', err);
-      setError(err.response?.data?.error || 'Failed to assign order');
-    } finally {
-      setUpdating(null);
-    }
-  };
-
-  const handleStatusChange = async (orderId: string, newStatus: OrderStatus) => {
-    try {
-      setUpdating(orderId);
-      const token = localStorage.getItem('token');
-      
-      console.log('Updating status:', { orderId, newStatus });
-      const response = await axios.put(
-        `http://localhost:5000/api/orders/${orderId}/status`,
-        { status: newStatus },
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
-
-      console.log('Status update response:', response.data);
-
-      if (response.data.success) {
-        await fetchOrders();
-        setError(null);
-      } else {
-        setError('Failed to update order status');
-      }
-    } catch (err: any) {
-      console.error('Status update error:', err);
-      setError(err.response?.data?.error || 'Failed to update order status');
-    } finally {
-      setUpdating(null);
-    }
-  };
-
-  const handleMenuClick = (event: React.MouseEvent<HTMLElement>, order: Order) => {
-    setAnchorEl(event.currentTarget);
+  const handlePayNow = (order: Order) => {
     setSelectedOrder(order);
+    setPhoneNumber('');
+    setOpenPaymentDialog(true);
   };
 
-  const handleMenuClose = () => {
-    setAnchorEl(null);
-    setSelectedOrder(null);
-  };
-
-  const handleAddNotes = () => {
-    if (selectedOrder) {
-      setNotes(selectedOrder.notes.serviceProvider || '');
-      setNotesDialogOpen(true);
-      handleMenuClose();
-    }
-  };
-
-  const handleSaveNotes = async () => {
+  const handlePaymentSubmit = async () => {
     if (!selectedOrder) return;
 
     try {
+      setPaymentLoading(true);
       const token = localStorage.getItem('token');
-      const response = await axios.put(
-        `http://localhost:5000/api/orders/${selectedOrder._id}`,
-        { notes: { ...selectedOrder.notes, serviceProvider: notes } },
+      const response = await axios.post(
+        `http://localhost:5000/api/payments/momo`,
+        {
+          orderId: selectedOrder._id,
+          phoneNumber,
+          amount: selectedOrder.totalAmount,
+        },
         { headers: { Authorization: `Bearer ${token}` } }
       );
 
       if (response.data.success) {
-        await fetchOrders();
-        setNotesDialogOpen(false);
-        setError(null);
+        dispatch(fetchOrders({ role: 'customer' }));
+        setOpenPaymentDialog(false);
       } else {
-        setError('Failed to save notes');
+        dispatch(setError('Failed to process payment'));
       }
     } catch (err: any) {
-      console.error('Save notes error:', err);
-      setError(err.response?.data?.error || 'Failed to save notes');
+      console.error('Payment error:', err);
+      dispatch(setError(err.response?.data?.error || 'Failed to process payment'));
+    } finally {
+      setPaymentLoading(false);
     }
   };
 
@@ -391,95 +175,21 @@ const Orders_t: React.FC = () => {
   };
 
   const getActionButtons = (order: Order) => {
-    const isUpdating = updating === order._id;
-    
-    if (!order.serviceProvider && (order.status === 'pending' || order.status === 'confirmed')) {
+    if (order.paymentStatus === 'pending' && ['pending', 'confirmed', 'assigned', 'in_progress', 'ready_for_pickup'].includes(order.status)) {
       return (
         <Button
           size="small"
           variant="contained"
           color="primary"
-          disabled={isUpdating}
-          onClick={() => handleAssignToSelf(order._id)}
-          startIcon={isUpdating ? <CircularProgress size={16} /> : <AssignmentIcon />}
+          onClick={() => handlePayNow(order)}
+          startIcon={<CheckCircleIcon />}
           sx={{ mb: 1 }}
         >
-          {isUpdating ? 'Assigning...' : 'Assign to Me'}
+          Pay Now
         </Button>
       );
     }
-
-    if (order.status === 'assigned' && order.serviceProvider) {
-      return (
-        <Button
-          size="small"
-          variant="outlined"
-          color="primary"
-          disabled={isUpdating}
-          onClick={() => handleStatusChange(order._id, 'in_progress')}
-          startIcon={isUpdating ? <CircularProgress size={16} /> : <PlayArrowIcon />}
-          sx={{ mb: 1 }}
-        >
-          {isUpdating ? 'Starting...' : 'Start Work'}
-        </Button>
-      );
-    }
-
-    if (order.status === 'in_progress') {
-      return (
-        <Button
-          size="small"
-          variant="outlined"
-          color="secondary"
-          disabled={isUpdating}
-          onClick={() => handleStatusChange(order._id, 'ready_for_pickup')}
-          startIcon={isUpdating ? <CircularProgress size={16} /> : <CheckCircleIcon />}
-          sx={{ mb: 1 }}
-        >
-          {isUpdating ? 'Updating...' : 'Mark Ready'}
-        </Button>
-      );
-    }
-
-    if (order.status === 'ready_for_pickup') {
-      return (
-        <Button
-          size="small"
-          variant="contained"
-          color="success"
-          disabled={isUpdating}
-          onClick={() => handleStatusChange(order._id, 'completed')}
-          startIcon={isUpdating ? <CircularProgress size={16} /> : <CheckCircleIcon />}
-          sx={{ mb: 1 }}
-        >
-          {isUpdating ? 'Completing...' : 'Complete'}
-        </Button>
-      );
-    }
-
     return null;
-  };
-
-  const getChatButton = (order: Order) => {
-    const isLoading = chatLoading === order._id;
-    
-    return (
-      <Badge 
-        color="error" 
-        variant="dot" 
-        invisible={!unreadChats[order._id]}
-      >
-        <IconButton
-          size="small"
-          color="primary"
-          onClick={() => handleViewChat(order)}
-          disabled={isLoading}
-          title={isLoading ? 'Opening chat...' : 'Open chat with customer'}
-        >
-          {isLoading ? <CircularProgress size={16} /> : <MessageIcon />}
-        </IconButton>
-      </Badge>
-    );
   };
 
   if (loading) {
@@ -495,11 +205,8 @@ const Orders_t: React.FC = () => {
       <Box sx={{ p: 3 }}>
         <Alert severity="error" sx={{ mb: 2 }}>
           {error}
-          <Button 
-            onClick={() => {
-              setError(null);
-              fetchOrders();
-            }} 
+          <Button
+            onClick={() => dispatch(fetchOrders({ role: 'customer' }))}
             sx={{ ml: 2 }}
             variant="outlined"
             size="small"
@@ -513,62 +220,72 @@ const Orders_t: React.FC = () => {
 
   return (
     <Box sx={{ p: 3 }}>
-      <Typography variant="h4" gutterBottom>
+      <Typography variant="h4" gutterBottom color="primary">
         My Orders
       </Typography>
 
       {orders.length === 0 ? (
-        <Paper sx={{ p: 3, textAlign: 'center' }}>
+        <Paper sx={{ p: 3, textAlign: 'center', bgcolor: 'background.paper', borderRadius: 2, boxShadow: 1 }}>
           <Typography variant="h6" color="text.secondary">
             No orders available
           </Typography>
-          <Button 
-            onClick={fetchOrders} 
+          <Button
+            onClick={() => dispatch(fetchOrders({ role: 'customer' }))}
             sx={{ mt: 2 }}
             variant="outlined"
+            color="primary"
           >
             Refresh
           </Button>
         </Paper>
       ) : (
-        <Box sx={{ 
-          display: 'flex', 
-          flexWrap: 'wrap', 
+        <Box sx={{
+          display: 'flex',
+          flexWrap: 'wrap',
           gap: 3,
-          justifyContent: 'flex-start'
+          justifyContent: 'flex-start',
         }}>
-          {orders.map((order) => (
-            <Box 
-              key={order._id} 
-              sx={{ 
-                width: { 
-                  xs: '100%', 
-                  sm: 'calc(50% - 12px)', 
-                  md: 'calc(33.33% - 16px)', 
-                  lg: 'calc(25% - 18px)' 
+          {orders.map((order: Order) => (
+            <Box
+              key={order._id}
+              sx={{
+                width: {
+                  xs: '100%',
+                  sm: 'calc(50% - 12px)',
+                  md: 'calc(33.33% - 16px)',
+                  lg: 'calc(25% - 18px)',
                 },
-                minWidth: '300px'
+                minWidth: '300px',
               }}
             >
-              <Card sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
+              <Card sx={{ height: '100%', display: 'flex', flexDirection: 'column', bgcolor: 'background.paper', borderRadius: 2, boxShadow: 1 }}>
                 <CardContent sx={{ flexGrow: 1 }}>
                   <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
                     <Typography variant="h6" color="primary">
                       #{order.orderNumber}
                     </Typography>
-                    <Chip
-                      label={statusLabels[order.status]}
-                      color={statusColors[order.status]}
-                      size="small"
-                    />
+                    <Box sx={{ display: 'flex', gap: 1 }}>
+                      <Chip
+                        label={statusLabels[order.status]}
+                        color={statusColors[order.status]}
+                        size="small"
+                      />
+                      <Chip
+                        label={paymentStatusLabels[order.paymentStatus]}
+                        color={paymentStatusColors[order.paymentStatus]}
+                        size="small"
+                      />
+                    </Box>
                   </Box>
 
                   <Typography variant="subtitle1" gutterBottom>
-                    Customer: {`${order.customer.firstName} ${order.customer.lastName}`}
+                    {order.serviceProvider
+                      ? `Provider: ${order.serviceProvider.firstName} ${order.serviceProvider.lastName}`
+                      : 'Provider: Not assigned'}
                   </Typography>
 
                   <Typography variant="body2" color="text.secondary" gutterBottom>
-                    Items: {order.items.map(item => `${item.serviceName} (${item.quantity})`).join(', ')}
+                    Items: {order.items.map((item: any) => `${item.serviceName} (${item.quantity})`).join(', ')}
                   </Typography>
 
                   <Typography variant="h6" color="primary" gutterBottom>
@@ -583,29 +300,8 @@ const Orders_t: React.FC = () => {
                     Delivery: {formatDate(order.deliveryDate)}
                   </Typography>
 
-                  {!order.serviceProvider && (order.status === 'pending' || order.status === 'confirmed') && (
-                    <Chip
-                      label="Available for Assignment"
-                      color="success"
-                      size="small"
-                      variant="outlined"
-                      sx={{ mb: 2 }}
-                    />
-                  )}
-
                   <Stack spacing={1}>
                     {getActionButtons(order)}
-                    
-                    <Stack direction="row" spacing={1} justifyContent="center">
-                      {getChatButton(order)}
-                      
-                      <IconButton
-                        size="small"
-                        onClick={(e) => handleMenuClick(e, order)}
-                      >
-                        <MoreVertIcon />
-                      </IconButton>
-                    </Stack>
                   </Stack>
                 </CardContent>
               </Card>
@@ -614,51 +310,31 @@ const Orders_t: React.FC = () => {
         </Box>
       )}
 
-      {/* Menu for additional actions */}
-      <Menu
-        anchorEl={anchorEl}
-        open={Boolean(anchorEl)}
-        onClose={handleMenuClose}
-      >
-        {selectedOrder && (
-          <>
-            <MenuItem onClick={handleAddNotes}>
-              📝 Add Notes
-            </MenuItem>
-            <MenuItem onClick={() => console.log('View details:', selectedOrder)}>
-              👁️ View Details
-            </MenuItem>
-            {['pending', 'confirmed', 'assigned', 'in_progress', 'ready_for_pickup'].includes(selectedOrder.status) && (
-              <MenuItem onClick={() => {
-                handleStatusChange(selectedOrder._id, 'cancelled');
-                handleMenuClose();
-              }}>
-                ❌ Cancel Order
-              </MenuItem>
-            )}
-          </>
-        )}
-      </Menu>
-
-      {/* Notes Dialog */}
-      <Dialog open={notesDialogOpen} onClose={() => setNotesDialogOpen(false)}>
-        <DialogTitle>Add Service Provider Notes</DialogTitle>
+      <Dialog open={openPaymentDialog} onClose={() => setOpenPaymentDialog(false)}>
+        <DialogTitle>Pay for Order #{selectedOrder?.orderNumber}</DialogTitle>
         <DialogContent>
           <TextField
             autoFocus
             margin="dense"
-            label="Notes"
+            label="Phone Number (MoMo)"
             fullWidth
-            multiline
-            rows={4}
-            value={notes}
-            onChange={(e) => setNotes(e.target.value)}
+            value={phoneNumber}
+            onChange={(e) => setPhoneNumber(e.target.value)}
+            disabled={paymentLoading}
           />
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setNotesDialogOpen(false)}>Cancel</Button>
-          <Button onClick={handleSaveNotes} variant="contained">
-            Save Notes
+          <Button onClick={() => setOpenPaymentDialog(false)} disabled={paymentLoading} color="primary">
+            Cancel
+          </Button>
+          <Button
+            onClick={handlePaymentSubmit}
+            variant="contained"
+            color="primary"
+            disabled={paymentLoading}
+            startIcon={paymentLoading ? <CircularProgress size={16} /> : null}
+          >
+            {paymentLoading ? 'Processing...' : 'Pay Now'}
           </Button>
         </DialogActions>
       </Dialog>
@@ -666,4 +342,4 @@ const Orders_t: React.FC = () => {
   );
 };
 
-export default Orders_t;
+export default Orders;
