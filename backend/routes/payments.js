@@ -345,7 +345,10 @@ router.get('/stats/overview', protect, async (req, res) => {
   }
 });
 
-// Process MoMo payment
+// Process MoMo payment - This route is being replaced/modified
+// The original logic for MoMo payment initiation was here, but the prompt asks for a new route
+// at /:id/process-momo. This block will be removed or modified based on the new structure.
+/*
 router.post('/:id/momo', protect, async (req, res) => {
   try {
     const { phoneNumber } = req.body;
@@ -363,24 +366,24 @@ router.post('/:id/momo', protect, async (req, res) => {
     }
 
     if (payment.status !== 'pending') {
-      return res.status(400).json({ 
-        success: false, 
-        error: 'Payment is not in pending status' 
+      return res.status(400).json({
+        success: false,
+        error: 'Payment is not in pending status'
       });
     }
 
     if (payment.paymentMethod !== 'momo') {
-      return res.status(400).json({ 
-        success: false, 
-        error: 'Payment method is not Mobile Money' 
+      return res.status(400).json({
+        success: false,
+        error: 'Payment method is not Mobile Money'
       });
     }
 
     // Validate phone number
     if (!phoneNumber || !momoService.validatePhoneNumber(phoneNumber)) {
-      return res.status(400).json({ 
-        success: false, 
-        error: 'Valid phone number is required' 
+      return res.status(400).json({
+        success: false,
+        error: 'Valid phone number is required'
       });
     }
 
@@ -401,14 +404,98 @@ router.post('/:id/momo', protect, async (req, res) => {
       momoStatus: momoResult.status
     };
 
+    // ... rest of the status update logic ...
+
+    await payment.save();
+
+    // ... response logic ...
+
+  } catch (error) { ... }
+});
+*/
+
+// Process MoMo payment for a specific payment ID
+router.post('/:id/momo', protect, async (req, res) => {
+  try {
+    const { phoneNumber } = req.body;
+    const payment = await Payment.findById(req.params.id)
+      .populate('order', 'orderNumber status totalAmount')
+      .populate('customer', 'firstName lastName email');
+
+    if (!payment) {
+      return res.status(404).json({ success: false, error: 'Payment not found' });
+    }
+
+    // Check permissions: Only the customer associated with the payment can initiate MoMo
+    if (payment.customer.toString() !== req.user.id) {
+      return res.status(403).json({ success: false, error: 'Access denied' });
+    }
+
+    // Check if the payment is in 'pending' status
+    if (payment.status !== 'pending') {
+      return res.status(400).json({ 
+        success: false,
+        error: `Payment is not in pending status. Current status: ${payment.status}`
+      });
+    }
+
+    if (payment.paymentMethod !== 'momo') {
+      return res.status(400).json({ 
+        success: false, 
+        error: 'Payment method is not Mobile Money' 
+      });
+    }
+
+    // Validate phone number
+    if (!phoneNumber) {
+         return res.status(400).json({
+             success: false,
+             error: 'Phone number is required for MoMo payment.'
+         });
+    }
+    if (!momoService.validatePhoneNumber(phoneNumber)) {
+         return res.status(400).json({
+             success: false,
+             error: 'Invalid phone number format.'
+         });
+    }    
+
+    const formattedPhone = momoService.formatPhoneNumber(phoneNumber);
+
+    // Initiate MoMo payment
+    const momoResult = await momoService.initiatePayment({
+      amount: payment.amount,
+      phoneNumber: formattedPhone,
+      customerName: `${payment.customer.firstName} ${payment.customer.lastName}`,
+      orderId: payment.order._id
+    });
+
+    // Update payment with MoMo details
+    payment.paymentDetails = {
+      phoneNumber: formattedPhone,
+      transactionRef: momoResult.transactionRef,
+      momoStatus: momoResult.status,
+      // Store other relevant details returned by the service
+      ...momoResult.details 
+    };
+
+    // Update payment status based on the initial MoMo service response
     if (momoResult.success) {
       if (momoResult.status === 'completed') {
         payment.status = 'completed';
         payment.transactionId = momoResult.transactionId;
         payment.completedAt = new Date();
+        // Add to history
+        payment.statusHistory.push({
+            status: 'completed',
+            changedBy: req.user.id, // Assuming the user initiated this change
+            changedAt: new Date(),
+            notes: 'MoMo payment completed successfully (initial callback)'
+        });
       } else if (momoResult.status === 'pending') {
         payment.status = 'processing';
         payment.processedAt = new Date();
+         // Add to history
       }
     } else {
       payment.status = 'failed';

@@ -109,19 +109,10 @@ const orderSchema = new mongoose.Schema({
   actualDeliveryDate: Date,
   estimatedPickupTime: String,
   estimatedDeliveryTime: String,
-  paymentMethod: {
+  payment: {
     type: String,
-    enum: ['credit_card', 'debit_card', 'paypal', 'cash', 'bank_transfer', 'momo'],
-    required: false,
+    ref: 'Payment',
   },
-  paymentStatus: {
-    type: String,
-    enum: ['pending', 'paid', 'failed', 'refunded'],
-    default: 'pending',
-  },
-  paymentId: String,
-  momoPhone: String, // Added for MoMo payments
-  momoNetwork: String, // Added for MoMo payments
   notes: {
     customer: String,
     serviceProvider: String,

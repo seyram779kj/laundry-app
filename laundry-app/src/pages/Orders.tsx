@@ -1,21 +1,52 @@
 import React, { useEffect, useState } from 'react';
 import { Box, Typography, Paper, CircularProgress, List, ListItem, ListItemText, Chip, Button, Dialog, DialogTitle, DialogContent, DialogActions, TextField, MenuItem } from '@mui/material';
-import { useDispatch, useSelector } from 'react-redux';
+import { useDispatch, useSelector, shallowEqual } from 'react-redux';
 import { fetchOrders } from '../features/orders/orderSlice';
 import { RootState } from '../app/store';
 import axios from 'axios';
+
+interface Tracking {
+  _id: string;
+  order: string;
+  currentLocation: string;
+  trackingSteps: Array<{
+    status: string;
+    timestamp: string;
+    location?: string;
+    notes?: string;
+    updatedBy?: {
+      _id: string;
+      firstName: string;
+      lastName: string;
+    };
+  }>;
+  estimatedDelivery?: string;
+  actualDelivery?: string;
+  driverInfo?: {
+    name?: string;
+    phone?: string;
+    vehicleNumber?: string;
+  };
+  coordinates?: {
+    latitude: number;
+    longitude: number;
+    lastUpdated: string;
+  };
+}
 
 interface Order {
   id: string;
   status: string;
   totalAmount: number;
-  paymentStatus: string;
-  paymentMethod?: string;
-  paymentDetails?: {
-    phoneNumber?: string;
-    transactionRef?: string;
-    momoStatus?: string;
-  };
+  payment?: { // Assuming payment details are nested within the order
+    _id: string;
+    status: string;
+    paymentMethod?: string;
+    paymentDetails?: {
+      phoneNumber?: string;
+      transactionRef?: string;
+      momoStatus?: string;
+    };
   serviceProvider?: {
     _id: string;
     firstName: string;
@@ -26,7 +57,7 @@ interface Order {
     firstName: string;
     lastName: string;
   };
-  statusHistory?: Array<{
+  statusHistory?: Array<{ // This seems to be Order status history, not payment history
     status: string;
     changedBy: string;
     changedAt: string;
@@ -36,9 +67,10 @@ interface Order {
 
 const Orders: React.FC = () => {
   const dispatch = useDispatch();
-  const { orders, loading, error } = useSelector((state: RootState) => state.orders);
+  const { orders, loading, error } = useSelector((state: RootState) => state.orders, shallowEqual);
   const [openPaymentDialog, setOpenPaymentDialog] = useState(false);
   const [selectedOrderId, setSelectedOrderId] = useState<string | null>(null);
+  const [trackingData, setTrackingData] = useState<{ [orderId: string]: any }>({}); // Replace 'any' with a proper Tracking interface
   const [phoneNumber, setPhoneNumber] = useState('');
   const [paymentMethod, setPaymentMethod] = useState('momo');
   const [paymentError, setPaymentError] = useState<string | null>(null);
@@ -46,9 +78,52 @@ const Orders: React.FC = () => {
   // Always use a safe array
   const safeOrders: Order[] = Array.isArray(orders) ? orders : [];
 
+  // Find the selected order to access its payment details
+  const selectedOrder = safeOrders.find(order => order.id === selectedOrderId);
+
+  // Add interface for Payment with statusHistory
+  // This interface seems misplaced and should be part of the Order interface above
+  interface PaymentWithHistory {
+
+    _id: string;
+    status: string;
+    statusHistory?: Array<{
+      status: string;
+      changedAt: string;
+      changedBy: string;}>}
+
   useEffect(() => {
     dispatch(fetchOrders() as any);
   }, [dispatch]);
+
+  useEffect(() => {
+    const fetchOrderData = async () => {
+      dispatch(fetchOrders() as any);
+    };
+    fetchOrderData();
+  }, [dispatch]);
+
+  useEffect(() => {
+    const fetchTrackingData = async () => {
+      const newTrackingData: { [orderId: string]: Tracking } = {};
+      for (const order of safeOrders) {
+        try {
+          const response = await axios.get(`/api/tracking/${order.id}`);
+          if (response.data.success) {
+            newTrackingData[order.id] = response.data.data;
+          }
+        } catch (err) {
+          console.error(`Failed to fetch tracking for order ${order.id}:`, err);
+        }
+      }
+      setTrackingData(newTrackingData);
+    };
+
+    if (safeOrders.length > 0) {
+      fetchTrackingData();
+    }
+  }, [safeOrders]); // Fetch tracking data when orders change
+
 
   const handlePayNow = (orderId: string) => {
     setSelectedOrderId(orderId);
@@ -64,18 +139,25 @@ const Orders: React.FC = () => {
   };
 
   const handleProcessPayment = async () => {
-    if (!selectedOrderId || !phoneNumber) return;
+    if (!selectedOrder?.payment?._id || !phoneNumber) {
+      setPaymentError('Payment details not available or phone number missing.');
+      return;
+    }
+
     try {
-      // Initiate MoMo payment using the order endpoint
-      const response = await axios.post(`/api/orders/${selectedOrderId}/momo`, {
+      // Initiate MoMo payment using the new payment endpoint
+      const response = await axios.post(`/api/payments/${selectedOrder.payment._id}/momo`, {
         phoneNumber,
       });
+
       if (response.data.success) {
-        // Refresh orders to reflect updated payment status
+        // Refresh orders to reflect updated payment and order status
         dispatch(fetchOrders() as any);
         handleCloseDialog();
+        // Optionally show a success message
+        alert('Payment initiated successfully. Please check your phone to complete the transaction.');
       } else {
-        setPaymentError(response.data.error || 'Failed to process payment');
+        setPaymentError(response.data.message || response.data.error || 'Failed to process payment');
       }
     } catch (err) {
       setPaymentError('Failed to process payment');
@@ -91,6 +173,15 @@ const Orders: React.FC = () => {
       return 'Admin';
     }
   };
+
+  const getPaymentChangedByLabel = (changedBy: string, order: Order) => {
+    if (order.payment?.serviceProvider && changedBy === order.payment.serviceProvider._id) {
+      return 'Provider';
+    } else if (order.payment?.customer && changedBy === order.payment.customer._id) {
+      return 'Customer';
+    } else {
+      return 'Admin';
+    }}
 
   // Group orders by status
   const statusGroups = {
@@ -145,8 +236,8 @@ const Orders: React.FC = () => {
                               <span>Total: ${order.totalAmount.toFixed(2)}</span>
                               <br />
                               <span>
-                                Payment Status: {order.paymentStatus || 'No payment initiated'}
-                              </span>
+                                Payment Status: {order.payment?.status || 'No payment initiated'}
+                             </span>
                               {order.paymentDetails && order.paymentMethod === 'momo' && (
                                 <>
                                   <br />
@@ -159,6 +250,7 @@ const Orders: React.FC = () => {
                                 </>
                               )}
                               {order.statusHistory && (
+                                // This is Order Status History
                                 <>
                                   <br />
                                   <span>Order Status History:</span>
@@ -172,6 +264,44 @@ const Orders: React.FC = () => {
                                   </ul>
                                 </>
                               )}
+                               {order.payment?.statusHistory && (
+                                <>
+                                  <br />
+                                  <span>Payment History:</span>
+                                  <ul className="list-disc pl-5">
+                                    {order.payment.statusHistory.map((history, index) => (
+                                      <li key={index}>
+                                        {history.status} by {getChangedByLabel(history.changedBy, order)} - {new Date(history.changedAt).toLocaleString()}
+                                        {history.notes && ` (${history.notes})`}
+                                      </li>
+                                    ))}
+                                  </ul>
+                                </>
+                              )}
+                              {trackingData[order.id] && (
+       <>
+         <br />
+         <span>Tracking Information:</span>
+         <ul className="list-disc pl-5">
+           <li>Current Location: {trackingData[order.id].currentLocation}</li>
+           {trackingData[order.id].trackingSteps.length > 0 && (
+             <li>
+               Tracking History:
+               <ul className="list-disc pl-5">
+                 {trackingData[order.id].trackingSteps.map((step, stepIndex) => (
+                   <li key={stepIndex}>
+                     {step.status} at {new Date(step.timestamp).toLocaleString()}
+                     {step.notes && ` (${step.notes})`}
+                     {step.updatedBy && ` by ${step.updatedBy.firstName} ${step.updatedBy.lastName}`}
+                   </li>
+                 ))}
+               </ul>
+             </li>
+           )}
+         </ul>
+       </>
+     )}
+
                             </>
                           }
                         />
@@ -181,7 +311,7 @@ const Orders: React.FC = () => {
                             color={statusColors[order.status] || 'default'}
                           />
                           {order.paymentStatus === 'pending' && (
-                            <Button
+                           <Button
                               variant="contained"
                               color="primary"
                               onClick={() => handlePayNow(order.id)}

@@ -2,6 +2,8 @@ const express = require('express');
 const router = express.Router();
 const Order = require('../models/Order');
 const { protect, admin, serviceProvider, customer } = require('../middleware/auth');
+const Payment = require('../models/Payment'); // Import Payment model
+const OrderTracking = require('../models/OrderTracking'); // Import OrderTracking model
 
 // Get all orders (with filtering)
 router.get('/', protect, async (req, res) => {
@@ -43,7 +45,9 @@ router.get('/', protect, async (req, res) => {
       limit: parseInt(limit),
       populate: [
         { path: 'customer', select: 'firstName lastName email phoneNumber' },
-        { path: 'serviceProvider', select: 'firstName lastName email phoneNumber businessDetails' },
+ { path: 'serviceProvider', select: 'firstName lastName email phoneNumber businessDetails' },
+        { path: 'payment' }, // Populate the payment details
+ { path: 'payment' } // Populate the payment details
       ],
       sort: { createdAt: -1 },
     };
@@ -64,7 +68,9 @@ router.get('/', protect, async (req, res) => {
 router.get('/:id', protect, async (req, res) => {
   try {
     const order = await Order.findById(req.params.id)
-      .populate('customer', 'firstName lastName email phoneNumber')
+ .populate('payment') // Populate the payment details
+ .populate('payment') // Populate the payment details
+ .populate('customer', 'firstName lastName email phoneNumber')
       .populate('serviceProvider', 'firstName lastName email phoneNumber businessDetails');
 
     if (!order) {
@@ -101,13 +107,10 @@ router.post('/', protect, customer, async (req, res) => {
       pickupDate,
       deliveryDate,
       paymentMethod,
-      isUrgent,
-      priority,
       specialInstructions,
       subtotal,
       tax,
       deliveryFee,
-      totalAmount,
       momoPhone,
       momoNetwork,
     } = req.body;
@@ -189,10 +192,9 @@ router.post('/', protect, customer, async (req, res) => {
       calculatedSubtotal += totalPrice;
     }
 
-    // Calculate totals
     const finalSubtotal = parseFloat(subtotal) || calculatedSubtotal;
-    const finalTax = parseFloat(tax) || finalSubtotal * 0.1;
-    const finalDeliveryFee = parseFloat(deliveryFee) || (isUrgent ? 10 : 5);
+    const finalTax = parseFloat(tax) || finalSubtotal * 0.1; // Example tax calculation
+    const finalDeliveryFee = parseFloat(deliveryFee) || 5; // Example delivery fee
     const finalTotal = parseFloat(totalAmount) || finalSubtotal + finalTax + finalDeliveryFee;
 
     // Create order data
@@ -201,7 +203,6 @@ router.post('/', protect, customer, async (req, res) => {
       serviceProvider: null,
       items: processedItems,
       status: 'pending',
-      subtotal: finalSubtotal,
       tax: finalTax,
       deliveryFee: finalDeliveryFee,
       totalAmount: finalTotal,
@@ -224,9 +225,6 @@ router.post('/', protect, customer, async (req, res) => {
       pickupDate: new Date(pickupDate),
       deliveryDate: new Date(deliveryDate),
       paymentMethod: paymentMethod || 'cash',
-      paymentStatus: 'pending',
-      isUrgent: Boolean(isUrgent),
-      priority: priority || 'normal',
       notes: {
         customer: specialInstructions || '',
         serviceProvider: '',
@@ -241,9 +239,34 @@ router.post('/', protect, customer, async (req, res) => {
     console.log('Final order data:', JSON.stringify(orderData, null, 2));
 
     const order = await Order.create(orderData);
+
+    // Create a new payment document for the order
+    const paymentData = {
+      order: order._id,
+      customer: req.user.id,
+      serviceProvider: order.serviceProvider, // Can be null initially
+      amount: order.totalAmount,
+      paymentMethod: orderData.paymentMethod,
+      paymentDetails: orderData.paymentMethod === 'momo' ? { phoneNumber: momoPhone, momoNetwork } : {},
+      status: 'pending', // Initial payment status
+      statusHistory: [{
+        status: 'pending',
+        changedBy: req.user.id,
+        changedAt: new Date(),
+        notes: 'Payment initiated with order creation'
+      }]
+    };
+
+    const payment = await Payment.create(paymentData);
+
+    // Link the payment to the order
+ order.payment = payment._id;
+ await order.save();
+
     await order.populate([
       { path: 'customer', select: 'firstName lastName email phoneNumber' },
-      { path: 'serviceProvider', select: 'firstName lastName email phoneNumber businessDetails' },
+ { path: 'serviceProvider', select: 'firstName lastName email phoneNumber businessDetails' },
+ { path: 'payment' } // Populate the payment details after linking
     ]);
 
     res.status(201).json({
@@ -325,6 +348,10 @@ router.put('/:id/status', protect, async (req, res) => {
 
     await order.save();
     
+    // Find or create OrderTracking document and update location/status
+    let tracking = await OrderTracking.findOne({ order: order._id });
+    if (!tracking) tracking = new OrderTracking({ order: order._id });
+    await tracking.updateLocation(status, req.body.notes, req.user.id);
     // Populate the order with user details
     await order.populate([
       { path: 'customer', select: 'firstName lastName email phoneNumber' },
