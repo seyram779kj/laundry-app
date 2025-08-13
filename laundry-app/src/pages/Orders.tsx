@@ -34,6 +34,15 @@ interface Tracking {
   };
 }
 
+interface PaymentWithHistory {
+  _id: string;
+  status: string;
+  statusHistory?: Array<{
+    status: string;
+    lastUpdated: string;
+  };
+}
+
 interface Order {
   id: string;
   status: string;
@@ -42,11 +51,17 @@ interface Order {
     _id: string;
     status: string;
     paymentMethod?: string;
-    paymentDetails?: {
-      phoneNumber?: string;
-      transactionRef?: string;
-      momoStatus?: string;
-    };
+    // Combine payment details here directly or reference a dedicated payment details interface if needed
+    phoneNumber?: string;
+    transactionRef?: string;
+    momoStatus?: string;
+    // Include payment history within the payment object
+    statusHistory?: Array<{
+      status: string;
+      changedAt: string;
+      changedBy: string;
+      notes?: string;
+    }>;
   serviceProvider?: {
     _id: string;
     firstName: string;
@@ -70,7 +85,7 @@ const Orders: React.FC = () => {
   const { orders, loading, error } = useSelector((state: RootState) => state.orders, shallowEqual);
   const [openPaymentDialog, setOpenPaymentDialog] = useState(false);
   const [selectedOrderId, setSelectedOrderId] = useState<string | null>(null);
-  const [trackingData, setTrackingData] = useState<{ [orderId: string]: any }>({}); // Replace 'any' with a proper Tracking interface
+  const [trackingData, setTrackingData] = useState<{ [orderId: string]: Tracking }>({});
   const [phoneNumber, setPhoneNumber] = useState('');
   const [paymentMethod, setPaymentMethod] = useState('momo');
   const [paymentError, setPaymentError] = useState<string | null>(null);
@@ -83,14 +98,6 @@ const Orders: React.FC = () => {
 
   // Add interface for Payment with statusHistory
   // This interface seems misplaced and should be part of the Order interface above
-  interface PaymentWithHistory {
-
-    _id: string;
-    status: string;
-    statusHistory?: Array<{
-      status: string;
-      changedAt: string;
-      changedBy: string;}>}
 
   useEffect(() => {
     dispatch(fetchOrders() as any);
@@ -174,11 +181,11 @@ const Orders: React.FC = () => {
     }
   };
 
-  const getPaymentChangedByLabel = (changedBy: string, order: Order) => {
-    if (order.payment?.serviceProvider && changedBy === order.payment.serviceProvider._id) {
+  const getChangedByLabelPayment = (changedBy: string, order: Order) => {
+    if (order.serviceProvider && changedBy === order.serviceProvider._id) {
       return 'Provider';
-    } else if (order.payment?.customer && changedBy === order.payment.customer._id) {
-      return 'Customer';
+    } else if (order.customer && changedBy === order.customer._id) {
+       return 'Customer';
     } else {
       return 'Admin';
     }}
@@ -238,14 +245,14 @@ const Orders: React.FC = () => {
                               <span>
                                 Payment Status: {order.payment?.status || 'No payment initiated'}
                              </span>
-                              {order.paymentDetails && order.paymentMethod === 'momo' && (
+                              {order.paymentMethod === 'momo' && (
                                 <>
                                   <br />
                                   <span>MoMo Details:</span>
                                   <ul className="list-disc pl-5">
-                                    <li>Phone: {order.paymentDetails.phoneNumber || 'N/A'}</li>
-                                    <li>Transaction Ref: {order.paymentDetails.transactionRef || 'N/A'}</li>
-                                    <li>MoMo Status: {order.paymentDetails.momoStatus || 'N/A'}</li>
+                                    <li>Phone: {order.phoneNumber || 'N/A'}</li>
+                                    <li>Transaction Ref: {order.transactionRef || 'N/A'}</li>
+                                    <li>MoMo Status: {order.momoStatus || 'N/A'}</li>
                                   </ul>
                                 </>
                               )}
@@ -271,7 +278,7 @@ const Orders: React.FC = () => {
                                   <ul className="list-disc pl-5">
                                     {order.payment.statusHistory.map((history, index) => (
                                       <li key={index}>
-                                        {history.status} by {getChangedByLabel(history.changedBy, order)} - {new Date(history.changedAt).toLocaleString()}
+                                        {history.status} by {getChangedByLabelPayment(history.changedBy, order)} - {new Date(history.changedAt).toLocaleString()}
                                         {history.notes && ` (${history.notes})`}
                                       </li>
                                     ))}
