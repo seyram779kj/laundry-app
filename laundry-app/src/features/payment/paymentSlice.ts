@@ -6,6 +6,14 @@ interface PaymentState {
   error: string | null;
   paymentIntent: any | null;
   paymentMethods: any[];
+  paymentHistory: {
+    data: any[];
+    pagination: any;
+    loading: boolean;
+    error: string | null;
+  };
+  paymentStats: any;
+  selectedPayment: any | null;
 }
 
 const initialState: PaymentState = {
@@ -168,4 +176,4 @@ const paymentSlice = createSlice({
 });
 
 export const { clearPaymentError, clearPaymentIntent } = paymentSlice.actions;
-export default paymentSlice.reducer; 
+export default paymentSlice.reducer;
