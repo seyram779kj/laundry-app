@@ -21,6 +21,14 @@ const initialState: PaymentState = {
   error: null,
   paymentIntent: null,
   paymentMethods: [],
+  paymentHistory: {
+    data: [],
+    pagination: {},
+    loading: false,
+    error: null,
+  },
+  paymentStats: null,
+  selectedPayment: null,
 };
 
 // Mock payment methods for development
