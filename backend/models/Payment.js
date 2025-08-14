@@ -15,7 +15,7 @@ const paymentSchema = new mongoose.Schema({
   serviceProvider: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User',
-    required: true
+    required: false
   },
   amount: {
     type: Number,
@@ -173,4 +173,4 @@ paymentSchema.methods.refundPayment = async function(amount, reason) {
 // Add pagination plugin
 paymentSchema.plugin(mongoosePaginate);
 
-module.exports = mongoose.model('Payment', paymentSchema); 
+module.exports = mongoose.model('Payment', paymentSchema);
