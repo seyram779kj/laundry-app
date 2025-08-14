@@ -600,4 +600,366 @@ router.get('/methods/list', async (req, res) => {
   }
 });
 
-module.exports = router; 
+// Get payment history with advanced filtering and search
+router.get('/history', protect, async (req, res) => {
+  try {
+    const {
+      page = 1,
+      limit = 10,
+      status,
+      paymentMethod,
+      startDate,
+      endDate,
+      search,
+      sortBy = 'createdAt',
+      sortOrder = 'desc'
+    } = req.query;
+
+    const query = {};
+
+    // Role-based filtering
+    if (req.user.role === 'customer') {
+      query.customer = req.user.id;
+    } else if (req.user.role === 'service_provider') {
+      query.serviceProvider = req.user.id;
+    }
+    // Admins can see all payments (no additional filter)
+
+    // Filter by status
+    if (status && status !== 'all') {
+      query.status = status;
+    }
+
+    // Filter by payment method
+    if (paymentMethod && paymentMethod !== 'all') {
+      query.paymentMethod = paymentMethod;
+    }
+
+    // Filter by date range
+    if (startDate && endDate) {
+      query.createdAt = {
+        $gte: new Date(startDate),
+        $lte: new Date(endDate)
+      };
+    }
+
+    // Search functionality
+    if (search) {
+      const searchRegex = new RegExp(search, 'i');
+      query.$or = [
+        { transactionId: searchRegex },
+        { notes: searchRegex },
+        { 'paymentDetails.transactionRef': searchRegex }
+      ];
+    }
+
+    const sortOptions = {};
+    sortOptions[sortBy] = sortOrder === 'desc' ? -1 : 1;
+
+    const options = {
+      page: parseInt(page),
+      limit: parseInt(limit),
+      populate: [
+        {
+          path: 'order',
+          select: 'orderNumber status totalAmount items pickupDate deliveryDate',
+          populate: {
+            path: 'customer',
+            select: 'firstName lastName email'
+          }
+        },
+        { path: 'customer', select: 'firstName lastName email phoneNumber' },
+        { path: 'serviceProvider', select: 'firstName lastName email phoneNumber businessDetails' },
+        {
+          path: 'statusHistory.changedBy',
+          select: 'firstName lastName email'
+        }
+      ],
+      sort: sortOptions
+    };
+
+    const payments = await Payment.paginate(query, options);
+
+    // Add formatted data for frontend
+    const formattedPayments = {
+      ...payments,
+      docs: payments.docs.map(payment => ({
+        ...payment.toObject(),
+        formattedAmount: `$${payment.amount.toFixed(2)}`,
+        formattedDate: payment.createdAt,
+        orderInfo: payment.order ? {
+          orderNumber: payment.order.orderNumber || `ORD-${payment.order._id.toString().slice(-6).toUpperCase()}`,
+          status: payment.order.status,
+          totalAmount: payment.order.totalAmount,
+          itemCount: payment.order.items ? payment.order.items.length : 0
+        } : null
+      }))
+    };
+
+    res.json({
+      success: true,
+      data: formattedPayments
+    });
+  } catch (error) {
+    console.error('Get payment history error:', error);
+    res.status(500).json({ success: false, error: 'Failed to fetch payment history' });
+  }
+});
+
+// Export payment history to CSV
+router.get('/history/export', protect, async (req, res) => {
+  try {
+    const {
+      status,
+      paymentMethod,
+      startDate,
+      endDate,
+      format = 'csv'
+    } = req.query;
+
+    const query = {};
+
+    // Role-based filtering
+    if (req.user.role === 'customer') {
+      query.customer = req.user.id;
+    } else if (req.user.role === 'service_provider') {
+      query.serviceProvider = req.user.id;
+    }
+
+    // Apply filters
+    if (status && status !== 'all') query.status = status;
+    if (paymentMethod && paymentMethod !== 'all') query.paymentMethod = paymentMethod;
+    if (startDate && endDate) {
+      query.createdAt = {
+        $gte: new Date(startDate),
+        $lte: new Date(endDate)
+      };
+    }
+
+    const payments = await Payment.find(query)
+      .populate('order', 'orderNumber status totalAmount')
+      .populate('customer', 'firstName lastName email')
+      .populate('serviceProvider', 'firstName lastName businessDetails')
+      .sort({ createdAt: -1 })
+      .limit(1000); // Limit for performance
+
+    if (format === 'csv') {
+      // Generate CSV content
+      const csvHeader = 'Transaction ID,Order Number,Customer,Amount,Payment Method,Status,Date,Transaction Ref\n';
+      const csvRows = payments.map(payment => {
+        const customerName = payment.customer ? `${payment.customer.firstName} ${payment.customer.lastName}` : 'N/A';
+        const orderNumber = payment.order ? (payment.order.orderNumber || `ORD-${payment.order._id.toString().slice(-6).toUpperCase()}`) : 'N/A';
+        const transactionRef = payment.paymentDetails?.transactionRef || payment.transactionId || 'N/A';
+
+        return `"${payment._id}","${orderNumber}","${customerName}","$${payment.amount.toFixed(2)}","${payment.paymentMethod}","${payment.status}","${payment.createdAt.toISOString()}","${transactionRef}"`;
+      }).join('\n');
+
+      const csvContent = csvHeader + csvRows;
+
+      res.setHeader('Content-Type', 'text/csv');
+      res.setHeader('Content-Disposition', `attachment; filename="payment-history-${new Date().toISOString().split('T')[0]}.csv"`);
+      res.send(csvContent);
+    } else {
+      // Return JSON format
+      res.json({
+        success: true,
+        data: payments,
+        count: payments.length
+      });
+    }
+  } catch (error) {
+    console.error('Export payment history error:', error);
+    res.status(500).json({ success: false, error: 'Failed to export payment history' });
+  }
+});
+
+// Get payment receipt
+router.get('/:id/receipt', protect, async (req, res) => {
+  try {
+    const payment = await Payment.findById(req.params.id)
+      .populate({
+        path: 'order',
+        select: 'orderNumber status totalAmount items pickupDate deliveryDate pickupAddress deliveryAddress',
+        populate: {
+          path: 'customer',
+          select: 'firstName lastName email phoneNumber'
+        }
+      })
+      .populate('customer', 'firstName lastName email phoneNumber')
+      .populate('serviceProvider', 'firstName lastName email phoneNumber businessDetails');
+
+    if (!payment) {
+      return res.status(404).json({ success: false, error: 'Payment not found' });
+    }
+
+    // Check permissions
+    if (req.user.role !== 'admin' &&
+        payment.customer._id.toString() !== req.user.id &&
+        payment.serviceProvider?._id.toString() !== req.user.id) {
+      return res.status(403).json({ success: false, error: 'Access denied' });
+    }
+
+    // Generate receipt data
+    const receiptData = {
+      payment: {
+        id: payment._id,
+        transactionId: payment.transactionId || payment.paymentDetails?.transactionRef || 'N/A',
+        amount: payment.amount,
+        formattedAmount: `$${payment.amount.toFixed(2)}`,
+        paymentMethod: payment.paymentMethod,
+        status: payment.status,
+        createdAt: payment.createdAt,
+        completedAt: payment.completedAt,
+        refundAmount: payment.refundAmount || 0
+      },
+      order: payment.order ? {
+        orderNumber: payment.order.orderNumber || `ORD-${payment.order._id.toString().slice(-6).toUpperCase()}`,
+        status: payment.order.status,
+        totalAmount: payment.order.totalAmount,
+        items: payment.order.items || [],
+        pickupDate: payment.order.pickupDate,
+        deliveryDate: payment.order.deliveryDate,
+        pickupAddress: payment.order.pickupAddress,
+        deliveryAddress: payment.order.deliveryAddress
+      } : null,
+      customer: {
+        name: `${payment.customer.firstName} ${payment.customer.lastName}`,
+        email: payment.customer.email,
+        phone: payment.customer.phoneNumber
+      },
+      serviceProvider: payment.serviceProvider ? {
+        name: `${payment.serviceProvider.firstName} ${payment.serviceProvider.lastName}`,
+        email: payment.serviceProvider.email,
+        phone: payment.serviceProvider.phoneNumber,
+        business: payment.serviceProvider.businessDetails
+      } : null,
+      metadata: {
+        generatedAt: new Date(),
+        generatedBy: req.user.id
+      }
+    };
+
+    res.json({
+      success: true,
+      data: receiptData
+    });
+  } catch (error) {
+    console.error('Get payment receipt error:', error);
+    res.status(500).json({ success: false, error: 'Failed to generate receipt' });
+  }
+});
+
+// Get payment history statistics
+router.get('/history/stats', protect, async (req, res) => {
+  try {
+    const { startDate, endDate } = req.query;
+    const query = {};
+
+    // Role-based filtering
+    if (req.user.role === 'customer') {
+      query.customer = req.user.id;
+    } else if (req.user.role === 'service_provider') {
+      query.serviceProvider = req.user.id;
+    }
+
+    // Filter by date range
+    if (startDate && endDate) {
+      query.createdAt = {
+        $gte: new Date(startDate),
+        $lte: new Date(endDate)
+      };
+    }
+
+    const [
+      statusStats,
+      methodStats,
+      totalStats,
+      monthlyStats
+    ] = await Promise.all([
+      // Status breakdown
+      Payment.aggregate([
+        { $match: query },
+        {
+          $group: {
+            _id: '$status',
+            count: { $sum: 1 },
+            totalAmount: { $sum: '$amount' }
+          }
+        }
+      ]),
+
+      // Payment method breakdown
+      Payment.aggregate([
+        { $match: query },
+        {
+          $group: {
+            _id: '$paymentMethod',
+            count: { $sum: 1 },
+            totalAmount: { $sum: '$amount' }
+          }
+        }
+      ]),
+
+      // Total statistics
+      Payment.aggregate([
+        { $match: query },
+        {
+          $group: {
+            _id: null,
+            totalPayments: { $sum: 1 },
+            totalAmount: { $sum: '$amount' },
+            avgAmount: { $avg: '$amount' },
+            completedAmount: {
+              $sum: {
+                $cond: [{ $eq: ['$status', 'completed'] }, '$amount', 0]
+              }
+            },
+            pendingAmount: {
+              $sum: {
+                $cond: [{ $eq: ['$status', 'pending'] }, '$amount', 0]
+              }
+            }
+          }
+        }
+      ]),
+
+      // Monthly trend (last 12 months)
+      Payment.aggregate([
+        { $match: query },
+        {
+          $group: {
+            _id: {
+              year: { $year: '$createdAt' },
+              month: { $month: '$createdAt' }
+            },
+            count: { $sum: 1 },
+            totalAmount: { $sum: '$amount' }
+          }
+        },
+        { $sort: { '_id.year': 1, '_id.month': 1 } },
+        { $limit: 12 }
+      ])
+    ]);
+
+    res.json({
+      success: true,
+      data: {
+        statusBreakdown: statusStats,
+        methodBreakdown: methodStats,
+        totals: totalStats[0] || {
+          totalPayments: 0,
+          totalAmount: 0,
+          avgAmount: 0,
+          completedAmount: 0,
+          pendingAmount: 0
+        },
+        monthlyTrend: monthlyStats
+      }
+    });
+  } catch (error) {
+    console.error('Get payment history stats error:', error);
+    res.status(500).json({ success: false, error: 'Failed to fetch payment statistics' });
+  }
+});
+
+module.exports = router;
