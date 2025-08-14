@@ -239,6 +239,17 @@ const paymentSlice = createSlice({
     clearPaymentIntent: (state) => {
       state.paymentIntent = null;
     },
+    clearPaymentHistory: (state) => {
+      state.paymentHistory.data = [];
+      state.paymentHistory.pagination = {};
+      state.paymentHistory.error = null;
+    },
+    setSelectedPayment: (state, action) => {
+      state.selectedPayment = action.payload;
+    },
+    clearSelectedPayment: (state) => {
+      state.selectedPayment = null;
+    },
   },
   extraReducers: (builder) => {
     builder
