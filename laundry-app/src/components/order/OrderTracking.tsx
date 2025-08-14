@@ -15,7 +15,8 @@ import {
   Button,
   Dialog,
   DialogTitle,
-  DialogContent
+  DialogContent,
+  Grid
 } from '@mui/material';
 import {
   CheckCircle,
