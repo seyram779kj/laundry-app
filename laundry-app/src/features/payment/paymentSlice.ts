@@ -325,5 +325,11 @@ const paymentSlice = createSlice({
   },
 });
 
-export const { clearPaymentError, clearPaymentIntent } = paymentSlice.actions;
+export const {
+  clearPaymentError,
+  clearPaymentIntent,
+  clearPaymentHistory,
+  setSelectedPayment,
+  clearSelectedPayment
+} = paymentSlice.actions;
 export default paymentSlice.reducer;
