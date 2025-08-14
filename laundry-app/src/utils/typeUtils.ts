@@ -1,5 +1,5 @@
 // src/utils/typeUtils.ts
-import { Order, OrderStatus, PaymentStatus } from '../types';
+import { Order,Payment, OrderStatus, PaymentStatus } from '../types';
 
 // Type guard to check if an order has all required properties
 export const isValidOrder = (order: any): order is Order => {
@@ -68,20 +68,20 @@ export const formatOrderForDisplay = (order: any): Order => {
       : [],
     status: order.status || 'pending',
     payment: {
-      _id: order.payment?._id || '',
-      order: order._id || '',
-      customer: order.customer?._id || '',
-      serviceProvider: order.serviceProvider?._id || null,
-      amount: order.payment?.amount || order.totalAmount || 0,
-      paymentMethod: order.payment?.paymentMethod || 'cash',
-      paymentDetails: order.payment?.paymentDetails || {},
+ _id: order.payment?._id || '',
+ order: order._id || '',
+ customer: order.customer?._id || '',
+ serviceProvider: order.serviceProvider?._id || null,
+ amount: order.payment?.amount || order.totalAmount || 0,
+ paymentMethod: order.payment?.paymentMethod || order.payment?.method || 'cash',
+ paymentDetails: order.payment?.paymentDetails || {
+ phoneNumber: order.payment?.paymentDetails?.phoneNumber || '',
+ momoNetwork: order.payment?.paymentDetails?.momoNetwork || '',
+ },
       status: order.payment?.status || 'pending',
-      statusHistory: order.payment?.statusHistory || [],
+ statusHistory: Array.isArray(order.payment?.statusHistory) ? order.payment?.statusHistory : [],
+ createdAt: order.payment?.createdAt || order.createdAt || '',
     },
-    totalAmount: order.totalAmount || 0,
-    subtotal: order.subtotal || 0,
-    tax: order.tax || 0,
-    deliveryFee: order.deliveryFee || 0,
     pickupAddress: order.pickupAddress || {
       type: '',
       street: '',
