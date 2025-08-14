@@ -30,6 +30,7 @@ import {
   Analytics as AnalyticsIcon,
   Payment as PaymentIcon,
   RateReview as ReviewsIcon,
+  History as HistoryIcon,
 } from '@mui/icons-material';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAppDispatch, useAppSelector } from '../../app/hooks';
@@ -202,4 +203,4 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children, title }) => {
   );
 };
 
-export default MainLayout; 
+export default MainLayout;
