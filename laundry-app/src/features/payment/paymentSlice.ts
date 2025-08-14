@@ -294,6 +294,33 @@ const paymentSlice = createSlice({
       .addCase(processPayment.rejected, (state, action) => {
         state.loading = false;
         state.error = action.error.message || 'Payment processing failed';
+      })
+      // Fetch Payment History
+      .addCase(fetchPaymentHistory.pending, (state) => {
+        state.paymentHistory.loading = true;
+        state.paymentHistory.error = null;
+      })
+      .addCase(fetchPaymentHistory.fulfilled, (state, action) => {
+        state.paymentHistory.loading = false;
+        state.paymentHistory.data = action.payload.data.docs;
+        state.paymentHistory.pagination = {
+          page: action.payload.data.page,
+          pages: action.payload.data.pages,
+          total: action.payload.data.total,
+          limit: action.payload.data.limit,
+        };
+      })
+      .addCase(fetchPaymentHistory.rejected, (state, action) => {
+        state.paymentHistory.loading = false;
+        state.paymentHistory.error = action.error.message || 'Failed to fetch payment history';
+      })
+      // Fetch Payment Stats
+      .addCase(fetchPaymentStats.fulfilled, (state, action) => {
+        state.paymentStats = action.payload.data;
+      })
+      // Fetch Payment Receipt
+      .addCase(fetchPaymentReceipt.fulfilled, (state, action) => {
+        state.selectedPayment = action.payload.data;
       });
   },
 });
