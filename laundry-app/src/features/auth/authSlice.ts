@@ -2,6 +2,16 @@ import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
 import { AuthState, User, AdminUser, CustomerUser, ServiceProviderUser, Address, UserRole } from '../../types/auth';
 import { authApi, UserResponse, RegisterResponse } from '../../services/api';
 
+export interface AuthState {
+  user: User | null;
+  isAuthenticated: boolean;
+  loading: boolean;
+  error: string | null;
+  token: string | null; // Add this line
+}
+
+// Update your initial state to include the token
+
 // Helper function to transform API user response to frontend user type
 const transformUserResponse = (apiUser: UserResponse): User => {
   const baseUser = {
@@ -14,6 +24,7 @@ const transformUserResponse = (apiUser: UserResponse): User => {
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
   };
+  // Update your AuthState interface to include the token property
 
   switch (apiUser.role) {
     case 'admin':
