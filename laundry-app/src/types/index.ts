@@ -49,20 +49,7 @@ export interface Order {
   updatedAt: string;
 }
 
-export type OrderStatus = 
-  | 'pending'
-  | 'confirmed'
-  | 'picked_up'
-  | 'in_progress'
-  | 'ready_for_delivery'
-  | 'delivered'
-  | 'cancelled';
 
-export type PaymentStatus = 
-  | 'pending'
-  | 'paid'
-  | 'failed'
-  | 'refunded';
 
 export interface Payment {
   id: string;
@@ -118,3 +105,104 @@ export interface PaymentState {
   loading: boolean;
   error: string | null;
 } 
+ // src/types/index.ts
+// Replace or update your existing types with these
+
+export type OrderStatus = 'pending' | 'confirmed' | 'assigned' | 'in_progress' | 'ready_for_pickup' | 'ready_for_delivery' | 'picked_up' | 'completed' | 'cancelled';
+export type PaymentStatus = 'pending' | 'completed' | 'failed';
+
+export interface Customer {
+  _id: string;
+  firstName: string;
+  lastName: string;
+  email: string;
+  phoneNumber: string;
+}
+
+export interface ServiceProvider {
+  _id: string;
+  firstName: string;
+  lastName: string;
+  email: string;
+  phoneNumber: string;
+  businessDetails?: any;
+}
+
+export interface Payment {
+  _id: string;
+  order: string;
+  customer: string;
+  serviceProvider?: string | null;
+  amount: number;
+  paymentMethod: string;
+  paymentDetails: {
+    phoneNumber?: string;
+    momoNetwork?: string;
+  };
+  status: PaymentStatus;
+  statusHistory: Array<{
+    status: string;
+    changedBy: string;
+    changedAt: string;
+    notes: string;
+  }>;
+}
+
+export interface OrderItem {
+  service: string;
+  serviceName: string;
+  quantity: number;
+  unitPrice: number;
+  totalPrice: number;
+  specialInstructions?: string;
+}
+
+export interface Address {
+  type: string;
+  street: string;
+  city: string;
+  state: string;
+  zipCode: string;
+  instructions: string;
+}
+
+export interface Order {
+  _id: string;
+  customer: Customer;
+  serviceProvider?: ServiceProvider | null;
+  items: OrderItem[];
+  status: OrderStatus;
+  payment: Payment;
+  totalAmount: number;
+  subtotal: number;
+  tax: number;
+  deliveryFee: number;
+  pickupAddress: Address;
+  deliveryAddress: Address;
+  pickupDate: string;
+  deliveryDate: string;
+  createdAt: string;
+  updatedAt: string;
+  notes: {
+    customer: string;
+    serviceProvider: string;
+    admin: string;
+  };
+  orderNumber: string;
+  formattedTotal: string;
+  statusHistory?: Array<{
+    status: string;
+    changedBy: string;
+    changedAt: string;
+    notes: string;
+  }>;
+}
+
+export interface OrdersState {
+  orders: Order[];
+  loading: boolean;
+  error: string | null;
+}
+
+// Add any other types you need to export
+export * from './order'; // Re-export from order.ts if you want to keep both files

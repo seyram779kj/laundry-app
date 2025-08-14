@@ -1,3 +1,4 @@
+// src/pages/Orders.tsx
 import React, { useState, useEffect } from 'react';
 import {
   Box,
@@ -25,100 +26,18 @@ import { RootState, AppDispatch } from '../app/store';
 import { shallowEqual } from 'react-redux';
 import { createAsyncThunk } from '@reduxjs/toolkit';
 
-type OrderStatus = 'pending' | 'confirmed' | 'assigned' | 'in_progress' | 'ready_for_pickup' | 'completed' | 'cancelled';
-type PaymentStatus = 'pending' | 'completed' | 'failed';
-
-interface Payment {
-  _id: string;
-  order: string;
-  customer: string;
-  serviceProvider?: string | null;
-  amount: number;
-  paymentMethod: string;
-  paymentDetails: {
-    phoneNumber?: string;
-    momoNetwork?: string;
-  };
-  status: PaymentStatus;
-  statusHistory: Array<{
-    status: string;
-    changedBy: string;
-    changedAt: string;
-    notes: string;
-  }>;
-}
-
-interface Order {
-  _id: string;
-  customer: {
-    _id: string;
-    firstName: string;
-    lastName: string;
-    email: string;
-    phoneNumber: string;
-  };
-  serviceProvider?: {
-    _id: string;
-    firstName: string;
-    lastName: string;
-    email: string;
-    phoneNumber: string;
-    businessDetails?: any;
-  } | null;
-  items: Array<{
-    service: string;
-    serviceName: string;
-    quantity: number;
-    unitPrice: number;
-    totalPrice: number;
-    specialInstructions?: string;
-  }>;
-  status: OrderStatus;
-  payment: Payment;
-  totalAmount: number;
-  subtotal: number;
-  tax: number;
-  deliveryFee: number;
-  pickupAddress: {
-    type: string;
-    street: string;
-    city: string;
-    state: string;
-    zipCode: string;
-    instructions: string;
-  };
-  deliveryAddress: {
-    type: string;
-    street: string;
-    city: string;
-    state: string;
-    zipCode: string;
-    instructions: string;
-  };
-  pickupDate: string;
-  deliveryDate: string;
-  createdAt: string;
-  updatedAt: string;
-  notes: {
-    customer: string;
-    serviceProvider: string;
-    admin: string;
-  };
-  orderNumber: string;
-  formattedTotal: string;
-  statusHistory?: Array<{
-    status: string;
-    changedBy: string;
-    changedAt: string;
-    notes: string;
-  }>;
-}
-
-interface OrdersState {
-  orders: Order[];
-  loading: boolean;
-  error: string | null;
-}
+// Import the centralized types
+import {
+  Order,
+  OrdersState,
+} from '../types';
+import {
+  statusColors,
+  paymentStatusColors,
+  statusLabels,
+  paymentStatusLabels
+} from '../types/order';
+import { formatOrderForDisplay } from '../utils/typeUtils';
 
 // Redux actions
 export const fetchOrders = createAsyncThunk(
@@ -136,38 +55,6 @@ export const setError = (error: string) => ({
   type: 'orders/setError',
   payload: error,
 });
-
-const statusColors: Record<OrderStatus, 'default' | 'primary' | 'secondary' | 'error' | 'info' | 'success' | 'warning'> = {
-  pending: 'warning',
-  confirmed: 'info',
-  assigned: 'info',
-  in_progress: 'primary',
-  ready_for_pickup: 'secondary',
-  completed: 'success',
-  cancelled: 'error',
-};
-
-const paymentStatusColors: Record<PaymentStatus, 'default' | 'primary' | 'secondary' | 'error' | 'info' | 'success' | 'warning'> = {
-  pending: 'error',
-  completed: 'success',
-  failed: 'error',
-};
-
-const statusLabels: Record<OrderStatus, string> = {
-  pending: 'Pending',
-  confirmed: 'Confirmed',
-  assigned: 'Assigned',
-  in_progress: 'In Progress',
-  ready_for_pickup: 'Ready for Pickup',
-  completed: 'Completed',
-  cancelled: 'Cancelled',
-};
-
-const paymentStatusLabels: Record<PaymentStatus, string> = {
-  pending: 'Payment Pending',
-  completed: 'Payment Completed',
-  failed: 'Payment Failed',
-};
 
 const Orders: React.FC = () => {
   const dispatch = useDispatch<AppDispatch>();
@@ -295,7 +182,9 @@ const Orders: React.FC = () => {
             justifyContent: 'flex-start',
           }}
         >
-          {orders.map((order) => (
+          {orders.map((orderData) => {
+            const order = formatOrderForDisplay(orderData);
+            return (
             <Box
               key={order._id}
               sx={{
@@ -316,13 +205,13 @@ const Orders: React.FC = () => {
                     </Typography>
                     <Box sx={{ display: 'flex', gap: 1 }}>
                       <Chip
-                        label={statusLabels[order.status]}
-                        color={statusColors[order.status]}
+                        label={statusLabels[order.status] || order.status}
+                        color={statusColors[order.status] || 'default'}
                         size="small"
                       />
                       <Chip
-                        label={paymentStatusLabels[order.payment.status]}
-                        color={paymentStatusColors[order.payment.status]}
+                        label={paymentStatusLabels[order.payment.status] || order.payment.status}
+                        color={paymentStatusColors[order.payment.status] || 'default'}
                         size="small"
                       />
                     </Box>
@@ -356,7 +245,8 @@ const Orders: React.FC = () => {
                 </CardContent>
               </Card>
             </Box>
-          ))}
+            );
+          })}
         </Box>
       )}
 
