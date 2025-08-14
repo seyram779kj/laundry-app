@@ -116,11 +116,115 @@ export const checkMoMoStatus = createAsyncThunk(
         'Authorization': `Bearer ${localStorage.getItem('token')}`
       }
     });
-    
+
     if (!response.ok) {
       throw new Error('Failed to check MoMo status');
     }
-    
+
+    return await response.json();
+  }
+);
+
+export const fetchPaymentHistory = createAsyncThunk(
+  'payment/fetchHistory',
+  async (params: {
+    page?: number;
+    limit?: number;
+    status?: string;
+    paymentMethod?: string;
+    startDate?: string;
+    endDate?: string;
+    search?: string;
+    sortBy?: string;
+    sortOrder?: string;
+  } = {}) => {
+    const queryParams = new URLSearchParams();
+    Object.entries(params).forEach(([key, value]) => {
+      if (value) queryParams.append(key, value.toString());
+    });
+
+    const response = await fetch(`/api/payments/history?${queryParams}`, {
+      headers: {
+        'Authorization': `Bearer ${localStorage.getItem('token')}`
+      }
+    });
+
+    if (!response.ok) {
+      throw new Error('Failed to fetch payment history');
+    }
+
+    return await response.json();
+  }
+);
+
+export const fetchPaymentStats = createAsyncThunk(
+  'payment/fetchStats',
+  async (params: { startDate?: string; endDate?: string } = {}) => {
+    const queryParams = new URLSearchParams();
+    Object.entries(params).forEach(([key, value]) => {
+      if (value) queryParams.append(key, value);
+    });
+
+    const response = await fetch(`/api/payments/history/stats?${queryParams}`, {
+      headers: {
+        'Authorization': `Bearer ${localStorage.getItem('token')}`
+      }
+    });
+
+    if (!response.ok) {
+      throw new Error('Failed to fetch payment statistics');
+    }
+
+    return await response.json();
+  }
+);
+
+export const exportPaymentHistory = createAsyncThunk(
+  'payment/exportHistory',
+  async (params: {
+    status?: string;
+    paymentMethod?: string;
+    startDate?: string;
+    endDate?: string;
+    format?: string;
+  } = {}) => {
+    const queryParams = new URLSearchParams();
+    Object.entries(params).forEach(([key, value]) => {
+      if (value) queryParams.append(key, value);
+    });
+
+    const response = await fetch(`/api/payments/history/export?${queryParams}`, {
+      headers: {
+        'Authorization': `Bearer ${localStorage.getItem('token')}`
+      }
+    });
+
+    if (!response.ok) {
+      throw new Error('Failed to export payment history');
+    }
+
+    if (params.format === 'csv') {
+      const blob = await response.blob();
+      return blob;
+    }
+
+    return await response.json();
+  }
+);
+
+export const fetchPaymentReceipt = createAsyncThunk(
+  'payment/fetchReceipt',
+  async (paymentId: string) => {
+    const response = await fetch(`/api/payments/${paymentId}/receipt`, {
+      headers: {
+        'Authorization': `Bearer ${localStorage.getItem('token')}`
+      }
+    });
+
+    if (!response.ok) {
+      throw new Error('Failed to fetch payment receipt');
+    }
+
     return await response.json();
   }
 );
