@@ -260,6 +260,7 @@ const App: React.FC = () => {
                         <Route index element={<ServiceProviderDashboard />} />
                         <Route path="orders" element={<Orders_t />} />
                         <Route path="earnings" element={<ProviderEarnings />} />
+                        <Route path="payment-history" element={<PaymentHistory />} />
                         <Route path="availability" element={<ProviderAvailability />} />
                         <Route path="profile" element={<Profile />} />
                         <Route path="settings" element={<Settings />} />
