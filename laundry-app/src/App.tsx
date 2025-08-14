@@ -240,6 +240,7 @@ const App: React.FC = () => {
                         <Route index element={<CustomerDashboard />} />
                         <Route path="new-order" element={<NewOrder />} />
                         <Route path="orders" element={<Orders />} />
+                        <Route path="payment-history" element={<PaymentHistory />} />
                         <Route path="services" element={<Services />} />
                         <Route path="profile" element={<Profile />} />
                         <Route path="settings" element={<Settings />} />
