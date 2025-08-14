@@ -242,6 +242,7 @@ const authSlice = createSlice({
         state.loading = false;
         state.user = action.payload;
         state.isAuthenticated = true;
+ state.token = localStorage.getItem('token'); // Assuming token is set in localStorage by authApi.login
         // Removed window.location.href redirection logic
       })
       .addCase(login.rejected, (state, action) => {
@@ -258,6 +259,7 @@ const authSlice = createSlice({
         // Set token if provided
         if (action.payload.token) {
           localStorage.setItem('token', action.payload.token);
+ state.token = action.payload.token;
         }
         // Create a basic user object from the registration response
         const user: User = {
@@ -328,11 +330,13 @@ const authSlice = createSlice({
       .addCase(verifyEmail.fulfilled, (state, action) => {
         state.loading = false;
         state.user = action.payload;
+ state.token = localStorage.getItem('token'); // Assuming token is set in localStorage
         state.isAuthenticated = true;
       })
       .addCase(verifyEmail.rejected, (state, action) => {
         state.loading = false;
         state.error = action.payload as string;
+ state.token = null;
       })
       // Logout
       .addCase(logout.fulfilled, (state) => {
@@ -340,6 +344,7 @@ const authSlice = createSlice({
         state.isAuthenticated = false;
       });
   },
+
 });
 
 export const { clearError, updateUser } = authSlice.actions;

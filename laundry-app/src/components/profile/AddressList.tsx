@@ -56,7 +56,7 @@ const AddressList: React.FC<AddressListProps> = ({ addresses }) => {
             <ListItemText
               primary={
                 <Typography variant="subtitle1">
-                  {address.street}
+                  {address.street ?? ''}
                 </Typography>
               }
               secondary={

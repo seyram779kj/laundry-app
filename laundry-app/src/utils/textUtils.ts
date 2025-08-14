@@ -100,14 +100,8 @@ export const formatLocation = (location: string): string => {
  * @param address - The address object to format
  * @returns The formatted address object
  */
-export const formatAddress = (address: {
-  street?: string;
-  city?: string;
-  state?: string;
-  zipCode?: string;
-  type: string;
-  instructions: string;
-}): {
+export const formatAddress = (address: { [key: string]: any }): {
+  // Ensuring all required properties of the Address type are returned
   street: string;
   city: string;
   state: string;
@@ -120,8 +114,8 @@ export const formatAddress = (address: {
     city: address.city ? formatLocation(address.city) : '',
     state: address.state ? formatLocation(address.state) : '',
     zipCode: address.zipCode || '',
-    type: address.type.trim() || 'default',
-    instructions: address.instructions.trim() || '',
+    type: (address.type as string)?.trim() || 'default', // Type assert and provide default
+    instructions: (address.instructions as string)?.trim() || '', // Type assert and provide default
   };
 };
 

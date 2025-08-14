@@ -39,13 +39,13 @@ router.get('/', protect, async (req, res) => {
     }
 
     // Filter by user
-    if (userId) {
-      if (req.user.role === 'admin') {
-        query.$or = [{ customer: userId }, { serviceProvider: userId }];
-      } else {
-        query.$or = [{ customer: req.user.id }, { serviceProvider: req.user.id }];
+    // Admins can filter by userId, others are restricted to their own payments
+    if (req.user.role === 'admin') {
+      if (userId) {
+        query.$or = [{ customer: userId }, { serviceProvider: userId }]; // Admin can filter by a specific user ID
       }
-    } else if (req.user.role !== 'admin') {
+    } else {
+      // Non-admins can only see their own payments
       query.$or = [{ customer: req.user.id }, { serviceProvider: req.user.id }];
     }
 

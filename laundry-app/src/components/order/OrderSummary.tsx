@@ -7,10 +7,10 @@ import {
 } from '@mui/material';
 import { useSelector } from 'react-redux';
 import { RootState } from '../../app/store';
-import { OrderItem } from '../../types';
+import { OrderItem } from '../../types/order';
 
 interface OrderSummaryProps {
-  items: OrderItem[];
+
   addresses: {
     pickup: string;
     delivery: string;
@@ -24,7 +24,6 @@ interface OrderSummaryProps {
 }
 
 const OrderSummary: React.FC<OrderSummaryProps> = ({
-  items,
   addresses,
   dates,
   onEdit,
@@ -53,7 +52,7 @@ const OrderSummary: React.FC<OrderSummaryProps> = ({
               Items
             </Typography>
             {items.map((item) => {
-              const service = services.find(s => s.id === item.serviceId);
+              const service = services.find((s) => s.id === item.serviceId);
               return (
                 <Box key={item.serviceId} mb={1}>
                   <Box display="flex" justifyContent="space-between">

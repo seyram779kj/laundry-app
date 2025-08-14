@@ -1,5 +1,5 @@
 // src/utils/typeUtils.ts
-import { Order,Payment, OrderStatus, PaymentStatus } from '../types';
+import { Order, OrderItem } from '../types/order';
 
 // Type guard to check if an order has all required properties
 export const isValidOrder = (order: any): order is Order => {
@@ -44,8 +44,11 @@ export const safeGetOrderProperty = <T>(
 export const formatOrderForDisplay = (order: any): Order => {
   if (isValidOrder(order)) {
     return order;
+  } else {
+    // Ensure all required properties of Order are provided with default values
+    // when the input order is not valid according to isValidOrder.
+    // This prevents the "A function whose declared type is neither 'undefined', 'void', nor 'any' must return a value" error
   }
-
   return {
     _id: order._id || order.id || '',
     customer: {
@@ -58,7 +61,7 @@ export const formatOrderForDisplay = (order: any): Order => {
     serviceProvider: order.serviceProvider || null,
     items: Array.isArray(order.items)
       ? order.items.map((item: any) => ({
-          service: item.service || '',
+          service: item.service || '', // Assuming 'service' here refers to the service ID
           serviceName: item.serviceName || item.name || 'Unknown Service',
           quantity: item.quantity || 1,
           unitPrice: item.unitPrice || 0,
@@ -68,20 +71,23 @@ export const formatOrderForDisplay = (order: any): Order => {
       : [],
     status: order.status || 'pending',
     payment: {
- _id: order.payment?._id || '',
- order: order._id || '',
- customer: order.customer?._id || '',
- serviceProvider: order.serviceProvider?._id || null,
- amount: order.payment?.amount || order.totalAmount || 0,
- paymentMethod: order.payment?.paymentMethod || order.payment?.method || 'cash',
- paymentDetails: order.payment?.paymentDetails || {
- phoneNumber: order.payment?.paymentDetails?.phoneNumber || '',
- momoNetwork: order.payment?.paymentDetails?.momoNetwork || '',
- },
+      _id: order.payment?._id || '',
+      order: order._id || '',
+      customer: order.customer?._id || '',
+      serviceProvider: order.serviceProvider?._id || null,
+      amount: order.payment?.amount || order.totalAmount || 0,
+      paymentMethod: order.payment?.paymentMethod || order.payment?.method || 'cash',
+      paymentDetails: order.payment?.paymentDetails || {
+        phoneNumber: order.payment?.paymentDetails?.phoneNumber || '',
+        momoNetwork: order.payment?.paymentDetails?.momoNetwork || '',
+      },
       status: order.payment?.status || 'pending',
  statusHistory: Array.isArray(order.payment?.statusHistory) ? order.payment?.statusHistory : [],
- createdAt: order.payment?.createdAt || order.createdAt || '',
     },
+    totalAmount: order.totalAmount || 0,
+    subtotal: order.subtotal || 0,
+    tax: order.tax || 0,
+    deliveryFee: order.deliveryFee || 0,
     pickupAddress: order.pickupAddress || {
       type: '',
       street: '',
