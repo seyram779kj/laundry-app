@@ -195,7 +195,7 @@ router.post('/', protect, customer, async (req, res) => {
     const finalSubtotal = parseFloat(subtotal) || calculatedSubtotal;
     const finalTax = parseFloat(tax) || finalSubtotal * 0.1; // Example tax calculation
     const finalDeliveryFee = parseFloat(deliveryFee) || 5; // Example delivery fee
-    const finalTotal = parseFloat(totalAmount) || finalSubtotal + finalTax + finalDeliveryFee;
+    const finalTotal = finalSubtotal + finalTax + finalDeliveryFee;
 
     // Create order data
     const orderData = {
@@ -203,6 +203,7 @@ router.post('/', protect, customer, async (req, res) => {
       serviceProvider: null,
       items: processedItems,
       status: 'pending',
+      subtotal: finalSubtotal,
       tax: finalTax,
       deliveryFee: finalDeliveryFee,
       totalAmount: finalTotal,
