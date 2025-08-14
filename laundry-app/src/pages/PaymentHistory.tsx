@@ -30,7 +30,6 @@ import {
   Stack,
   Tooltip,
   InputAdornment,
-  Fab,
 } from '@mui/material';
 import {
   Search as SearchIcon,
@@ -40,10 +39,8 @@ import {
   Refresh as RefreshIcon,
   TrendingUp as TrendingUpIcon,
   Payment as PaymentIcon,
-  DateRange as DateRangeIcon,
   Clear as ClearIcon,
 } from '@mui/icons-material';
-// Removed DatePicker dependencies - using regular date inputs instead
 import { format, subDays, startOfDay, endOfDay } from 'date-fns';
 import { useAppDispatch, useAppSelector } from '../app/hooks';
 import {
@@ -219,392 +216,394 @@ const PaymentHistory: React.FC = () => {
   };
 
   return (
-    <LocalizationProvider dateAdapter={AdapterDateFns}>
-      <Box sx={{ p: 3 }}>
-        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
-          <Typography variant="h4" component="h1" color="primary">
-            Payment History
-          </Typography>
-          <Stack direction="row" spacing={2}>
-            <Button
-              variant="outlined"
-              startIcon={<RefreshIcon />}
-              onClick={loadPaymentHistory}
-              disabled={paymentHistory.loading}
-            >
-              Refresh
-            </Button>
-            <Button
-              variant="outlined"
-              startIcon={<FilterIcon />}
-              onClick={() => setFilterDialog(true)}
-            >
-              Filters
-            </Button>
-            <Button
-              variant="contained"
-              startIcon={<DownloadIcon />}
-              onClick={() => setExportDialog(true)}
-            >
-              Export
-            </Button>
-          </Stack>
-        </Box>
+    <Box sx={{ p: 3 }}>
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
+        <Typography variant="h4" component="h1" color="primary">
+          Payment History
+        </Typography>
+        <Stack direction="row" spacing={2}>
+          <Button
+            variant="outlined"
+            startIcon={<RefreshIcon />}
+            onClick={loadPaymentHistory}
+            disabled={paymentHistory.loading}
+          >
+            Refresh
+          </Button>
+          <Button
+            variant="outlined"
+            startIcon={<FilterIcon />}
+            onClick={() => setFilterDialog(true)}
+          >
+            Filters
+          </Button>
+          <Button
+            variant="contained"
+            startIcon={<DownloadIcon />}
+            onClick={() => setExportDialog(true)}
+          >
+            Export
+          </Button>
+        </Stack>
+      </Box>
 
-        {/* Statistics Cards */}
-        {paymentStats && (
-          <Grid container spacing={3} sx={{ mb: 3 }}>
-            <Grid item xs={12} sm={6} md={3}>
-              <Card>
-                <CardContent>
-                  <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                    <Box>
-                      <Typography color="textSecondary" gutterBottom variant="h6">
-                        Total Payments
-                      </Typography>
-                      <Typography variant="h4">
-                        {paymentStats.totals?.totalPayments || 0}
-                      </Typography>
-                    </Box>
-                    <PaymentIcon color="primary" sx={{ fontSize: 40 }} />
+      {/* Statistics Cards */}
+      {paymentStats && (
+        <Grid container spacing={3} sx={{ mb: 3 }}>
+          <Grid item xs={12} sm={6} md={3}>
+            <Card>
+              <CardContent>
+                <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <Box>
+                    <Typography color="textSecondary" gutterBottom variant="h6">
+                      Total Payments
+                    </Typography>
+                    <Typography variant="h4">
+                      {paymentStats.totals?.totalPayments || 0}
+                    </Typography>
                   </Box>
-                </CardContent>
-              </Card>
-            </Grid>
-            <Grid item xs={12} sm={6} md={3}>
-              <Card>
-                <CardContent>
-                  <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                    <Box>
-                      <Typography color="textSecondary" gutterBottom variant="h6">
-                        Total Amount
-                      </Typography>
-                      <Typography variant="h4">
-                        {formatCurrency(paymentStats.totals?.totalAmount || 0)}
-                      </Typography>
-                    </Box>
-                    <TrendingUpIcon color="success" sx={{ fontSize: 40 }} />
-                  </Box>
-                </CardContent>
-              </Card>
-            </Grid>
-            <Grid item xs={12} sm={6} md={3}>
-              <Card>
-                <CardContent>
-                  <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                    <Box>
-                      <Typography color="textSecondary" gutterBottom variant="h6">
-                        Completed
-                      </Typography>
-                      <Typography variant="h4">
-                        {formatCurrency(paymentStats.totals?.completedAmount || 0)}
-                      </Typography>
-                    </Box>
-                    <Chip label="Completed" color="success" />
-                  </Box>
-                </CardContent>
-              </Card>
-            </Grid>
-            <Grid item xs={12} sm={6} md={3}>
-              <Card>
-                <CardContent>
-                  <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                    <Box>
-                      <Typography color="textSecondary" gutterBottom variant="h6">
-                        Pending
-                      </Typography>
-                      <Typography variant="h4">
-                        {formatCurrency(paymentStats.totals?.pendingAmount || 0)}
-                      </Typography>
-                    </Box>
-                    <Chip label="Pending" color="warning" />
-                  </Box>
-                </CardContent>
-              </Card>
-            </Grid>
+                  <PaymentIcon color="primary" sx={{ fontSize: 40 }} />
+                </Box>
+              </CardContent>
+            </Card>
           </Grid>
-        )}
+          <Grid item xs={12} sm={6} md={3}>
+            <Card>
+              <CardContent>
+                <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <Box>
+                    <Typography color="textSecondary" gutterBottom variant="h6">
+                      Total Amount
+                    </Typography>
+                    <Typography variant="h4">
+                      {formatCurrency(paymentStats.totals?.totalAmount || 0)}
+                    </Typography>
+                  </Box>
+                  <TrendingUpIcon color="success" sx={{ fontSize: 40 }} />
+                </Box>
+              </CardContent>
+            </Card>
+          </Grid>
+          <Grid item xs={12} sm={6} md={3}>
+            <Card>
+              <CardContent>
+                <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <Box>
+                    <Typography color="textSecondary" gutterBottom variant="h6">
+                      Completed
+                    </Typography>
+                    <Typography variant="h4">
+                      {formatCurrency(paymentStats.totals?.completedAmount || 0)}
+                    </Typography>
+                  </Box>
+                  <Chip label="Completed" color="success" />
+                </Box>
+              </CardContent>
+            </Card>
+          </Grid>
+          <Grid item xs={12} sm={6} md={3}>
+            <Card>
+              <CardContent>
+                <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <Box>
+                    <Typography color="textSecondary" gutterBottom variant="h6">
+                      Pending
+                    </Typography>
+                    <Typography variant="h4">
+                      {formatCurrency(paymentStats.totals?.pendingAmount || 0)}
+                    </Typography>
+                  </Box>
+                  <Chip label="Pending" color="warning" />
+                </Box>
+              </CardContent>
+            </Card>
+          </Grid>
+        </Grid>
+      )}
 
-        {/* Search and Quick Filters */}
-        <Paper sx={{ p: 2, mb: 3 }}>
-          <Grid container spacing={2} alignItems="center">
+      {/* Search and Quick Filters */}
+      <Paper sx={{ p: 2, mb: 3 }}>
+        <Grid container spacing={2} alignItems="center">
+          <Grid item xs={12} md={6}>
+            <TextField
+              fullWidth
+              variant="outlined"
+              placeholder="Search by transaction ID, order number, or notes..."
+              value={search}
+              onChange={handleSearchChange}
+              InputProps={{
+                startAdornment: (
+                  <InputAdornment position="start">
+                    <SearchIcon />
+                  </InputAdornment>
+                ),
+                endAdornment: search && (
+                  <InputAdornment position="end">
+                    <IconButton onClick={() => setSearch('')}>
+                      <ClearIcon />
+                    </IconButton>
+                  </InputAdornment>
+                ),
+              }}
+            />
+          </Grid>
+          <Grid item xs={12} md={6}>
+            <Stack direction="row" spacing={1} justifyContent="flex-end">
+              <Button size="small" onClick={() => applyQuickFilter(7)}>Last 7 days</Button>
+              <Button size="small" onClick={() => applyQuickFilter(30)}>Last 30 days</Button>
+              <Button size="small" onClick={() => applyQuickFilter(90)}>Last 90 days</Button>
+              <Button size="small" onClick={clearFilters} color="secondary">Clear All</Button>
+            </Stack>
+          </Grid>
+        </Grid>
+      </Paper>
+
+      {/* Payment History Table */}
+      <Paper>
+        {paymentHistory.loading ? (
+          <Box sx={{ display: 'flex', justifyContent: 'center', p: 3 }}>
+            <CircularProgress />
+          </Box>
+        ) : paymentHistory.error ? (
+          <Alert severity="error" sx={{ m: 2 }}>
+            {paymentHistory.error}
+          </Alert>
+        ) : (
+          <>
+            <TableContainer>
+              <Table>
+                <TableHead>
+                  <TableRow>
+                    <TableCell>Transaction ID</TableCell>
+                    <TableCell>Order</TableCell>
+                    <TableCell>Amount</TableCell>
+                    <TableCell>Method</TableCell>
+                    <TableCell>Status</TableCell>
+                    <TableCell>Date</TableCell>
+                    <TableCell>Actions</TableCell>
+                  </TableRow>
+                </TableHead>
+                <TableBody>
+                  {paymentHistory.data.map((payment) => (
+                    <TableRow key={payment._id} hover>
+                      <TableCell>
+                        <Typography variant="body2" fontFamily="monospace">
+                          {payment.transactionId || payment.paymentDetails?.transactionRef || payment._id.slice(-8)}
+                        </Typography>
+                      </TableCell>
+                      <TableCell>
+                        {payment.orderInfo && (
+                          <Box>
+                            <Typography variant="body2" fontWeight="bold">
+                              {payment.orderInfo.orderNumber}
+                            </Typography>
+                            <Typography variant="caption" color="textSecondary">
+                              {payment.orderInfo.itemCount} item(s)
+                            </Typography>
+                          </Box>
+                        )}
+                      </TableCell>
+                      <TableCell>
+                        <Typography variant="body2" fontWeight="bold">
+                          {payment.formattedAmount}
+                        </Typography>
+                      </TableCell>
+                      <TableCell>
+                        <Chip 
+                          label={payment.paymentMethod.replace('_', ' ').toUpperCase()} 
+                          size="small" 
+                          variant="outlined"
+                        />
+                      </TableCell>
+                      <TableCell>
+                        <Chip 
+                          label={payment.status.toUpperCase()} 
+                          color={getStatusColor(payment.status)}
+                          size="small"
+                        />
+                      </TableCell>
+                      <TableCell>
+                        <Typography variant="body2">
+                          {formatDate(payment.createdAt)}
+                        </Typography>
+                      </TableCell>
+                      <TableCell>
+                        <Tooltip title="View Receipt">
+                          <IconButton 
+                            size="small" 
+                            onClick={() => handleViewReceipt(payment._id)}
+                            disabled={payment.status !== 'completed'}
+                          >
+                            <ReceiptIcon />
+                          </IconButton>
+                        </Tooltip>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </TableContainer>
+            
+            {paymentHistory.pagination && (
+              <TablePagination
+                rowsPerPageOptions={[5, 10, 25, 50]}
+                component="div"
+                count={paymentHistory.pagination.total || 0}
+                rowsPerPage={rowsPerPage}
+                page={page}
+                onPageChange={handleChangePage}
+                onRowsPerPageChange={handleChangeRowsPerPage}
+              />
+            )}
+          </>
+        )}
+      </Paper>
+
+      {/* Filter Dialog */}
+      <Dialog open={filterDialog} onClose={() => setFilterDialog(false)} maxWidth="md" fullWidth>
+        <DialogTitle>Advanced Filters</DialogTitle>
+        <DialogContent>
+          <Grid container spacing={3} sx={{ mt: 1 }}>
+            <Grid item xs={12} md={6}>
+              <FormControl fullWidth>
+                <InputLabel>Status</InputLabel>
+                <Select value={status} onChange={(e) => setStatus(e.target.value)} label="Status">
+                  {paymentStatuses.map((s) => (
+                    <MenuItem key={s.value} value={s.value}>{s.label}</MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+            </Grid>
+            <Grid item xs={12} md={6}>
+              <FormControl fullWidth>
+                <InputLabel>Payment Method</InputLabel>
+                <Select value={paymentMethod} onChange={(e) => setPaymentMethod(e.target.value)} label="Payment Method">
+                  {paymentMethods.map((m) => (
+                    <MenuItem key={m.value} value={m.value}>{m.label}</MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+            </Grid>
             <Grid item xs={12} md={6}>
               <TextField
                 fullWidth
-                variant="outlined"
-                placeholder="Search by transaction ID, order number, or notes..."
-                value={search}
-                onChange={handleSearchChange}
-                InputProps={{
-                  startAdornment: (
-                    <InputAdornment position="start">
-                      <SearchIcon />
-                    </InputAdornment>
-                  ),
-                  endAdornment: search && (
-                    <InputAdornment position="end">
-                      <IconButton onClick={() => setSearch('')}>
-                        <ClearIcon />
-                      </IconButton>
-                    </InputAdornment>
-                  ),
-                }}
+                type="date"
+                label="Start Date"
+                value={startDate ? format(startDate, 'yyyy-MM-dd') : ''}
+                onChange={(e) => setStartDate(e.target.value ? new Date(e.target.value) : null)}
+                InputLabelProps={{ shrink: true }}
               />
             </Grid>
             <Grid item xs={12} md={6}>
-              <Stack direction="row" spacing={1} justifyContent="flex-end">
-                <Button size="small" onClick={() => applyQuickFilter(7)}>Last 7 days</Button>
-                <Button size="small" onClick={() => applyQuickFilter(30)}>Last 30 days</Button>
-                <Button size="small" onClick={() => applyQuickFilter(90)}>Last 90 days</Button>
-                <Button size="small" onClick={clearFilters} color="secondary">Clear All</Button>
-              </Stack>
+              <TextField
+                fullWidth
+                type="date"
+                label="End Date"
+                value={endDate ? format(endDate, 'yyyy-MM-dd') : ''}
+                onChange={(e) => setEndDate(e.target.value ? new Date(e.target.value) : null)}
+                InputLabelProps={{ shrink: true }}
+              />
+            </Grid>
+            <Grid item xs={12} md={6}>
+              <FormControl fullWidth>
+                <InputLabel>Sort By</InputLabel>
+                <Select value={sortBy} onChange={(e) => setSortBy(e.target.value)} label="Sort By">
+                  {sortOptions.map((option) => (
+                    <MenuItem key={option.value} value={option.value}>{option.label}</MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+            </Grid>
+            <Grid item xs={12} md={6}>
+              <FormControl fullWidth>
+                <InputLabel>Sort Order</InputLabel>
+                <Select value={sortOrder} onChange={(e) => setSortOrder(e.target.value)} label="Sort Order">
+                  <MenuItem value="desc">Descending</MenuItem>
+                  <MenuItem value="asc">Ascending</MenuItem>
+                </Select>
+              </FormControl>
             </Grid>
           </Grid>
-        </Paper>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={clearFilters}>Clear All</Button>
+          <Button onClick={() => setFilterDialog(false)}>Cancel</Button>
+          <Button onClick={() => setFilterDialog(false)} variant="contained">Apply Filters</Button>
+        </DialogActions>
+      </Dialog>
 
-        {/* Payment History Table */}
-        <Paper>
-          {paymentHistory.loading ? (
-            <Box sx={{ display: 'flex', justifyContent: 'center', p: 3 }}>
-              <CircularProgress />
-            </Box>
-          ) : paymentHistory.error ? (
-            <Alert severity="error" sx={{ m: 2 }}>
-              {paymentHistory.error}
-            </Alert>
-          ) : (
-            <>
-              <TableContainer>
-                <Table>
-                  <TableHead>
-                    <TableRow>
-                      <TableCell>Transaction ID</TableCell>
-                      <TableCell>Order</TableCell>
-                      <TableCell>Amount</TableCell>
-                      <TableCell>Method</TableCell>
-                      <TableCell>Status</TableCell>
-                      <TableCell>Date</TableCell>
-                      <TableCell>Actions</TableCell>
-                    </TableRow>
-                  </TableHead>
-                  <TableBody>
-                    {paymentHistory.data.map((payment) => (
-                      <TableRow key={payment._id} hover>
-                        <TableCell>
-                          <Typography variant="body2" fontFamily="monospace">
-                            {payment.transactionId || payment.paymentDetails?.transactionRef || payment._id.slice(-8)}
-                          </Typography>
-                        </TableCell>
-                        <TableCell>
-                          {payment.orderInfo && (
-                            <Box>
-                              <Typography variant="body2" fontWeight="bold">
-                                {payment.orderInfo.orderNumber}
-                              </Typography>
-                              <Typography variant="caption" color="textSecondary">
-                                {payment.orderInfo.itemCount} item(s)
-                              </Typography>
-                            </Box>
-                          )}
-                        </TableCell>
-                        <TableCell>
-                          <Typography variant="body2" fontWeight="bold">
-                            {payment.formattedAmount}
-                          </Typography>
-                        </TableCell>
-                        <TableCell>
-                          <Chip 
-                            label={payment.paymentMethod.replace('_', ' ').toUpperCase()} 
-                            size="small" 
-                            variant="outlined"
-                          />
-                        </TableCell>
-                        <TableCell>
-                          <Chip 
-                            label={payment.status.toUpperCase()} 
-                            color={getStatusColor(payment.status)}
-                            size="small"
-                          />
-                        </TableCell>
-                        <TableCell>
-                          <Typography variant="body2">
-                            {formatDate(payment.createdAt)}
-                          </Typography>
-                        </TableCell>
-                        <TableCell>
-                          <Tooltip title="View Receipt">
-                            <IconButton 
-                              size="small" 
-                              onClick={() => handleViewReceipt(payment._id)}
-                              disabled={payment.status !== 'completed'}
-                            >
-                              <ReceiptIcon />
-                            </IconButton>
-                          </Tooltip>
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </TableContainer>
-              
-              {paymentHistory.pagination && (
-                <TablePagination
-                  rowsPerPageOptions={[5, 10, 25, 50]}
-                  component="div"
-                  count={paymentHistory.pagination.total || 0}
-                  rowsPerPage={rowsPerPage}
-                  page={page}
-                  onPageChange={handleChangePage}
-                  onRowsPerPageChange={handleChangeRowsPerPage}
-                />
-              )}
-            </>
-          )}
-        </Paper>
-
-        {/* Filter Dialog */}
-        <Dialog open={filterDialog} onClose={() => setFilterDialog(false)} maxWidth="md" fullWidth>
-          <DialogTitle>Advanced Filters</DialogTitle>
-          <DialogContent>
-            <Grid container spacing={3} sx={{ mt: 1 }}>
-              <Grid item xs={12} md={6}>
-                <FormControl fullWidth>
-                  <InputLabel>Status</InputLabel>
-                  <Select value={status} onChange={(e) => setStatus(e.target.value)} label="Status">
-                    {paymentStatuses.map((s) => (
-                      <MenuItem key={s.value} value={s.value}>{s.label}</MenuItem>
-                    ))}
-                  </Select>
-                </FormControl>
-              </Grid>
-              <Grid item xs={12} md={6}>
-                <FormControl fullWidth>
-                  <InputLabel>Payment Method</InputLabel>
-                  <Select value={paymentMethod} onChange={(e) => setPaymentMethod(e.target.value)} label="Payment Method">
-                    {paymentMethods.map((m) => (
-                      <MenuItem key={m.value} value={m.value}>{m.label}</MenuItem>
-                    ))}
-                  </Select>
-                </FormControl>
-              </Grid>
-              <Grid item xs={12} md={6}>
-                <DatePicker
-                  label="Start Date"
-                  value={startDate}
-                  onChange={setStartDate}
-                  renderInput={(params) => <TextField {...params} fullWidth />}
-                />
-              </Grid>
-              <Grid item xs={12} md={6}>
-                <DatePicker
-                  label="End Date"
-                  value={endDate}
-                  onChange={setEndDate}
-                  renderInput={(params) => <TextField {...params} fullWidth />}
-                />
-              </Grid>
-              <Grid item xs={12} md={6}>
-                <FormControl fullWidth>
-                  <InputLabel>Sort By</InputLabel>
-                  <Select value={sortBy} onChange={(e) => setSortBy(e.target.value)} label="Sort By">
-                    {sortOptions.map((option) => (
-                      <MenuItem key={option.value} value={option.value}>{option.label}</MenuItem>
-                    ))}
-                  </Select>
-                </FormControl>
-              </Grid>
-              <Grid item xs={12} md={6}>
-                <FormControl fullWidth>
-                  <InputLabel>Sort Order</InputLabel>
-                  <Select value={sortOrder} onChange={(e) => setSortOrder(e.target.value)} label="Sort Order">
-                    <MenuItem value="desc">Descending</MenuItem>
-                    <MenuItem value="asc">Ascending</MenuItem>
-                  </Select>
-                </FormControl>
-              </Grid>
-            </Grid>
-          </DialogContent>
-          <DialogActions>
-            <Button onClick={clearFilters}>Clear All</Button>
-            <Button onClick={() => setFilterDialog(false)}>Cancel</Button>
-            <Button onClick={() => setFilterDialog(false)} variant="contained">Apply Filters</Button>
-          </DialogActions>
-        </Dialog>
-
-        {/* Export Dialog */}
-        <Dialog open={exportDialog} onClose={() => setExportDialog(false)}>
-          <DialogTitle>Export Payment History</DialogTitle>
-          <DialogContent>
-            <Typography variant="body2" sx={{ mb: 2 }}>
-              Export your payment history data in the selected format.
-            </Typography>
-            <Stack spacing={2}>
-              <Button
-                variant="outlined"
-                startIcon={<DownloadIcon />}
-                onClick={() => handleExport('csv')}
-                fullWidth
-              >
-                Export as CSV
-              </Button>
-              <Button
-                variant="outlined"
-                startIcon={<DownloadIcon />}
-                onClick={() => handleExport('json')}
-                fullWidth
-              >
-                Export as JSON
-              </Button>
-            </Stack>
-          </DialogContent>
-          <DialogActions>
-            <Button onClick={() => setExportDialog(false)}>Cancel</Button>
-          </DialogActions>
-        </Dialog>
-
-        {/* Receipt Dialog */}
-        <Dialog open={receiptDialog} onClose={() => setReceiptDialog(false)} maxWidth="md" fullWidth>
-          <DialogTitle>Payment Receipt</DialogTitle>
-          <DialogContent>
-            {selectedPayment && (
-              <Box sx={{ p: 2 }}>
-                <Grid container spacing={2}>
-                  <Grid item xs={12}>
-                    <Typography variant="h6" gutterBottom>Payment Information</Typography>
-                    <Typography><strong>Transaction ID:</strong> {selectedPayment.payment?.transactionId}</Typography>
-                    <Typography><strong>Amount:</strong> {selectedPayment.payment?.formattedAmount}</Typography>
-                    <Typography><strong>Status:</strong> {selectedPayment.payment?.status}</Typography>
-                    <Typography><strong>Method:</strong> {selectedPayment.payment?.paymentMethod}</Typography>
-                    <Typography><strong>Date:</strong> {selectedPayment.payment?.createdAt && formatDate(selectedPayment.payment.createdAt)}</Typography>
-                  </Grid>
-                  {selectedPayment.order && (
-                    <Grid item xs={12}>
-                      <Typography variant="h6" gutterBottom>Order Information</Typography>
-                      <Typography><strong>Order Number:</strong> {selectedPayment.order.orderNumber}</Typography>
-                      <Typography><strong>Status:</strong> {selectedPayment.order.status}</Typography>
-                      <Typography><strong>Items:</strong> {selectedPayment.order.items?.length || 0} item(s)</Typography>
-                    </Grid>
-                  )}
-                  <Grid item xs={12}>
-                    <Typography variant="h6" gutterBottom>Customer Information</Typography>
-                    <Typography><strong>Name:</strong> {selectedPayment.customer?.name}</Typography>
-                    <Typography><strong>Email:</strong> {selectedPayment.customer?.email}</Typography>
-                    <Typography><strong>Phone:</strong> {selectedPayment.customer?.phone}</Typography>
-                  </Grid>
-                </Grid>
-              </Box>
-            )}
-          </DialogContent>
-          <DialogActions>
-            <Button onClick={() => setReceiptDialog(false)}>Close</Button>
-            <Button variant="contained" startIcon={<DownloadIcon />}>
-              Download Receipt
+      {/* Export Dialog */}
+      <Dialog open={exportDialog} onClose={() => setExportDialog(false)}>
+        <DialogTitle>Export Payment History</DialogTitle>
+        <DialogContent>
+          <Typography variant="body2" sx={{ mb: 2 }}>
+            Export your payment history data in the selected format.
+          </Typography>
+          <Stack spacing={2}>
+            <Button
+              variant="outlined"
+              startIcon={<DownloadIcon />}
+              onClick={() => handleExport('csv')}
+              fullWidth
+            >
+              Export as CSV
             </Button>
-          </DialogActions>
-        </Dialog>
-      </Box>
-    </LocalizationProvider>
+            <Button
+              variant="outlined"
+              startIcon={<DownloadIcon />}
+              onClick={() => handleExport('json')}
+              fullWidth
+            >
+              Export as JSON
+            </Button>
+          </Stack>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setExportDialog(false)}>Cancel</Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Receipt Dialog */}
+      <Dialog open={receiptDialog} onClose={() => setReceiptDialog(false)} maxWidth="md" fullWidth>
+        <DialogTitle>Payment Receipt</DialogTitle>
+        <DialogContent>
+          {selectedPayment && (
+            <Box sx={{ p: 2 }}>
+              <Grid container spacing={2}>
+                <Grid item xs={12}>
+                  <Typography variant="h6" gutterBottom>Payment Information</Typography>
+                  <Typography><strong>Transaction ID:</strong> {selectedPayment.payment?.transactionId}</Typography>
+                  <Typography><strong>Amount:</strong> {selectedPayment.payment?.formattedAmount}</Typography>
+                  <Typography><strong>Status:</strong> {selectedPayment.payment?.status}</Typography>
+                  <Typography><strong>Method:</strong> {selectedPayment.payment?.paymentMethod}</Typography>
+                  <Typography><strong>Date:</strong> {selectedPayment.payment?.createdAt && formatDate(selectedPayment.payment.createdAt)}</Typography>
+                </Grid>
+                {selectedPayment.order && (
+                  <Grid item xs={12}>
+                    <Typography variant="h6" gutterBottom>Order Information</Typography>
+                    <Typography><strong>Order Number:</strong> {selectedPayment.order.orderNumber}</Typography>
+                    <Typography><strong>Status:</strong> {selectedPayment.order.status}</Typography>
+                    <Typography><strong>Items:</strong> {selectedPayment.order.items?.length || 0} item(s)</Typography>
+                  </Grid>
+                )}
+                <Grid item xs={12}>
+                  <Typography variant="h6" gutterBottom>Customer Information</Typography>
+                  <Typography><strong>Name:</strong> {selectedPayment.customer?.name}</Typography>
+                  <Typography><strong>Email:</strong> {selectedPayment.customer?.email}</Typography>
+                  <Typography><strong>Phone:</strong> {selectedPayment.customer?.phone}</Typography>
+                </Grid>
+              </Grid>
+            </Box>
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setReceiptDialog(false)}>Close</Button>
+          <Button variant="contained" startIcon={<DownloadIcon />}>
+            Download Receipt
+          </Button>
+        </DialogActions>
+      </Dialog>
+    </Box>
   );
 };
 
