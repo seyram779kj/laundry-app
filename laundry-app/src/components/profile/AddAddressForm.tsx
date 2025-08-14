@@ -1,10 +1,5 @@
 import React, { useState } from 'react';
-import {
-  Box,
-  TextField,
-  Button,
-  Paper,
-} from '@mui/material';
+import { Box, TextField, Button, Paper } from '@mui/material';
 import { useAppDispatch } from '../../app/hooks';
 import { addAddress } from '../../features/auth/authSlice';
 import { formatAddress } from '../../utils/textUtils';
@@ -16,6 +11,8 @@ const AddAddressForm: React.FC = () => {
     city: '',
     state: '',
     zipCode: '',
+    type: '', // Add type field
+    instructions: '', // Add instructions field
   });
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -27,13 +24,17 @@ const AddAddressForm: React.FC = () => {
     try {
       // Format address data before sending to database
       const formattedAddress = formatAddress(form);
-      await dispatch(addAddress({
-        street: formattedAddress.street,
-        city: formattedAddress.city,
-        state: formattedAddress.state,
-        zipCode: formattedAddress.zipCode,
-      }));
-      setForm({ street: '', city: '', state: '', zipCode: '' });
+      await dispatch(
+        addAddress({
+          street: formattedAddress.street,
+          city: formattedAddress.city,
+          state: formattedAddress.state,
+          zipCode: formattedAddress.zipCode,
+          type: formattedAddress.type || 'default', // Ensure type is included
+          instructions: formattedAddress.instructions || '', // Ensure instructions is included
+        })
+      );
+      setForm({ street: '', city: '', state: '', zipCode: '', type: '', instructions: '' });
     } catch (error) {
       console.error('Failed to add address:', error);
     }
@@ -77,6 +78,23 @@ const AddAddressForm: React.FC = () => {
               sx={{ flex: 1, minWidth: 200 }}
             />
           </Box>
+          <TextField
+            fullWidth
+            name="type"
+            label="Address Type (e.g., Home, Work)"
+            value={form.type}
+            onChange={handleChange}
+            required
+          />
+          <TextField
+            fullWidth
+            name="instructions"
+            label="Delivery Instructions"
+            value={form.instructions}
+            onChange={handleChange}
+            multiline
+            rows={3}
+          />
           <Button type="submit" variant="contained" color="primary">
             Add Address
           </Button>
@@ -86,4 +104,4 @@ const AddAddressForm: React.FC = () => {
   );
 };
 
-export default AddAddressForm; 
+export default AddAddressForm;

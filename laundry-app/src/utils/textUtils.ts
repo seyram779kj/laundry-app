@@ -105,17 +105,23 @@ export const formatAddress = (address: {
   city?: string;
   state?: string;
   zipCode?: string;
+  type: string;
+  instructions: string;
 }): {
   street: string;
   city: string;
   state: string;
   zipCode: string;
+  type: string;
+  instructions: string;
 } => {
   return {
     street: address.street ? formatLocation(address.street) : '',
     city: address.city ? formatLocation(address.city) : '',
     state: address.state ? formatLocation(address.state) : '',
     zipCode: address.zipCode || '',
+    type: address.type.trim() || 'default',
+    instructions: address.instructions.trim() || '',
   };
 };
 

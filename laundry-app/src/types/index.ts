@@ -9,15 +9,17 @@ export interface User {
   addresses: Address[];
 }
 
+// src/types/index.ts
 export interface Address {
-  id: string;
+  id?: string; // Optional for User addresses
+  type: string; // Required for Order and form consistency
   street: string;
   city: string;
   state: string;
   zipCode: string;
-  isDefault?: boolean;
+  instructions: string;
+  isDefault?: boolean; // Optional for User addresses
 }
-
 export interface Service {
   id: string;
   name: string;

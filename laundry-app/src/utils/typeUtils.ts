@@ -1,6 +1,4 @@
 // src/utils/typeUtils.ts
-// Utility functions to handle type safety
-
 import { Order, OrderStatus, PaymentStatus } from '../types';
 
 // Type guard to check if an order has all required properties
@@ -48,7 +46,6 @@ export const formatOrderForDisplay = (order: any): Order => {
     return order;
   }
 
-  // Create a properly formatted order with fallbacks
   return {
     _id: order._id || order.id || '',
     customer: {
@@ -59,14 +56,16 @@ export const formatOrderForDisplay = (order: any): Order => {
       phoneNumber: order.customer?.phoneNumber || '',
     },
     serviceProvider: order.serviceProvider || null,
-    items: Array.isArray(order.items) ? order.items.map((item: any) => ({
-      service: item.service || '',
-      serviceName: item.serviceName || item.name || 'Unknown Service',
-      quantity: item.quantity || 1,
-      unitPrice: item.unitPrice || 0,
-      totalPrice: item.totalPrice || 0,
-      specialInstructions: item.specialInstructions || '',
-    })) : [],
+    items: Array.isArray(order.items)
+      ? order.items.map((item: any) => ({
+          service: item.service || '',
+          serviceName: item.serviceName || item.name || 'Unknown Service',
+          quantity: item.quantity || 1,
+          unitPrice: item.unitPrice || 0,
+          totalPrice: item.totalPrice || 0,
+          specialInstructions: item.specialInstructions || '',
+        }))
+      : [],
     status: order.status || 'pending',
     payment: {
       _id: order.payment?._id || '',
