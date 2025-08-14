@@ -39,6 +39,9 @@ import Analytics from './pages/admin/Analytics';
 import PaymentsManagement from './pages/admin/PaymentsManagement';
 import ReviewsManagement from './pages/admin/ReviewsManagement';
 
+// Payment History
+import PaymentHistory from './pages/PaymentHistory';
+
 // Authentication Initialization Component
 const AuthInitializer: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const dispatch = useDispatch<AppDispatch>();
