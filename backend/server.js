@@ -5,7 +5,6 @@ const cors = require('cors');
 const path = require('path');
 const http = require('http');
 const { Server } = require('socket.io');
-const { startMongoDB } = require('./setupMongo');
 const Message = require('./models/Message');
 const ChatRoom = require('./models/ChatRoom');
 
