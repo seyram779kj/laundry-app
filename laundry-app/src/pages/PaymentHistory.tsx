@@ -207,14 +207,8 @@ const PaymentHistory: React.FC = () => {
     return (statusConfig?.color as any) || 'default';
   };
 
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'short',
-      day: '2-digit',
-      hour: '2-digit',
-      minute: '2-digit'
-    });
+  const formatDateString = (dateString: string) => {
+    return formatDate(new Date(dateString), 'MMM dd, yyyy HH:mm');
   };
 
   const formatCurrency = (amount: number) => {
