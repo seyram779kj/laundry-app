@@ -227,6 +227,7 @@ const initialState: AuthState = {
   isAuthenticated: false,
   loading: false,
   error: null,
+  token: null,
 };
 
 const authSlice = createSlice({
@@ -359,4 +360,4 @@ const authSlice = createSlice({
 });
 
 export const { clearError, updateUser } = authSlice.actions;
-export default authSlice.reducer; 
+export default authSlice.reducer;
