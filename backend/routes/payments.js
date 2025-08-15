@@ -580,6 +580,128 @@ router.get('/:id/momo/status', protect, async (req, res) => {
   }
 });
 
+// Direct MoMo payment initiation with order ID
+router.post('/momo', protect, async (req, res) => {
+  try {
+    const { orderId, phoneNumber, amount } = req.body;
+
+    // Validate required fields
+    if (!orderId || !phoneNumber || !amount) {
+      return res.status(400).json({
+        success: false,
+        error: 'Order ID, phone number, and amount are required'
+      });
+    }
+
+    // Get order details
+    const Order = require('../models/Order');
+    const order = await Order.findById(orderId)
+      .populate('customer', 'firstName lastName email')
+      .populate('serviceProvider', 'firstName lastName businessDetails');
+
+    if (!order) {
+      return res.status(404).json({ success: false, error: 'Order not found' });
+    }
+
+    // Check if user has permission to pay for this order
+    if (req.user.role !== 'admin' &&
+        order.customer._id.toString() !== req.user.id &&
+        (!order.serviceProvider || order.serviceProvider._id.toString() !== req.user.id)) {
+      return res.status(403).json({ success: false, error: 'Access denied' });
+    }
+
+    // Check if payment already exists for this order
+    let payment = await Payment.findOne({ order: orderId });
+
+    // If no payment exists, create one
+    if (!payment) {
+      const paymentData = {
+        order: orderId,
+        customer: order.customer._id,
+        serviceProvider: order.serviceProvider ? order.serviceProvider._id : null,
+        amount: parseFloat(amount),
+        paymentMethod: 'momo',
+        paymentDetails: {},
+        status: 'pending'
+      };
+
+      payment = await Payment.create(paymentData);
+    }
+
+    // Check if payment is in correct status for MoMo processing
+    if (payment.status !== 'pending') {
+      return res.status(400).json({
+        success: false,
+        error: `Payment is not in pending status. Current status: ${payment.status}`
+      });
+    }
+
+    // Validate phone number
+    if (!momoService.validatePhoneNumber(phoneNumber)) {
+      return res.status(400).json({
+        success: false,
+        error: 'Invalid phone number format.'
+      });
+    }
+
+    const formattedPhone = momoService.formatPhoneNumber(phoneNumber);
+
+    // Initiate MoMo payment
+    const momoResult = await momoService.initiatePayment({
+      amount: payment.amount,
+      phoneNumber: formattedPhone,
+      customerName: `${order.customer.firstName} ${order.customer.lastName}`,
+      orderId: order._id
+    });
+
+    // Update payment with MoMo details
+    payment.paymentDetails = {
+      phoneNumber: formattedPhone,
+      transactionRef: momoResult.transactionRef,
+      momoStatus: momoResult.status,
+      ...momoResult.details
+    };
+
+    // Update payment status based on MoMo service response
+    if (momoResult.success) {
+      if (momoResult.status === 'completed') {
+        payment.status = 'completed';
+        payment.transactionId = momoResult.transactionId;
+        payment.completedAt = new Date();
+        payment.statusHistory.push({
+          status: 'completed',
+          changedBy: req.user.id,
+          changedAt: new Date(),
+          notes: 'MoMo payment completed successfully'
+        });
+      } else if (momoResult.status === 'pending') {
+        payment.status = 'processing';
+        payment.processedAt = new Date();
+      }
+    } else {
+      payment.status = 'failed';
+      payment.failedAt = new Date();
+      payment.failureReason = momoResult.message;
+    }
+
+    await payment.save();
+
+    res.json({
+      success: momoResult.success,
+      data: payment,
+      message: momoResult.message,
+      momoDetails: {
+        transactionRef: momoResult.transactionRef,
+        status: momoResult.status,
+        paymentUrl: momoResult.paymentUrl
+      }
+    });
+  } catch (error) {
+    console.error('Direct MoMo payment error:', error);
+    res.status(500).json({ success: false, error: 'Failed to process MoMo payment' });
+  }
+});
+
 // Get payment methods
 router.get('/methods/list', async (req, res) => {
   try {
