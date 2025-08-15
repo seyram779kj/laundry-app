@@ -31,6 +31,9 @@ const OrderSummary: React.FC<OrderSummaryProps> = ({
 }) => {
   const { services } = useSelector((state: RootState) => state.services);
   const { user } = useSelector((state: RootState) => state.auth);
+  const { currentOrder } = useSelector((state: RootState) => state.orders);
+
+  const items = currentOrder?.items || [];
 
   const getAddressById = (addressId: string) => {
     return user?.addresses?.find(addr => addr.id === addressId);
@@ -113,4 +116,4 @@ const OrderSummary: React.FC<OrderSummaryProps> = ({
   );
 };
 
-export default OrderSummary; 
+export default OrderSummary;
