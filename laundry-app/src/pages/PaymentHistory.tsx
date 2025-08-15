@@ -41,7 +41,7 @@ import {
   Payment as PaymentIcon,
   Clear as ClearIcon,
 } from '@mui/icons-material';
-import { format, subDays, startOfDay, endOfDay } from 'date-fns';
+import { format as formatDate, subDays, startOfDay, endOfDay } from 'date-fns';
 import { useAppDispatch, useAppSelector } from '../app/hooks';
 import {
   fetchPaymentHistory,
