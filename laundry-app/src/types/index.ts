@@ -72,4 +72,4 @@ export interface AuthState {
   error: string | null;
 }
 export type { Order };
-
+export type { OrderItem } from './order';
