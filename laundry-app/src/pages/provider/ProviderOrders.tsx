@@ -29,7 +29,7 @@ import { createAsyncThunk } from '@reduxjs/toolkit';
 // Import the centralized types
 import {
   Order,
-  OrdersState,
+  OrderState,
 } from '../../types';
 import {
   statusColors,
