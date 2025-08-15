@@ -1,5 +1,5 @@
 import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
-import { AuthState, User, AdminUser, CustomerUser, ServiceProviderUser, Address, UserRole } from '../../types/auth';
+import { User, AdminUser, CustomerUser, ServiceProviderUser, Address, UserRole } from '../../types/auth';
 import { authApi, UserResponse, RegisterResponse } from '../../services/api';
 
 export interface AuthState {
@@ -7,7 +7,7 @@ export interface AuthState {
   isAuthenticated: boolean;
   loading: boolean;
   error: string | null;
-  token: string | null; // Add this line
+  token: string | null;
 }
 
 // Update your initial state to include the token
