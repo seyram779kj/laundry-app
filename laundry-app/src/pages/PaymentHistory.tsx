@@ -17,7 +17,7 @@ import {
   Select,
   FormControl,
   InputLabel,
-  Grid,
+  Grid2 as Grid,
   Card,
   CardContent,
   IconButton,
