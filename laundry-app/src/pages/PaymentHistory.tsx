@@ -455,67 +455,55 @@ const PaymentHistory: React.FC = () => {
       <Dialog open={filterDialog} onClose={() => setFilterDialog(false)} maxWidth="md" fullWidth>
         <DialogTitle>Advanced Filters</DialogTitle>
         <DialogContent>
-          <Grid container spacing={3} sx={{ mt: 1 }}>
-            <Grid item xs={12} md={6}>
-              <FormControl fullWidth>
-                <InputLabel>Status</InputLabel>
-                <Select value={status} onChange={(e) => setStatus(e.target.value)} label="Status">
-                  {paymentStatuses.map((s) => (
-                    <MenuItem key={s.value} value={s.value}>{s.label}</MenuItem>
-                  ))}
-                </Select>
-              </FormControl>
-            </Grid>
-            <Grid item xs={12} md={6}>
-              <FormControl fullWidth>
-                <InputLabel>Payment Method</InputLabel>
-                <Select value={paymentMethod} onChange={(e) => setPaymentMethod(e.target.value)} label="Payment Method">
-                  {paymentMethods.map((m) => (
-                    <MenuItem key={m.value} value={m.value}>{m.label}</MenuItem>
-                  ))}
-                </Select>
-              </FormControl>
-            </Grid>
-            <Grid item xs={12} md={6}>
-              <TextField
-                fullWidth
-                type="date"
-                label="Start Date"
-                value={startDate ? format(startDate, 'yyyy-MM-dd') : ''}
-                onChange={(e) => setStartDate(e.target.value ? new Date(e.target.value) : null)}
-                InputLabelProps={{ shrink: true }}
-              />
-            </Grid>
-            <Grid item xs={12} md={6}>
-              <TextField
-                fullWidth
-                type="date"
-                label="End Date"
-                value={endDate ? format(endDate, 'yyyy-MM-dd') : ''}
-                onChange={(e) => setEndDate(e.target.value ? new Date(e.target.value) : null)}
-                InputLabelProps={{ shrink: true }}
-              />
-            </Grid>
-            <Grid item xs={12} md={6}>
-              <FormControl fullWidth>
-                <InputLabel>Sort By</InputLabel>
-                <Select value={sortBy} onChange={(e) => setSortBy(e.target.value)} label="Sort By">
-                  {sortOptions.map((option) => (
-                    <MenuItem key={option.value} value={option.value}>{option.label}</MenuItem>
-                  ))}
-                </Select>
-              </FormControl>
-            </Grid>
-            <Grid item xs={12} md={6}>
-              <FormControl fullWidth>
-                <InputLabel>Sort Order</InputLabel>
-                <Select value={sortOrder} onChange={(e) => setSortOrder(e.target.value)} label="Sort Order">
-                  <MenuItem value="desc">Descending</MenuItem>
-                  <MenuItem value="asc">Ascending</MenuItem>
-                </Select>
-              </FormControl>
-            </Grid>
-          </Grid>
+          <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: 3, mt: 1 }}>
+            <FormControl fullWidth>
+              <InputLabel>Status</InputLabel>
+              <Select value={status} onChange={(e) => setStatus(e.target.value)} label="Status">
+                {paymentStatuses.map((s) => (
+                  <MenuItem key={s.value} value={s.value}>{s.label}</MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+            <FormControl fullWidth>
+              <InputLabel>Payment Method</InputLabel>
+              <Select value={paymentMethod} onChange={(e) => setPaymentMethod(e.target.value)} label="Payment Method">
+                {paymentMethods.map((m) => (
+                  <MenuItem key={m.value} value={m.value}>{m.label}</MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+            <TextField
+              fullWidth
+              type="date"
+              label="Start Date"
+              value={startDate ? startDate.toISOString().split('T')[0] : ''}
+              onChange={(e) => setStartDate(e.target.value ? new Date(e.target.value) : null)}
+              InputLabelProps={{ shrink: true }}
+            />
+            <TextField
+              fullWidth
+              type="date"
+              label="End Date"
+              value={endDate ? endDate.toISOString().split('T')[0] : ''}
+              onChange={(e) => setEndDate(e.target.value ? new Date(e.target.value) : null)}
+              InputLabelProps={{ shrink: true }}
+            />
+            <FormControl fullWidth>
+              <InputLabel>Sort By</InputLabel>
+              <Select value={sortBy} onChange={(e) => setSortBy(e.target.value)} label="Sort By">
+                {sortOptions.map((option) => (
+                  <MenuItem key={option.value} value={option.value}>{option.label}</MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+            <FormControl fullWidth>
+              <InputLabel>Sort Order</InputLabel>
+              <Select value={sortOrder} onChange={(e) => setSortOrder(e.target.value)} label="Sort Order">
+                <MenuItem value="desc">Descending</MenuItem>
+                <MenuItem value="asc">Ascending</MenuItem>
+              </Select>
+            </FormControl>
+          </Box>
         </DialogContent>
         <DialogActions>
           <Button onClick={clearFilters}>Clear All</Button>
