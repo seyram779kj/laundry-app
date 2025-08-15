@@ -182,7 +182,8 @@ router.put('/:id/status', protect, async (req, res) => {
     }
 
     // Check permissions (admin or service provider)
-    if (req.user.role !== 'admin' && payment.serviceProvider.toString() !== req.user.id) {
+    if (req.user.role !== 'admin' &&
+        (!payment.serviceProvider || payment.serviceProvider.toString() !== req.user.id)) {
       return res.status(403).json({ success: false, error: 'Access denied' });
     }
 
