@@ -556,7 +556,7 @@ const PaymentHistory: React.FC = () => {
                   <Typography><strong>Amount:</strong> {selectedPayment.payment?.formattedAmount}</Typography>
                   <Typography><strong>Status:</strong> {selectedPayment.payment?.status}</Typography>
                   <Typography><strong>Method:</strong> {selectedPayment.payment?.paymentMethod}</Typography>
-                  <Typography><strong>Date:</strong> {selectedPayment.payment?.createdAt && formatDate(selectedPayment.payment.createdAt)}</Typography>
+                  <Typography><strong>Date:</strong> {selectedPayment.payment?.createdAt && formatDateString(selectedPayment.payment.createdAt)}</Typography>
                 </Box>
                 {selectedPayment.order && (
                   <Box>
