@@ -1,5 +1,6 @@
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
-import { OrderState, Order, OrderItem } from '../../types';
+import type { OrderState } from '../../types';
+import type { Order, OrderItem } from '../../types/order';
 
 const API_BASE_URL = 'http://localhost:5000/api';
 
@@ -86,6 +87,43 @@ export const fetchOrders = createAsyncThunk('orders/fetchAll', async () => {
   return [];
 });
 
+export const fetchOrdersByRole = createAsyncThunk('orders/fetchByRole', async (role: string) => {
+  const response = await fetch(`${API_BASE_URL}/orders?role=${encodeURIComponent(role)}`, {
+    headers: getAuthHeaders(),
+  });
+  if (!response.ok) {
+    const errorData = await response.json();
+    throw new Error(errorData.error || 'Failed to fetch orders');
+  }
+  const data = await response.json();
+  if (data && data.data) {
+    if (Array.isArray(data.data)) {
+      return data.data;
+    } else if (Array.isArray(data.data.docs)) {
+      return data.data.docs;
+    }
+  }
+  return [];
+});
+
+export const fetchProviderOrders = createAsyncThunk(
+  'orders/fetchProviderOrders',
+  async ({ includeAvailable = false }: { includeAvailable?: boolean }) => {
+    const response = await fetch(`${API_BASE_URL}/orders/provider/assigned?include_available=${includeAvailable}`, {
+      headers: getAuthHeaders(),
+    });
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.error || 'Failed to fetch provider orders');
+    }
+    const data = await response.json();
+    if (data && Array.isArray(data.data)) {
+      return data.data;
+    }
+    return [];
+  }
+);
+
 export const fetchOrderById = createAsyncThunk(
   'orders/fetchById',
   async (orderId: string) => {
@@ -105,10 +143,27 @@ export const fetchOrderById = createAsyncThunk(
 export const updateOrderStatus = createAsyncThunk(
   'orders/updateStatus',
   async ({ orderId, status }: { orderId: string; status: string }) => {
+    // Map frontend order statuses to backend tracking locations (OrderTracking.currentLocation)
+    const statusToTracking: Record<string, string> = {
+      pending: 'pending',
+      confirmed: 'pickup_scheduled',
+      assigned: 'at_facility',
+      in_progress: 'cleaning',
+      ready_for_pickup: 'at_facility',
+      picked_up: 'picked_up',
+      ready_for_delivery: 'ready_for_delivery',
+      completed: 'delivered',
+    };
+
+    const payload: any = { status };
+    if (statusToTracking[status]) {
+      payload.currentLocation = statusToTracking[status];
+    }
+
     const response = await fetch(`${API_BASE_URL}/orders/${orderId}/status`, {
       method: 'PATCH',
       headers: getAuthHeaders(),
-      body: JSON.stringify({ status }),
+      body: JSON.stringify(payload),
     });
     
     if (!response.ok) {
@@ -129,6 +184,9 @@ const orderSlice = createSlice({
     },
     clearError: (state) => {
       state.error = null;
+    },
+    setError: (state, action) => {
+      state.error = action.payload as string;
     },
   },
   extraReducers: (builder) => {
@@ -171,18 +229,44 @@ const orderSlice = createSlice({
         state.loading = false;
         state.error = action.error.message || 'Failed to fetch order';
       })
+      // Fetch by role
+      .addCase(fetchOrdersByRole.pending, (state) => {
+        state.loading = true;
+        state.error = null;
+      })
+      .addCase(fetchOrdersByRole.fulfilled, (state, action) => {
+        state.loading = false;
+        state.orders = action.payload;
+      })
+      .addCase(fetchOrdersByRole.rejected, (state, action) => {
+        state.loading = false;
+        state.error = action.error.message || 'Failed to fetch orders';
+      })
+      // Provider orders
+      .addCase(fetchProviderOrders.pending, (state) => {
+        state.loading = true;
+        state.error = null;
+      })
+      .addCase(fetchProviderOrders.fulfilled, (state, action) => {
+        state.loading = false;
+        state.orders = action.payload;
+      })
+      .addCase(fetchProviderOrders.rejected, (state, action) => {
+        state.loading = false;
+        state.error = action.error.message || 'Failed to fetch provider orders';
+      })
       // Update Order Status
       .addCase(updateOrderStatus.fulfilled, (state, action) => {
-        const index = state.orders.findIndex((order) => order.id === action.payload.id);
+        const index = state.orders.findIndex((order) => order._id === action.payload._id);
         if (index !== -1) {
           state.orders[index] = action.payload;
         }
-        if (state.currentOrder?.id === action.payload.id) {
+        if (state.currentOrder?._id === action.payload._id) {
           state.currentOrder = action.payload;
         }
       });
   },
 });
 
-export const { clearCurrentOrder, clearError } = orderSlice.actions;
+export const { clearCurrentOrder, clearError, setError } = orderSlice.actions;
 export default orderSlice.reducer; 

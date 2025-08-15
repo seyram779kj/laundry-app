@@ -638,6 +638,7 @@ router.get('/provider/assigned', protect, serviceProvider, async (req, res) => {
     const orders = await Order.find(query)
       .populate('customer', 'firstName lastName email phoneNumber')
       .populate('serviceProvider', 'firstName lastName email phoneNumber businessDetails')
+      .populate('payment')
       .sort({ createdAt: -1 });
 
     console.log('Found orders count:', orders.length);
@@ -674,5 +675,55 @@ router.get('/provider/assigned', protect, serviceProvider, async (req, res) => {
     });
   }
 });
+
+// Update payment status for an order (helper route)
+const updateOrderPaymentStatusHandler = async (req, res) => {
+  try {
+    const { status } = req.body;
+    const orderId = req.params.id;
+
+    const validTransitions = {
+      pending: ['processing', 'cancelled'],
+      processing: ['completed', 'failed', 'cancelled'],
+      completed: [],
+      failed: ['pending'],
+      cancelled: []
+    };
+
+    const order = await Order.findById(orderId).populate('payment');
+    if (!order) return res.status(404).json({ success: false, error: 'Order not found' });
+
+    // permission: admin or service_provider assigned to order
+    if (req.user.role !== 'admin') {
+      if (req.user.role !== 'service_provider' || !order.serviceProvider || order.serviceProvider.toString() !== req.user.id) {
+        return res.status(403).json({ success: false, error: 'Access denied' });
+      }
+    }
+
+    let payment = null;
+    if (order.payment?._id) {
+      payment = await Payment.findById(order.payment._id);
+    } else {
+      payment = await Payment.findOne({ order: order._id });
+    }
+    if (!payment) return res.status(404).json({ success: false, error: 'Payment not found for order' });
+
+    if (!validTransitions[payment.status] || !validTransitions[payment.status].includes(status)) {
+      return res.status(400).json({ success: false, error: `Invalid status transition from ${payment.status} to ${status}` });
+    }
+    payment.status = status;
+    payment.statusHistory.push({ status, changedBy: req.user.id, changedAt: new Date(), notes: req.body.notes || '' });
+    await payment.save();
+
+    return res.json({ success: true, data: payment });
+  } catch (error) {
+    console.error('Update order payment status error:', error);
+    return res.status(500).json({ success: false, error: 'Failed to update payment status' });
+  }
+};
+
+// Support both PATCH and PUT for flexibility
+router.patch('/:id/payment-status', protect, updateOrderPaymentStatusHandler);
+router.put('/:id/payment-status', protect, updateOrderPaymentStatusHandler);
 
 module.exports = router;

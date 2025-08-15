@@ -7,7 +7,6 @@ import {
 } from '@mui/material';
 import { useSelector } from 'react-redux';
 import { RootState } from '../../app/store';
-import { OrderItem } from '../../types/order';
 
 interface OrderSummaryProps {
 
@@ -21,6 +20,7 @@ interface OrderSummaryProps {
   };
   onEdit: () => void;
   totalPrice: number;
+  items: { serviceId: string; quantity: number; price: number }[];
 }
 
 const OrderSummary: React.FC<OrderSummaryProps> = ({
@@ -28,6 +28,7 @@ const OrderSummary: React.FC<OrderSummaryProps> = ({
   dates,
   onEdit,
   totalPrice,
+  items,
 }) => {
   const { services } = useSelector((state: RootState) => state.services);
   const { user } = useSelector((state: RootState) => state.auth);
@@ -51,7 +52,7 @@ const OrderSummary: React.FC<OrderSummaryProps> = ({
             <Typography variant="subtitle1" gutterBottom>
               Items
             </Typography>
-            {items.map((item) => {
+            {items.map((item: { serviceId: string; quantity: number; price: number }) => {
               const service = services.find((s) => s.id === item.serviceId);
               return (
                 <Box key={item.serviceId} mb={1}>

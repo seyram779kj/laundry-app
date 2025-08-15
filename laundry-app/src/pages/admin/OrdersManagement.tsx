@@ -38,6 +38,7 @@ import {
 } from '@mui/icons-material';
 import { usePermissions } from '../../hooks/usePermissions';
 import axios from 'axios';
+import { useNavigate } from 'react-router-dom';
 
 interface Order {
   _id: string;
@@ -95,6 +96,7 @@ interface Order {
 
 const OrdersManagement: React.FC = () => {
   const { canManageOrders } = usePermissions();
+  const navigate = useNavigate();
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
@@ -214,7 +216,7 @@ const OrdersManagement: React.FC = () => {
           const token = localStorage.getItem('token');
           const chatRoomRes = await axios.post(
             'http://localhost:5000/api/chats/room',
-            { customerId: order.customer._id, orderId: order._id },
+            { customerId: order.customer._id },
             { headers: { Authorization: `Bearer ${token}` } }
           );
           const chatRoomId = chatRoomRes.data._id;
@@ -293,11 +295,11 @@ const OrdersManagement: React.FC = () => {
       const token = localStorage.getItem('token');
       const res = await axios.post(
         'http://localhost:5000/api/chats/room',
-        { customerId: order.customer._id, orderId: order._id },
+        { customerId: order.customer._id },
         { headers: { Authorization: `Bearer ${token}` } }
       );
       const chatRoomId = res.data._id;
-      window.location.href = `/chat/admin/${chatRoomId}`;
+      navigate(`/chat/admin/${chatRoomId}`);
     } catch (err) {
       alert('Failed to open chat.');
     }

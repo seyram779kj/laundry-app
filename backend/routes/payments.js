@@ -72,34 +72,6 @@ router.get('/', protect, async (req, res) => {
   }
 });
 
-// Get payment by ID
-router.get('/:id', protect, async (req, res) => {
-  try {
-    const payment = await Payment.findById(req.params.id)
-      .populate('order', 'orderNumber status totalAmount')
-      .populate('customer', 'firstName lastName email')
-      .populate('serviceProvider', 'firstName lastName businessDetails');
-
-    if (!payment) {
-      return res.status(404).json({ success: false, error: 'Payment not found' });
-    }
-
-    // Check permissions
-    if (req.user.role !== 'admin' && 
-        payment.customer.toString() !== req.user.id && 
-        payment.serviceProvider?.toString() !== req.user.id) {
-      return res.status(403).json({ success: false, error: 'Access denied' });
-    }
-
-    res.json({
-      success: true,
-      data: payment
-    });
-  } catch (error) {
-    console.error('Get payment error:', error);
-    res.status(500).json({ success: false, error: 'Failed to fetch payment' });
-  }
-});
 
 // Create payment for order
 router.post('/', protect, async (req, res) => {
@@ -959,6 +931,35 @@ router.get('/history/stats', protect, async (req, res) => {
   } catch (error) {
     console.error('Get payment history stats error:', error);
     res.status(500).json({ success: false, error: 'Failed to fetch payment statistics' });
+  }
+});
+
+// Get payment by ID (must be after specific routes like /history)
+router.get('/:id([0-9a-fA-F]{24})', protect, async (req, res) => {
+  try {
+    const payment = await Payment.findById(req.params.id)
+      .populate('order', 'orderNumber status totalAmount')
+      .populate('customer', 'firstName lastName email')
+      .populate('serviceProvider', 'firstName lastName businessDetails');
+
+    if (!payment) {
+      return res.status(404).json({ success: false, error: 'Payment not found' });
+    }
+
+    // Check permissions
+    if (req.user.role !== 'admin' && 
+        payment.customer.toString() !== req.user.id && 
+        payment.serviceProvider?.toString() !== req.user.id) {
+      return res.status(403).json({ success: false, error: 'Access denied' });
+    }
+
+    res.json({
+      success: true,
+      data: payment
+    });
+  } catch (error) {
+    console.error('Get payment error:', error);
+    res.status(500).json({ success: false, error: 'Failed to fetch payment' });
   }
 });
 

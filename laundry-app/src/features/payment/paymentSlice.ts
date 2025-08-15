@@ -1,5 +1,4 @@
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
-import axios from 'axios';
 
 interface PaymentState {
   loading: boolean;
@@ -31,97 +30,78 @@ const initialState: PaymentState = {
   selectedPayment: null,
 };
 
+const API_BASE_URL = 'http://localhost:5000/api';
+
+const authHeaders = () => ({
+  'Authorization': `Bearer ${localStorage.getItem('token') || ''}`,
+});
+
+const jsonHeaders = () => ({
+  'Accept': 'application/json',
+  'Content-Type': 'application/json',
+  ...authHeaders(),
+});
+
+const parseJsonSafe = async (response: Response) => {
+  const contentType = response.headers.get('content-type') || '';
+  if (contentType.includes('application/json')) {
+    return response.json();
+  }
+  const text = await response.text();
+  throw new Error(text || `Unexpected response (${response.status} ${response.statusText})`);
+};
+
 // Mock payment methods for development
 const mockPaymentMethods = [
-  {
-    id: 'mock_1',
-    card: {
-      brand: 'visa',
-      last4: '4242'
-    }
-  }
+  { id: 'mock_1', card: { brand: 'visa', last4: '4242' } },
 ];
 
 export const createPaymentIntent = createAsyncThunk(
   'payment/createIntent',
-  async (amount: number) => {
-    // Mock successful payment intent creation
-    return {
-      id: 'mock_intent_' + Date.now(),
-      amount,
-      status: 'succeeded'
-    };
-  }
+  async (amount: number) => ({ id: 'mock_intent_' + Date.now(), amount, status: 'succeeded' })
 );
 
 export const fetchPaymentMethods = createAsyncThunk(
   'payment/fetchMethods',
-  async () => {
-    // Return mock payment methods
-    return mockPaymentMethods;
-  }
+  async () => mockPaymentMethods
 );
 
 export const savePaymentMethod = createAsyncThunk(
   'payment/saveMethod',
-  async (paymentMethodId: string) => {
-    // Mock saving payment method
-    return {
-      id: paymentMethodId,
-      card: {
-        brand: 'visa',
-        last4: '4242'
-      }
-    };
-  }
+  async (paymentMethodId: string) => ({ id: paymentMethodId, card: { brand: 'visa', last4: '4242' } })
 );
 
 export const processPayment = createAsyncThunk(
   'payment/process',
-  async ({ paymentIntentId, paymentMethodId }: { paymentIntentId: string; paymentMethodId: string }) => {
-    // Mock successful payment processing
-    return {
-      status: 'succeeded',
-      id: paymentIntentId
-    };
-  }
+  async ({ paymentIntentId }: { paymentIntentId: string; paymentMethodId: string }) => ({ status: 'succeeded', id: paymentIntentId })
 );
 
 export const processMoMoPayment = createAsyncThunk(
   'payment/processMoMo',
   async ({ paymentId, phoneNumber }: { paymentId: string; phoneNumber: string }) => {
-    const response = await fetch(`/api/payments/${paymentId}/momo`, {
+    const response = await fetch(`${API_BASE_URL}/payments/${paymentId}/momo`, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${localStorage.getItem('token')}`
-      },
-      body: JSON.stringify({ phoneNumber })
+      headers: jsonHeaders(),
+      body: JSON.stringify({ phoneNumber }),
     });
-    
     if (!response.ok) {
-      const error = await response.json();
-      throw new Error(error.message || 'MoMo payment failed');
+      const err = await parseJsonSafe(response).catch(() => ({ message: 'MoMo payment failed' }));
+      throw new Error((err as any).message || 'MoMo payment failed');
     }
-    
-    return await response.json();
+    return parseJsonSafe(response);
   }
 );
 
 export const checkMoMoStatus = createAsyncThunk(
   'payment/checkMoMoStatus',
   async (paymentId: string) => {
-    const response = await fetch(`/api/payments/${paymentId}/momo/status`, {
-      headers: {
-        'Authorization': `Bearer ${localStorage.getItem('token')}`
-      }
+    const response = await fetch(`${API_BASE_URL}/payments/${paymentId}/momo/status`, {
+      headers: authHeaders(),
     });
-
     if (!response.ok) {
       throw new Error('Failed to check MoMo status');
     }
-
-    return await response.json();
+    return parseJsonSafe(response);
   }
 );
 
@@ -140,20 +120,16 @@ export const fetchPaymentHistory = createAsyncThunk(
   } = {}) => {
     const queryParams = new URLSearchParams();
     Object.entries(params).forEach(([key, value]) => {
-      if (value) queryParams.append(key, value.toString());
+      if (value !== undefined && value !== null && value !== '') queryParams.append(key, String(value));
     });
-
-    const response = await fetch(`/api/payments/history?${queryParams}`, {
-      headers: {
-        'Authorization': `Bearer ${localStorage.getItem('token')}`
-      }
+    const response = await fetch(`${API_BASE_URL}/payments/history?${queryParams}`, {
+      headers: authHeaders(),
     });
-
     if (!response.ok) {
-      throw new Error('Failed to fetch payment history');
+      const errText = await response.text();
+      throw new Error(errText || 'Failed to fetch payment history');
     }
-
-    return await response.json();
+    return parseJsonSafe(response);
   }
 );
 
@@ -164,68 +140,49 @@ export const fetchPaymentStats = createAsyncThunk(
     Object.entries(params).forEach(([key, value]) => {
       if (value) queryParams.append(key, value);
     });
-
-    const response = await fetch(`/api/payments/history/stats?${queryParams}`, {
-      headers: {
-        'Authorization': `Bearer ${localStorage.getItem('token')}`
-      }
+    const response = await fetch(`${API_BASE_URL}/payments/history/stats?${queryParams}`, {
+      headers: authHeaders(),
     });
-
     if (!response.ok) {
-      throw new Error('Failed to fetch payment statistics');
+      const errText = await response.text();
+      throw new Error(errText || 'Failed to fetch payment statistics');
     }
-
-    return await response.json();
+    return parseJsonSafe(response);
   }
 );
 
 export const exportPaymentHistory = createAsyncThunk(
   'payment/exportHistory',
-  async (params: {
-    status?: string;
-    paymentMethod?: string;
-    startDate?: string;
-    endDate?: string;
-    format?: string;
-  } = {}) => {
+  async (params: { status?: string; paymentMethod?: string; startDate?: string; endDate?: string; format?: string } = {}) => {
     const queryParams = new URLSearchParams();
     Object.entries(params).forEach(([key, value]) => {
-      if (value) queryParams.append(key, value);
+      if (value !== undefined && value !== null && value !== '') queryParams.append(key, String(value));
     });
-
-    const response = await fetch(`/api/payments/history/export?${queryParams}`, {
-      headers: {
-        'Authorization': `Bearer ${localStorage.getItem('token')}`
-      }
+    const response = await fetch(`${API_BASE_URL}/payments/history/export?${queryParams}`, {
+      headers: authHeaders(),
     });
-
     if (!response.ok) {
-      throw new Error('Failed to export payment history');
+      const errText = await response.text();
+      throw new Error(errText || 'Failed to export payment history');
     }
-
     if (params.format === 'csv') {
-      const blob = await response.blob();
-      return blob;
+      return response.blob();
     }
-
-    return await response.json();
+    return parseJsonSafe(response);
   }
 );
 
 export const fetchPaymentReceipt = createAsyncThunk(
   'payment/fetchReceipt',
   async (paymentId: string) => {
-    const response = await fetch(`/api/payments/${paymentId}/receipt`, {
-      headers: {
-        'Authorization': `Bearer ${localStorage.getItem('token')}`
-      }
+    const response = await fetch(`${API_BASE_URL}/payments/${paymentId}/receipt`, {
+      headers: authHeaders(),
     });
-
     if (!response.ok) {
-      throw new Error('Failed to fetch payment receipt');
+      const errText = await response.text();
+      throw new Error(errText || 'Failed to fetch payment receipt');
     }
-
-    return await response.json();
+    return parseJsonSafe(response);
   }
 );
 
@@ -253,7 +210,6 @@ const paymentSlice = createSlice({
   },
   extraReducers: (builder) => {
     builder
-      // Create Payment Intent
       .addCase(createPaymentIntent.pending, (state) => {
         state.loading = true;
         state.error = null;
@@ -266,7 +222,6 @@ const paymentSlice = createSlice({
         state.loading = false;
         state.error = action.error.message || 'Failed to create payment intent';
       })
-      // Fetch Payment Methods
       .addCase(fetchPaymentMethods.pending, (state) => {
         state.loading = true;
       })
@@ -278,11 +233,9 @@ const paymentSlice = createSlice({
         state.loading = false;
         state.error = action.error.message || 'Failed to fetch payment methods';
       })
-      // Save Payment Method
       .addCase(savePaymentMethod.fulfilled, (state, action) => {
         state.paymentMethods.push(action.payload);
       })
-      // Process Payment
       .addCase(processPayment.pending, (state) => {
         state.loading = true;
         state.error = null;
@@ -295,32 +248,35 @@ const paymentSlice = createSlice({
         state.loading = false;
         state.error = action.error.message || 'Payment processing failed';
       })
-      // Fetch Payment History
       .addCase(fetchPaymentHistory.pending, (state) => {
         state.paymentHistory.loading = true;
         state.paymentHistory.error = null;
       })
       .addCase(fetchPaymentHistory.fulfilled, (state, action) => {
         state.paymentHistory.loading = false;
-        state.paymentHistory.data = action.payload.data.docs;
-        state.paymentHistory.pagination = {
-          page: action.payload.data.page,
-          pages: action.payload.data.pages,
-          total: action.payload.data.total,
-          limit: action.payload.data.limit,
+        const payload = action.payload as any;
+        // Accept both paginated and flat array shapes
+        const docs = payload?.data?.docs || payload?.data || [];
+        const pagination = payload?.data?.pagination || {
+          page: payload?.data?.page,
+          pages: payload?.data?.pages,
+          total: payload?.data?.total,
+          limit: payload?.data?.limit,
         };
+        state.paymentHistory.data = Array.isArray(docs) ? docs : [];
+        state.paymentHistory.pagination = pagination || {};
       })
       .addCase(fetchPaymentHistory.rejected, (state, action) => {
         state.paymentHistory.loading = false;
         state.paymentHistory.error = action.error.message || 'Failed to fetch payment history';
       })
-      // Fetch Payment Stats
       .addCase(fetchPaymentStats.fulfilled, (state, action) => {
-        state.paymentStats = action.payload.data;
+        const payload = action.payload as any;
+        state.paymentStats = payload?.data ?? payload;
       })
-      // Fetch Payment Receipt
       .addCase(fetchPaymentReceipt.fulfilled, (state, action) => {
-        state.selectedPayment = action.payload.data;
+        const payload = action.payload as any;
+        state.selectedPayment = payload?.data ?? payload;
       });
   },
 });
@@ -330,6 +286,7 @@ export const {
   clearPaymentIntent,
   clearPaymentHistory,
   setSelectedPayment,
-  clearSelectedPayment
+  clearSelectedPayment,
 } = paymentSlice.actions;
+
 export default paymentSlice.reducer;

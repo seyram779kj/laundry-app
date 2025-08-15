@@ -1,5 +1,5 @@
 import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
-import { AuthState, User, AdminUser, CustomerUser, ServiceProviderUser, Address, UserRole } from '../../types/auth';
+import { User, AdminUser, CustomerUser, ServiceProviderUser, Address, UserRole } from '../../types/auth';
 import { authApi, UserResponse, RegisterResponse } from '../../services/api';
 
 export interface AuthState {
@@ -227,6 +227,7 @@ const initialState: AuthState = {
   isAuthenticated: false,
   loading: false,
   error: null,
+  token: localStorage.getItem('token'),
 };
 
 const authSlice = createSlice({
@@ -353,6 +354,7 @@ const authSlice = createSlice({
       .addCase(logout.fulfilled, (state) => {
         state.user = null;
         state.isAuthenticated = false;
+        state.token = null;
       });
   },
 

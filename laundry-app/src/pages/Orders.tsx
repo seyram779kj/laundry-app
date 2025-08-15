@@ -24,13 +24,8 @@ import { useNavigate } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
 import { RootState, AppDispatch } from '../app/store';
 import { shallowEqual } from 'react-redux';
-import { createAsyncThunk } from '@reduxjs/toolkit';
 
-// Import the centralized types
-import {
-  Order,
-  OrdersState,
-} from '../types';
+import { Order } from '../types/order';
 import {
   statusColors,
   paymentStatusColors,
@@ -39,22 +34,8 @@ import {
 } from '../types/order';
 import { formatOrderForDisplay } from '../utils/typeUtils';
 
-// Redux actions
-export const fetchOrders = createAsyncThunk(
-  'orders/fetchOrders',
-  async (role: string) => {
-    const token = localStorage.getItem('token');
-    const response = await axios.get(`http://localhost:5000/api/orders?role=${role}`, {
-      headers: { Authorization: `Bearer ${token}` },
-    });
-    return response.data.data.docs; // Adjust based on backend response structure
-  }
-);
-
-export const setError = (error: string) => ({
-  type: 'orders/setError',
-  payload: error,
-});
+// Use thunks from the central slice instead of local ones
+import { fetchOrdersByRole, setError } from '../features/orders/orderSlice';
 
 const Orders: React.FC = () => {
   const dispatch = useDispatch<AppDispatch>();
@@ -66,7 +47,7 @@ const Orders: React.FC = () => {
   const navigate = useNavigate();
 
   useEffect(() => {
-    dispatch(fetchOrders('customer'));
+    dispatch(fetchOrdersByRole('customer'));
   }, [dispatch]);
 
   const handlePayNow = (order: Order) => {
@@ -92,7 +73,7 @@ const Orders: React.FC = () => {
       );
 
       if (response.data.success) {
-        dispatch(fetchOrders('customer'));
+        dispatch(fetchOrdersByRole('customer'));
         setOpenPaymentDialog(false);
       } else {
         dispatch(setError('Failed to process payment'));
@@ -141,7 +122,7 @@ const Orders: React.FC = () => {
         <Alert severity="error" sx={{ mb: 2 }}>
           {error}
           <Button
-            onClick={() => dispatch(fetchOrders('customer'))}
+            onClick={() => dispatch(fetchOrdersByRole('customer'))}
             sx={{ ml: 2 }}
             variant="outlined"
             size="small"
@@ -165,7 +146,7 @@ const Orders: React.FC = () => {
             No orders available
           </Typography>
           <Button
-            onClick={() => dispatch(fetchOrders('customer'))}
+            onClick={() => dispatch(fetchOrdersByRole('customer'))}
             sx={{ mt: 2 }}
             variant="outlined"
             color="primary"

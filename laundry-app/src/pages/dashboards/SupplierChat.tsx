@@ -8,7 +8,7 @@ const apiUrl = 'http://localhost:5000/api';
 const SupplierChat: React.FC = () => {
   const { chatRoomId } = useParams<{ chatRoomId: string }>();
   const userId = useSelector((state: any) => state.auth.user?._id || state.auth.user?.id);
-  const userRole = 'supplier';
+  const userRole = 'service_provider';
 
   if (!chatRoomId || !userId) return <div>Loading...</div>;
 

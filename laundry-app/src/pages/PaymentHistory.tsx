@@ -17,7 +17,6 @@ import {
   Select,
   FormControl,
   InputLabel,
-  Grid,
   Card,
   CardContent,
   IconButton,
@@ -48,9 +47,6 @@ import {
   fetchPaymentStats,
   exportPaymentHistory,
   fetchPaymentReceipt,
-  clearPaymentHistory,
-  setSelectedPayment,
-  clearSelectedPayment,
 } from '../features/payment/paymentSlice';
 
 // Status and method configurations
@@ -86,9 +82,7 @@ const PaymentHistory: React.FC = () => {
     paymentHistory, 
     paymentStats, 
     selectedPayment,
-    loading 
   } = useAppSelector((state) => state.payment);
-  const { user } = useAppSelector((state) => state.auth);
 
   // Filter states
   const [page, setPage] = useState(0);
@@ -106,10 +100,10 @@ const PaymentHistory: React.FC = () => {
   const [filterDialog, setFilterDialog] = useState(false);
   const [exportDialog, setExportDialog] = useState(false);
 
-  // Load data on component mount and when filters change
   useEffect(() => {
     loadPaymentHistory();
     loadPaymentStats();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [page, rowsPerPage, search, status, paymentMethod, startDate, endDate, sortBy, sortOrder]);
 
   const loadPaymentHistory = () => {
@@ -137,10 +131,7 @@ const PaymentHistory: React.FC = () => {
     dispatch(fetchPaymentStats(params));
   };
 
-  const handleChangePage = (event: unknown, newPage: number) => {
-    setPage(newPage);
-  };
-
+  const handleChangePage = (_: unknown, newPage: number) => setPage(newPage);
   const handleChangeRowsPerPage = (event: React.ChangeEvent<HTMLInputElement>) => {
     setRowsPerPage(parseInt(event.target.value, 10));
     setPage(0);
@@ -156,8 +147,8 @@ const PaymentHistory: React.FC = () => {
     setReceiptDialog(true);
   };
 
-  const handleExport = async (format: 'csv' | 'json' = 'csv') => {
-    const params: any = { format };
+  const handleExport = async (formatType: 'csv' | 'json' = 'csv') => {
+    const params: any = { format: formatType };
     if (status !== 'all') params.status = status;
     if (paymentMethod !== 'all') params.paymentMethod = paymentMethod;
     if (startDate) params.startDate = startOfDay(startDate).toISOString();
@@ -165,13 +156,12 @@ const PaymentHistory: React.FC = () => {
 
     try {
       const result = await dispatch(exportPaymentHistory(params));
-      
-      if (format === 'csv' && result.payload instanceof Blob) {
-        // Download CSV file
+      if (formatType === 'csv' && result.payload instanceof Blob) {
         const url = window.URL.createObjectURL(result.payload);
         const link = document.createElement('a');
         link.href = url;
-        link.setAttribute('download', `payment-history-${format(new Date(), 'yyyy-MM-dd')}.csv`);
+        const ymd = new Date().toISOString().slice(0, 10);
+        link.download = `payment-history-${ymd}.csv`;
         document.body.appendChild(link);
         link.click();
         link.remove();
@@ -202,129 +192,72 @@ const PaymentHistory: React.FC = () => {
     setPage(0);
   };
 
-  const getStatusColor = (status: string): "default" | "primary" | "secondary" | "error" | "info" | "success" | "warning" => {
-    const statusConfig = paymentStatuses.find(s => s.value === status);
+  const getStatusColor = (s: string): 'default' | 'primary' | 'secondary' | 'error' | 'info' | 'success' | 'warning' => {
+    const statusConfig = paymentStatuses.find(ps => ps.value === s);
     return (statusConfig?.color as any) || 'default';
   };
 
-  const formatDate = (dateString: string) => {
-    return format(new Date(dateString), 'MMM dd, yyyy HH:mm');
-  };
-
-  const formatCurrency = (amount: number) => {
-    return `$${amount.toFixed(2)}`;
-  };
+  const formatDate = (dateString: string) => format(new Date(dateString), 'MMM dd, yyyy HH:mm');
+  const formatCurrency = (amount: number) => `$${amount.toFixed(2)}`;
 
   return (
     <Box sx={{ p: 3 }}>
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
+      {/* Header Actions */}
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3, gap: 2, flexWrap: 'wrap' }}>
         <Typography variant="h4" component="h1" color="primary">
           Payment History
         </Typography>
         <Stack direction="row" spacing={2}>
-          <Button
-            variant="outlined"
-            startIcon={<RefreshIcon />}
-            onClick={loadPaymentHistory}
-            disabled={paymentHistory.loading}
-          >
+          <Button variant="outlined" startIcon={<RefreshIcon />} onClick={loadPaymentHistory} disabled={paymentHistory.loading}>
             Refresh
           </Button>
-          <Button
-            variant="outlined"
-            startIcon={<FilterIcon />}
-            onClick={() => setFilterDialog(true)}
-          >
+          <Button variant="outlined" startIcon={<FilterIcon />} onClick={() => setFilterDialog(true)}>
             Filters
           </Button>
-          <Button
-            variant="contained"
-            startIcon={<DownloadIcon />}
-            onClick={() => setExportDialog(true)}
-          >
+          <Button variant="contained" startIcon={<DownloadIcon />} onClick={() => setExportDialog(true)}>
             Export
           </Button>
         </Stack>
       </Box>
 
-      {/* Statistics Cards */}
+      {/* Stats */}
       {paymentStats && (
-        <Grid container spacing={3} sx={{ mb: 3 }}>
-          <Grid item xs={12} sm={6} md={3}>
-            <Card>
-              <CardContent>
-                <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                  <Box>
-                    <Typography color="textSecondary" gutterBottom variant="h6">
-                      Total Payments
-                    </Typography>
-                    <Typography variant="h4">
-                      {paymentStats.totals?.totalPayments || 0}
-                    </Typography>
+        <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 3, mb: 3 }}>
+          {[0, 1, 2, 3].map((idx) => (
+            <Box key={idx} sx={{ flex: '1 1 240px', minWidth: 240 }}>
+              <Card>
+                <CardContent>
+                  <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                    <Box>
+                      <Typography color="textSecondary" gutterBottom variant="h6">
+                        {idx === 0 && 'Total Payments'}
+                        {idx === 1 && 'Total Amount'}
+                        {idx === 2 && 'Completed'}
+                        {idx === 3 && 'Pending'}
+                      </Typography>
+                      <Typography variant="h4">
+                        {idx === 0 && (paymentStats.totals?.totalPayments || 0)}
+                        {idx === 1 && formatCurrency(paymentStats.totals?.totalAmount || 0)}
+                        {idx === 2 && formatCurrency(paymentStats.totals?.completedAmount || 0)}
+                        {idx === 3 && formatCurrency(paymentStats.totals?.pendingAmount || 0)}
+                      </Typography>
+                    </Box>
+                    {idx === 0 && <PaymentIcon color="primary" sx={{ fontSize: 40 }} />}
+                    {idx === 1 && <TrendingUpIcon color="success" sx={{ fontSize: 40 }} />}
+                    {idx === 2 && <Chip label="Completed" color="success" />}
+                    {idx === 3 && <Chip label="Pending" color="warning" />}
                   </Box>
-                  <PaymentIcon color="primary" sx={{ fontSize: 40 }} />
-                </Box>
-              </CardContent>
-            </Card>
-          </Grid>
-          <Grid item xs={12} sm={6} md={3}>
-            <Card>
-              <CardContent>
-                <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                  <Box>
-                    <Typography color="textSecondary" gutterBottom variant="h6">
-                      Total Amount
-                    </Typography>
-                    <Typography variant="h4">
-                      {formatCurrency(paymentStats.totals?.totalAmount || 0)}
-                    </Typography>
-                  </Box>
-                  <TrendingUpIcon color="success" sx={{ fontSize: 40 }} />
-                </Box>
-              </CardContent>
-            </Card>
-          </Grid>
-          <Grid item xs={12} sm={6} md={3}>
-            <Card>
-              <CardContent>
-                <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                  <Box>
-                    <Typography color="textSecondary" gutterBottom variant="h6">
-                      Completed
-                    </Typography>
-                    <Typography variant="h4">
-                      {formatCurrency(paymentStats.totals?.completedAmount || 0)}
-                    </Typography>
-                  </Box>
-                  <Chip label="Completed" color="success" />
-                </Box>
-              </CardContent>
-            </Card>
-          </Grid>
-          <Grid item xs={12} sm={6} md={3}>
-            <Card>
-              <CardContent>
-                <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                  <Box>
-                    <Typography color="textSecondary" gutterBottom variant="h6">
-                      Pending
-                    </Typography>
-                    <Typography variant="h4">
-                      {formatCurrency(paymentStats.totals?.pendingAmount || 0)}
-                    </Typography>
-                  </Box>
-                  <Chip label="Pending" color="warning" />
-                </Box>
-              </CardContent>
-            </Card>
-          </Grid>
-        </Grid>
+                </CardContent>
+              </Card>
+            </Box>
+          ))}
+        </Box>
       )}
 
       {/* Search and Quick Filters */}
       <Paper sx={{ p: 2, mb: 3 }}>
-        <Grid container spacing={2} alignItems="center">
-          <Grid item xs={12} md={6}>
+        <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap', alignItems: 'center' }}>
+          <Box sx={{ flex: '1 1 280px', minWidth: 280 }}>
             <TextField
               fullWidth
               variant="outlined"
@@ -346,19 +279,19 @@ const PaymentHistory: React.FC = () => {
                 ),
               }}
             />
-          </Grid>
-          <Grid item xs={12} md={6}>
-            <Stack direction="row" spacing={1} justifyContent="flex-end">
+          </Box>
+          <Box sx={{ flex: '1 1 240px', minWidth: 240, display: 'flex', justifyContent: 'flex-end' }}>
+            <Stack direction="row" spacing={1}>
               <Button size="small" onClick={() => applyQuickFilter(7)}>Last 7 days</Button>
               <Button size="small" onClick={() => applyQuickFilter(30)}>Last 30 days</Button>
               <Button size="small" onClick={() => applyQuickFilter(90)}>Last 90 days</Button>
               <Button size="small" onClick={clearFilters} color="secondary">Clear All</Button>
             </Stack>
-          </Grid>
-        </Grid>
+          </Box>
+        </Box>
       </Paper>
 
-      {/* Payment History Table */}
+      {/* Table */}
       <Paper>
         {paymentHistory.loading ? (
           <Box sx={{ display: 'flex', justifyContent: 'center', p: 3 }}>
@@ -409,31 +342,17 @@ const PaymentHistory: React.FC = () => {
                         </Typography>
                       </TableCell>
                       <TableCell>
-                        <Chip 
-                          label={payment.paymentMethod.replace('_', ' ').toUpperCase()} 
-                          size="small" 
-                          variant="outlined"
-                        />
+                        <Chip label={payment.paymentMethod.replace('_', ' ').toUpperCase()} size="small" variant="outlined" />
                       </TableCell>
                       <TableCell>
-                        <Chip 
-                          label={payment.status.toUpperCase()} 
-                          color={getStatusColor(payment.status)}
-                          size="small"
-                        />
+                        <Chip label={payment.status.toUpperCase()} color={getStatusColor(payment.status)} size="small" />
                       </TableCell>
                       <TableCell>
-                        <Typography variant="body2">
-                          {formatDate(payment.createdAt)}
-                        </Typography>
+                        <Typography variant="body2">{formatDate(payment.createdAt)}</Typography>
                       </TableCell>
                       <TableCell>
                         <Tooltip title="View Receipt">
-                          <IconButton 
-                            size="small" 
-                            onClick={() => handleViewReceipt(payment._id)}
-                            disabled={payment.status !== 'completed'}
-                          >
+                          <IconButton size="small" onClick={() => handleViewReceipt(payment._id)} disabled={payment.status !== 'completed'}>
                             <ReceiptIcon />
                           </IconButton>
                         </Tooltip>
@@ -443,7 +362,7 @@ const PaymentHistory: React.FC = () => {
                 </TableBody>
               </Table>
             </TableContainer>
-            
+
             {paymentHistory.pagination && (
               <TablePagination
                 rowsPerPageOptions={[5, 10, 25, 50]}
@@ -463,67 +382,60 @@ const PaymentHistory: React.FC = () => {
       <Dialog open={filterDialog} onClose={() => setFilterDialog(false)} maxWidth="md" fullWidth>
         <DialogTitle>Advanced Filters</DialogTitle>
         <DialogContent>
-          <Grid container spacing={3} sx={{ mt: 1 }}>
-            <Grid item xs={12} md={6}>
-              <FormControl fullWidth>
-                <InputLabel>Status</InputLabel>
-                <Select value={status} onChange={(e) => setStatus(e.target.value)} label="Status">
-                  {paymentStatuses.map((s) => (
-                    <MenuItem key={s.value} value={s.value}>{s.label}</MenuItem>
-                  ))}
-                </Select>
-              </FormControl>
-            </Grid>
-            <Grid item xs={12} md={6}>
-              <FormControl fullWidth>
-                <InputLabel>Payment Method</InputLabel>
-                <Select value={paymentMethod} onChange={(e) => setPaymentMethod(e.target.value)} label="Payment Method">
-                  {paymentMethods.map((m) => (
-                    <MenuItem key={m.value} value={m.value}>{m.label}</MenuItem>
-                  ))}
-                </Select>
-              </FormControl>
-            </Grid>
-            <Grid item xs={12} md={6}>
-              <TextField
-                fullWidth
-                type="date"
-                label="Start Date"
-                value={startDate ? format(startDate, 'yyyy-MM-dd') : ''}
-                onChange={(e) => setStartDate(e.target.value ? new Date(e.target.value) : null)}
-                InputLabelProps={{ shrink: true }}
-              />
-            </Grid>
-            <Grid item xs={12} md={6}>
-              <TextField
-                fullWidth
-                type="date"
-                label="End Date"
-                value={endDate ? format(endDate, 'yyyy-MM-dd') : ''}
-                onChange={(e) => setEndDate(e.target.value ? new Date(e.target.value) : null)}
-                InputLabelProps={{ shrink: true }}
-              />
-            </Grid>
-            <Grid item xs={12} md={6}>
-              <FormControl fullWidth>
-                <InputLabel>Sort By</InputLabel>
-                <Select value={sortBy} onChange={(e) => setSortBy(e.target.value)} label="Sort By">
-                  {sortOptions.map((option) => (
-                    <MenuItem key={option.value} value={option.value}>{option.label}</MenuItem>
-                  ))}
-                </Select>
-              </FormControl>
-            </Grid>
-            <Grid item xs={12} md={6}>
-              <FormControl fullWidth>
-                <InputLabel>Sort Order</InputLabel>
-                <Select value={sortOrder} onChange={(e) => setSortOrder(e.target.value)} label="Sort Order">
-                  <MenuItem value="desc">Descending</MenuItem>
-                  <MenuItem value="asc">Ascending</MenuItem>
-                </Select>
-              </FormControl>
-            </Grid>
-          </Grid>
+          <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' }, gap: 3, mt: 1 }}>
+            <FormControl fullWidth>
+              <InputLabel>Status</InputLabel>
+              <Select value={status} onChange={(e) => setStatus(e.target.value)} label="Status">
+                {paymentStatuses.map((s) => (
+                  <MenuItem key={s.value} value={s.value}>{s.label}</MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+
+            <FormControl fullWidth>
+              <InputLabel>Payment Method</InputLabel>
+              <Select value={paymentMethod} onChange={(e) => setPaymentMethod(e.target.value)} label="Payment Method">
+                {paymentMethods.map((m) => (
+                  <MenuItem key={m.value} value={m.value}>{m.label}</MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+
+            <TextField
+              fullWidth
+              type="date"
+              label="Start Date"
+              value={startDate ? format(startDate, 'yyyy-MM-dd') : ''}
+              onChange={(e) => setStartDate(e.target.value ? new Date(e.target.value) : null)}
+              InputLabelProps={{ shrink: true }}
+            />
+
+            <TextField
+              fullWidth
+              type="date"
+              label="End Date"
+              value={endDate ? format(endDate, 'yyyy-MM-dd') : ''}
+              onChange={(e) => setEndDate(e.target.value ? new Date(e.target.value) : null)}
+              InputLabelProps={{ shrink: true }}
+            />
+
+            <FormControl fullWidth>
+              <InputLabel>Sort By</InputLabel>
+              <Select value={sortBy} onChange={(e) => setSortBy(e.target.value)} label="Sort By">
+                {sortOptions.map((option) => (
+                  <MenuItem key={option.value} value={option.value}>{option.label}</MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+
+            <FormControl fullWidth>
+              <InputLabel>Sort Order</InputLabel>
+              <Select value={sortOrder} onChange={(e) => setSortOrder(e.target.value)} label="Sort Order">
+                <MenuItem value="desc">Descending</MenuItem>
+                <MenuItem value="asc">Ascending</MenuItem>
+              </Select>
+            </FormControl>
+          </Box>
         </DialogContent>
         <DialogActions>
           <Button onClick={clearFilters}>Clear All</Button>
@@ -540,20 +452,10 @@ const PaymentHistory: React.FC = () => {
             Export your payment history data in the selected format.
           </Typography>
           <Stack spacing={2}>
-            <Button
-              variant="outlined"
-              startIcon={<DownloadIcon />}
-              onClick={() => handleExport('csv')}
-              fullWidth
-            >
+            <Button variant="outlined" startIcon={<DownloadIcon />} onClick={() => handleExport('csv')} fullWidth>
               Export as CSV
             </Button>
-            <Button
-              variant="outlined"
-              startIcon={<DownloadIcon />}
-              onClick={() => handleExport('json')}
-              fullWidth
-            >
+            <Button variant="outlined" startIcon={<DownloadIcon />} onClick={() => handleExport('json')} fullWidth>
               Export as JSON
             </Button>
           </Stack>
@@ -569,30 +471,30 @@ const PaymentHistory: React.FC = () => {
         <DialogContent>
           {selectedPayment && (
             <Box sx={{ p: 2 }}>
-              <Grid container spacing={2}>
-                <Grid item xs={12}>
+              <Box sx={{ display: 'grid', gap: 2 }}>
+                <Box>
                   <Typography variant="h6" gutterBottom>Payment Information</Typography>
                   <Typography><strong>Transaction ID:</strong> {selectedPayment.payment?.transactionId}</Typography>
                   <Typography><strong>Amount:</strong> {selectedPayment.payment?.formattedAmount}</Typography>
                   <Typography><strong>Status:</strong> {selectedPayment.payment?.status}</Typography>
                   <Typography><strong>Method:</strong> {selectedPayment.payment?.paymentMethod}</Typography>
                   <Typography><strong>Date:</strong> {selectedPayment.payment?.createdAt && formatDate(selectedPayment.payment.createdAt)}</Typography>
-                </Grid>
+                </Box>
                 {selectedPayment.order && (
-                  <Grid item xs={12}>
+                  <Box>
                     <Typography variant="h6" gutterBottom>Order Information</Typography>
                     <Typography><strong>Order Number:</strong> {selectedPayment.order.orderNumber}</Typography>
                     <Typography><strong>Status:</strong> {selectedPayment.order.status}</Typography>
                     <Typography><strong>Items:</strong> {selectedPayment.order.items?.length || 0} item(s)</Typography>
-                  </Grid>
+                  </Box>
                 )}
-                <Grid item xs={12}>
+                <Box>
                   <Typography variant="h6" gutterBottom>Customer Information</Typography>
                   <Typography><strong>Name:</strong> {selectedPayment.customer?.name}</Typography>
                   <Typography><strong>Email:</strong> {selectedPayment.customer?.email}</Typography>
                   <Typography><strong>Phone:</strong> {selectedPayment.customer?.phone}</Typography>
-                </Grid>
-              </Grid>
+                </Box>
+              </Box>
             </Box>
           )}
         </DialogContent>

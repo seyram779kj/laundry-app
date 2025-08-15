@@ -15,8 +15,7 @@ import {
   Button,
   Dialog,
   DialogTitle,
-  DialogContent,
-  Grid
+  DialogContent
 } from '@mui/material';
 import {
   CheckCircle,
@@ -139,25 +138,21 @@ const OrderTracking: React.FC<OrderTrackingProps> = ({ orderId, open, onClose })
             {/* Current Status */}
             <Card sx={{ mb: 3 }}>
               <CardContent>
-                <Grid container spacing={2} alignItems="center">
-                  <Grid item>
-                    <Chip
-                      label={tracking.currentLocation.replace('_', ' ').toUpperCase()}
-                      color="primary"
-                      size="medium"
-                    />
-                  </Grid>
-                  <Grid item xs>
-                    <Typography variant="h6">
-                      Order #{tracking.order.orderNumber}
-                    </Typography>
+                <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 2, alignItems: 'center' }}>
+                  <Chip
+                    label={tracking.currentLocation.replace('_', ' ').toUpperCase()}
+                    color="primary"
+                    size="medium"
+                  />
+                  <Box sx={{ flex: 1, minWidth: 200 }}>
+                    <Typography variant="h6">Order #{tracking.order.orderNumber}</Typography>
                     {tracking.estimatedDelivery && (
                       <Typography variant="body2" color="text.secondary">
                         Estimated Delivery: {format(new Date(tracking.estimatedDelivery), 'PPp')}
                       </Typography>
                     )}
-                  </Grid>
-                </Grid>
+                  </Box>
+                </Box>
               </CardContent>
             </Card>
 
