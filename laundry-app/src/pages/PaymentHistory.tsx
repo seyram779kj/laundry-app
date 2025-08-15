@@ -416,7 +416,7 @@ const PaymentHistory: React.FC = () => {
                       </TableCell>
                       <TableCell>
                         <Typography variant="body2">
-                          {formatDate(payment.createdAt)}
+                          {formatDateString(payment.createdAt)}
                         </Typography>
                       </TableCell>
                       <TableCell>
