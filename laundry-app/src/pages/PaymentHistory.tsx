@@ -549,30 +549,30 @@ const PaymentHistory: React.FC = () => {
         <DialogContent>
           {selectedPayment && (
             <Box sx={{ p: 2 }}>
-              <Grid container spacing={2}>
-                <Grid item xs={12}>
+              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+                <Box>
                   <Typography variant="h6" gutterBottom>Payment Information</Typography>
                   <Typography><strong>Transaction ID:</strong> {selectedPayment.payment?.transactionId}</Typography>
                   <Typography><strong>Amount:</strong> {selectedPayment.payment?.formattedAmount}</Typography>
                   <Typography><strong>Status:</strong> {selectedPayment.payment?.status}</Typography>
                   <Typography><strong>Method:</strong> {selectedPayment.payment?.paymentMethod}</Typography>
                   <Typography><strong>Date:</strong> {selectedPayment.payment?.createdAt && formatDate(selectedPayment.payment.createdAt)}</Typography>
-                </Grid>
+                </Box>
                 {selectedPayment.order && (
-                  <Grid item xs={12}>
+                  <Box>
                     <Typography variant="h6" gutterBottom>Order Information</Typography>
                     <Typography><strong>Order Number:</strong> {selectedPayment.order.orderNumber}</Typography>
                     <Typography><strong>Status:</strong> {selectedPayment.order.status}</Typography>
                     <Typography><strong>Items:</strong> {selectedPayment.order.items?.length || 0} item(s)</Typography>
-                  </Grid>
+                  </Box>
                 )}
-                <Grid item xs={12}>
+                <Box>
                   <Typography variant="h6" gutterBottom>Customer Information</Typography>
                   <Typography><strong>Name:</strong> {selectedPayment.customer?.name}</Typography>
                   <Typography><strong>Email:</strong> {selectedPayment.customer?.email}</Typography>
                   <Typography><strong>Phone:</strong> {selectedPayment.customer?.phone}</Typography>
-                </Grid>
-              </Grid>
+                </Box>
+              </Box>
             </Box>
           )}
         </DialogContent>
