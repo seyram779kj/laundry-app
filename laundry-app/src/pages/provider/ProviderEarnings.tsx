@@ -94,16 +94,15 @@ const ProviderEarnings: React.FC = () => {
 
         const earningHistory: EarningHistory[] = orders.map((order: any) => {
           const amount = order.totalAmount;
+          const paymentStatus = order.payment?.status || 'pending';
           
-          if (order.status === 'completed') {
+          if (paymentStatus === 'completed') {
             completedEarnings += amount;
             completedOrders++;
-          } else if (['assigned', 'in_progress', 'ready_for_pickup'].includes(order.status)) {
+          } else if (['pending', 'processing'].includes(paymentStatus)) {
             pendingEarnings += amount;
             pendingOrders++;
           }
-
-          totalEarnings += amount;
 
           return {
             _id: order._id,
@@ -111,12 +110,13 @@ const ProviderEarnings: React.FC = () => {
             customer: order.customer,
             items: order.items,
             totalAmount: amount,
-            status: order.status,
+            status: paymentStatus,
             createdAt: order.createdAt,
-            completedAt: order.status === 'completed' ? order.updatedAt : undefined
+            completedAt: paymentStatus === 'completed' ? (order.payment?.completedAt || order.updatedAt) : undefined
           };
         });
 
+        totalEarnings = completedEarnings + pendingEarnings;
         setEarnings({
           totalEarnings,
           pendingEarnings,
@@ -145,12 +145,14 @@ const ProviderEarnings: React.FC = () => {
     switch (status) {
       case 'completed':
         return 'success';
-      case 'in_progress':
-        return 'primary';
-      case 'ready_for_pickup':
-        return 'secondary';
-      case 'assigned':
+      case 'processing':
         return 'info';
+      case 'pending':
+        return 'warning';
+      case 'failed':
+        return 'error';
+      case 'cancelled':
+        return 'default';
       default:
         return 'default';
     }
@@ -203,7 +205,7 @@ const ProviderEarnings: React.FC = () => {
               Completed Earnings
             </Typography>
             <Typography variant="body2">
-              {earnings.completedOrders} completed orders
+              {earnings.completedOrders} completed payments
             </Typography>
           </CardContent>
         </Card>
@@ -217,7 +219,7 @@ const ProviderEarnings: React.FC = () => {
               Pending Earnings
             </Typography>
             <Typography variant="body2">
-              {earnings.pendingOrders} pending orders
+              {earnings.pendingOrders} pending payments
             </Typography>
           </CardContent>
         </Card>
@@ -236,7 +238,7 @@ const ProviderEarnings: React.FC = () => {
                 <TableCell>Customer</TableCell>
                 <TableCell>Services</TableCell>
                 <TableCell>Amount</TableCell>
-                <TableCell>Status</TableCell>
+                <TableCell>Payment Status</TableCell>
                 <TableCell>Date</TableCell>
               </TableRow>
             </TableHead>
