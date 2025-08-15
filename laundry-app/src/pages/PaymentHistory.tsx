@@ -249,76 +249,68 @@ const PaymentHistory: React.FC = () => {
 
       {/* Statistics Cards */}
       {paymentStats && (
-        <Grid container spacing={3} sx={{ mb: 3 }}>
-          <Grid item xs={12} sm={6} md={3}>
-            <Card>
-              <CardContent>
-                <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                  <Box>
-                    <Typography color="textSecondary" gutterBottom variant="h6">
-                      Total Payments
-                    </Typography>
-                    <Typography variant="h4">
-                      {paymentStats.totals?.totalPayments || 0}
-                    </Typography>
-                  </Box>
-                  <PaymentIcon color="primary" sx={{ fontSize: 40 }} />
+        <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: 3, mb: 3 }}>
+          <Card>
+            <CardContent>
+              <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <Box>
+                  <Typography color="textSecondary" gutterBottom variant="h6">
+                    Total Payments
+                  </Typography>
+                  <Typography variant="h4">
+                    {paymentStats.totals?.totalPayments || 0}
+                  </Typography>
                 </Box>
-              </CardContent>
-            </Card>
-          </Grid>
-          <Grid item xs={12} sm={6} md={3}>
-            <Card>
-              <CardContent>
-                <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                  <Box>
-                    <Typography color="textSecondary" gutterBottom variant="h6">
-                      Total Amount
-                    </Typography>
-                    <Typography variant="h4">
-                      {formatCurrency(paymentStats.totals?.totalAmount || 0)}
-                    </Typography>
-                  </Box>
-                  <TrendingUpIcon color="success" sx={{ fontSize: 40 }} />
+                <PaymentIcon color="primary" sx={{ fontSize: 40 }} />
+              </Box>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent>
+              <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <Box>
+                  <Typography color="textSecondary" gutterBottom variant="h6">
+                    Total Amount
+                  </Typography>
+                  <Typography variant="h4">
+                    {formatCurrency(paymentStats.totals?.totalAmount || 0)}
+                  </Typography>
                 </Box>
-              </CardContent>
-            </Card>
-          </Grid>
-          <Grid item xs={12} sm={6} md={3}>
-            <Card>
-              <CardContent>
-                <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                  <Box>
-                    <Typography color="textSecondary" gutterBottom variant="h6">
-                      Completed
-                    </Typography>
-                    <Typography variant="h4">
-                      {formatCurrency(paymentStats.totals?.completedAmount || 0)}
-                    </Typography>
-                  </Box>
-                  <Chip label="Completed" color="success" />
+                <TrendingUpIcon color="success" sx={{ fontSize: 40 }} />
+              </Box>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent>
+              <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <Box>
+                  <Typography color="textSecondary" gutterBottom variant="h6">
+                    Completed
+                  </Typography>
+                  <Typography variant="h4">
+                    {formatCurrency(paymentStats.totals?.completedAmount || 0)}
+                  </Typography>
                 </Box>
-              </CardContent>
-            </Card>
-          </Grid>
-          <Grid item xs={12} sm={6} md={3}>
-            <Card>
-              <CardContent>
-                <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                  <Box>
-                    <Typography color="textSecondary" gutterBottom variant="h6">
-                      Pending
-                    </Typography>
-                    <Typography variant="h4">
-                      {formatCurrency(paymentStats.totals?.pendingAmount || 0)}
-                    </Typography>
-                  </Box>
-                  <Chip label="Pending" color="warning" />
+                <Chip label="Completed" color="success" />
+              </Box>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent>
+              <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <Box>
+                  <Typography color="textSecondary" gutterBottom variant="h6">
+                    Pending
+                  </Typography>
+                  <Typography variant="h4">
+                    {formatCurrency(paymentStats.totals?.pendingAmount || 0)}
+                  </Typography>
                 </Box>
-              </CardContent>
-            </Card>
-          </Grid>
-        </Grid>
+                <Chip label="Pending" color="warning" />
+              </Box>
+            </CardContent>
+          </Card>
+        </Box>
       )}
 
       {/* Search and Quick Filters */}
