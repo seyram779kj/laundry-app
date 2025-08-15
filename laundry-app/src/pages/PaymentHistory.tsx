@@ -315,8 +315,8 @@ const PaymentHistory: React.FC = () => {
 
       {/* Search and Quick Filters */}
       <Paper sx={{ p: 2, mb: 3 }}>
-        <Grid container spacing={2} alignItems="center">
-          <Grid item xs={12} md={6}>
+        <Box sx={{ display: 'flex', gap: 2, alignItems: 'center', flexWrap: 'wrap' }}>
+          <Box sx={{ flex: '1 1 300px' }}>
             <TextField
               fullWidth
               variant="outlined"
@@ -338,16 +338,16 @@ const PaymentHistory: React.FC = () => {
                 ),
               }}
             />
-          </Grid>
-          <Grid item xs={12} md={6}>
+          </Box>
+          <Box sx={{ flex: '0 0 auto' }}>
             <Stack direction="row" spacing={1} justifyContent="flex-end">
               <Button size="small" onClick={() => applyQuickFilter(7)}>Last 7 days</Button>
               <Button size="small" onClick={() => applyQuickFilter(30)}>Last 30 days</Button>
               <Button size="small" onClick={() => applyQuickFilter(90)}>Last 90 days</Button>
               <Button size="small" onClick={clearFilters} color="secondary">Clear All</Button>
             </Stack>
-          </Grid>
-        </Grid>
+          </Box>
+        </Box>
       </Paper>
 
       {/* Payment History Table */}
