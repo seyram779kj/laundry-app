@@ -25,7 +25,7 @@ const ServiceProviderPaymentHistory: React.FC = () => {
 
       try {
         // Assuming the backend filters by serviceProvider when userId query param is present for service providers
-        const response = await api.get(`/payments?userId=${user.id}`);
+        const response = await api.get(`/payments?userId=${user.id}`) as any;
         // Assuming the API response has a 'data' field which is an array of payments
         if (response.data && Array.isArray(response.data.data.docs)) {
              setPayments(response.data.data.docs); // Adjust based on your API response structure
