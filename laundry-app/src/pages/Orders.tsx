@@ -24,13 +24,8 @@ import { useNavigate } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
 import { RootState, AppDispatch } from '../app/store';
 import { shallowEqual } from 'react-redux';
-import { createAsyncThunk } from '@reduxjs/toolkit';
 
-// Import the centralized types
-import {
-  Order,
-  OrdersState,
-} from '../types';
+import { Order } from '../types/order';
 import {
   statusColors,
   paymentStatusColors,
@@ -39,22 +34,8 @@ import {
 } from '../types/order';
 import { formatOrderForDisplay } from '../utils/typeUtils';
 
-// Redux actions
-export const fetchOrders = createAsyncThunk(
-  'orders/fetchOrders',
-  async (role: string) => {
-    const token = localStorage.getItem('token');
-    const response = await axios.get(`http://localhost:5000/api/orders?role=${role}`, {
-      headers: { Authorization: `Bearer ${token}` },
-    });
-    return response.data.data.docs; // Adjust based on backend response structure
-  }
-);
-
-export const setError = (error: string) => ({
-  type: 'orders/setError',
-  payload: error,
-});
+// Use thunks from the central slice instead of local ones
+import { fetchOrdersByRole, setError } from '../features/orders/orderSlice';
 
 const Orders: React.FC = () => {
   const dispatch = useDispatch<AppDispatch>();
@@ -66,7 +47,7 @@ const Orders: React.FC = () => {
   const navigate = useNavigate();
 
   useEffect(() => {
-    dispatch(fetchOrders('customer'));
+    dispatch(fetchOrdersByRole('customer'));
   }, [dispatch]);
 
   const handlePayNow = (order: Order) => {
@@ -81,25 +62,43 @@ const Orders: React.FC = () => {
     try {
       setPaymentLoading(true);
       const token = localStorage.getItem('token');
-      const response = await axios.post(
-        `http://localhost:5000/api/payments/momo`,
-        {
-          orderId: selectedOrder._id,
-          phoneNumber,
-          amount: selectedOrder.totalAmount,
-        },
+
+      // Ensure there is a payment record for this order
+      let paymentId = (selectedOrder as any).payment?._id as string | undefined;
+      if (!paymentId) {
+        const createResp = await axios.post(
+          `http://localhost:5000/api/payments`,
+          {
+            orderId: selectedOrder._id,
+            amount: selectedOrder.totalAmount,
+            paymentMethod: 'momo',
+            paymentDetails: {}
+          },
+          { headers: { Authorization: `Bearer ${token}` } }
+        );
+        if (!createResp.data?.success) {
+          throw new Error(createResp.data?.error || 'Failed to create payment');
+        }
+        paymentId = createResp.data.data._id;
+      }
+
+      // Initiate MoMo payment for the specific payment ID
+      const momoResp = await axios.post(
+        `http://localhost:5000/api/payments/${paymentId}/momo`,
+        { phoneNumber },
         { headers: { Authorization: `Bearer ${token}` } }
       );
 
-      if (response.data.success) {
-        dispatch(fetchOrders('customer'));
+      if (momoResp.data?.success) {
+        dispatch(fetchOrdersByRole('customer'));
         setOpenPaymentDialog(false);
       } else {
-        dispatch(setError('Failed to process payment'));
+        dispatch(setError(momoResp.data?.error || 'Failed to process payment'));
       }
     } catch (err: any) {
       console.error('Payment error:', err);
-      dispatch(setError(err.response?.data?.error || 'Failed to process payment'));
+      const msg = err.response?.data?.error || err.message || 'Failed to process payment';
+      dispatch(setError(msg));
     } finally {
       setPaymentLoading(false);
     }
@@ -110,7 +109,9 @@ const Orders: React.FC = () => {
   };
 
   const getActionButtons = (order: Order) => {
-    if (order.payment.status === 'pending' && ['pending', 'confirmed', 'assigned', 'in_progress', 'ready_for_pickup'].includes(order.status)) {
+    const paymentStatus = order.payment?.status as string;
+    const orderStatus = order.status as string;
+    if (['pending', 'processing'].includes(paymentStatus) && !['cancelled', 'completed'].includes(orderStatus)) {
       return (
         <Button
           size="small"
@@ -141,7 +142,7 @@ const Orders: React.FC = () => {
         <Alert severity="error" sx={{ mb: 2 }}>
           {error}
           <Button
-            onClick={() => dispatch(fetchOrders('customer'))}
+            onClick={() => dispatch(fetchOrdersByRole('customer'))}
             sx={{ ml: 2 }}
             variant="outlined"
             size="small"
@@ -165,7 +166,7 @@ const Orders: React.FC = () => {
             No orders available
           </Typography>
           <Button
-            onClick={() => dispatch(fetchOrders('customer'))}
+            onClick={() => dispatch(fetchOrdersByRole('customer'))}
             sx={{ mt: 2 }}
             variant="outlined"
             color="primary"

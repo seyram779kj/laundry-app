@@ -39,6 +39,9 @@ import Analytics from './pages/admin/Analytics';
 import PaymentsManagement from './pages/admin/PaymentsManagement';
 import ReviewsManagement from './pages/admin/ReviewsManagement';
 
+// Payment History
+import PaymentHistory from './pages/PaymentHistory';
+
 // Authentication Initialization Component
 const AuthInitializer: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const dispatch = useDispatch<AppDispatch>();
@@ -219,6 +222,7 @@ const App: React.FC = () => {
                         <Route path="services" element={<ServicesManagement />} />
                         <Route path="analytics" element={<Analytics />} />
                         <Route path="payments" element={<PaymentsManagement />} />
+                        <Route path="payment-history" element={<PaymentHistory />} />
                         <Route path="reviews" element={<ReviewsManagement />} />
                       </Routes>
                     </MainLayout>
@@ -236,6 +240,7 @@ const App: React.FC = () => {
                         <Route index element={<CustomerDashboard />} />
                         <Route path="new-order" element={<NewOrder />} />
                         <Route path="orders" element={<Orders />} />
+                        <Route path="payment-history" element={<PaymentHistory />} />
                         <Route path="services" element={<Services />} />
                         <Route path="profile" element={<Profile />} />
                         <Route path="settings" element={<Settings />} />
@@ -255,6 +260,7 @@ const App: React.FC = () => {
                         <Route index element={<ServiceProviderDashboard />} />
                         <Route path="orders" element={<Orders_t />} />
                         <Route path="earnings" element={<ProviderEarnings />} />
+                        <Route path="payment-history" element={<PaymentHistory />} />
                         <Route path="availability" element={<ProviderAvailability />} />
                         <Route path="profile" element={<Profile />} />
                         <Route path="settings" element={<Settings />} />

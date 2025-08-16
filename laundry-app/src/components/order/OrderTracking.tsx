@@ -138,18 +138,14 @@ const OrderTracking: React.FC<OrderTrackingProps> = ({ orderId, open, onClose })
             {/* Current Status */}
             <Card sx={{ mb: 3 }}>
               <CardContent>
-                <Box display="flex" alignItems="center" gap={2}>
-                  <Box>
-                    <Chip
-                      label={tracking.currentLocation.replace('_', ' ').toUpperCase()}
-                      color="primary"
-                      size="medium"
-                    />
-                  </Box>
-                  <Box flex={1}>
-                    <Typography variant="h6">
-                      Order #{tracking.order.orderNumber}
-                    </Typography>
+                <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 2, alignItems: 'center' }}>
+                  <Chip
+                    label={tracking.currentLocation.replace('_', ' ').toUpperCase()}
+                    color="primary"
+                    size="medium"
+                  />
+                  <Box sx={{ flex: 1, minWidth: 200 }}>
+                    <Typography variant="h6">Order #{tracking.order.orderNumber}</Typography>
                     {tracking.estimatedDelivery && (
                       <Typography variant="body2" color="text.secondary">
                         Estimated Delivery: {format(new Date(tracking.estimatedDelivery), 'PPp')}

@@ -7,7 +7,7 @@ import PaymentList from '../../components/payment/PaymentList'; // Adjust the im
 import api from '../../services/api'; // Assuming your API service is here
 
 const ServiceProviderPaymentHistory: React.FC = () => {
-  const { user, token } = useSelector((state: RootState) => state.auth);
+  const { user, token } = useSelector((state: RootState) => state.auth as any);
   const [payments, setPayments] = useState<Payment[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -25,16 +25,15 @@ const ServiceProviderPaymentHistory: React.FC = () => {
 
       try {
         // Assuming the backend filters by serviceProvider when userId query param is present for service providers
-        const response = await api.get(`/payments?userId=${user.id}`);
-        // Assuming the API response has a 'data' field which is an array of payments
-        if (response.data && Array.isArray(response.data.data.docs)) {
-             setPayments(response.data.data.docs); // Adjust based on your API response structure
-        } else if (response.data && Array.isArray(response.data.data)) {
-             setPayments(response.data.data); // Adjust based on your API response structure
+        const response = await api.get<{ data: { data: any } }>(`/payments?userId=${user.id}`);
+        const resp: any = response.data;
+        if (resp && Array.isArray(resp.data?.docs)) {
+          setPayments(resp.data.docs);
+        } else if (resp && Array.isArray(resp.data)) {
+          setPayments(resp.data);
+        } else {
+          setPayments([]);
         }
-         else {
-            setPayments([]);
-         }
       } catch (err: any) {
         console.error('Error fetching service provider payments:', err);
         setError(err.message || 'Failed to fetch payments.');
