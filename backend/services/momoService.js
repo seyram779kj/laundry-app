@@ -1,13 +1,25 @@
-
 const crypto = require('crypto');
+const axios = require('axios');
+const { v4: uuidv4 } = require('uuid');
 
 class MoMoService {
   constructor() {
-    // These would be your actual MoMo API credentials
-    this.apiKey = process.env.MOMO_API_KEY || 'demo_api_key';
-    this.apiSecret = process.env.MOMO_API_SECRET || 'demo_api_secret';
-    this.baseUrl = process.env.MOMO_BASE_URL || 'https://api.momo.com/v1';
-    this.merchantId = process.env.MOMO_MERCHANT_ID || 'demo_merchant';
+    this.apiUser = process.env.MOMO_API_USER || '80d41de5-fa4a-4515-82e8-5403660428e9';
+    this.apiKey = process.env.MOMO_API_KEY || 'b9d907d470234528b403515b9a5285aa';
+    this.subscriptionKey = process.env.MOMO_SUBSCRIPTION_KEY || '2967da11bac749bfbf880f685e4a9644';
+    this.baseUrl = process.env.MOMO_BASE_URL || 'https://sandbox.momodeveloper.mtn.com';
+    this.partyIdType = 'MSISDN';
+    // FIX 1: Currency should be EUR for sandbox, not GHS
+    this.currency = process.env.NODE_ENV === 'production' ? 'GHS' : 'EUR'; 
+    this.targetEnvironment = process.env.NODE_ENV === 'production' ? 'production' : 'sandbox';
+    
+    // Add request timeout and retry configuration
+    this.axiosConfig = {
+      timeout: 30000, // 30 seconds timeout
+      headers: {
+        'User-Agent': 'MTN-MoMo-Client/1.0.0'
+      }
+    };
   }
 
   // Generate transaction reference
@@ -15,127 +27,328 @@ class MoMoService {
     return `MOMO_${Date.now()}_${crypto.randomBytes(4).toString('hex').toUpperCase()}`;
   }
 
-  // Initiate MoMo payment
-  async initiatePayment(paymentData) {
-    const { amount, phoneNumber, customerName, orderId } = paymentData;
+  // FIX 2: Fixed syntax error in getAccessToken method
+  async getAccessToken() {
+    const tokenUrl = `${this.baseUrl}/collection/token/`;
     
-    const transactionRef = this.generateTransactionRef();
-    
-    // In a real implementation, you would make an HTTP request to MoMo API
-    // For demo purposes, we'll simulate the API response
     try {
-      console.log(`🔄 Initiating MoMo payment for ${phoneNumber} - Amount: ${amount}`);
+      console.log('🔑 Getting access token...');
       
-      // Simulate API call delay
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
-      // Simulate different scenarios based on phone number for testing
-      const lastDigit = phoneNumber.slice(-1);
-      
-      if (lastDigit === '1') {
-        // Simulate failed payment
-        return {
-          success: false,
-          transactionRef,
-          status: 'failed',
-          message: 'Insufficient funds',
-          errorCode: 'INSUFFICIENT_FUNDS'
-        };
-      } else if (lastDigit === '2') {
-        // Simulate pending payment (user needs to approve on phone)
-        return {
-          success: true,
-          transactionRef,
-          status: 'pending',
-          message: 'Payment request sent to customer phone. Waiting for approval.',
-          paymentUrl: `momo://pay?ref=${transactionRef}`
-        };
-      } else {
-        // Simulate successful payment
-        return {
-          success: true,
-          transactionRef,
-          status: 'completed',
-          message: 'Payment completed successfully',
-          transactionId: `TXN_${transactionRef}`
-        };
-      }
+      const response = await axios.post(tokenUrl, {}, {
+        ...this.axiosConfig,
+        headers: {
+          'Ocp-Apim-Subscription-Key': this.subscriptionKey,
+          'Authorization': 'Basic ' + Buffer.from(`${this.apiUser}:${this.apiKey}`).toString('base64'),
+          'Content-Type': 'application/json'
+        }
+      });
+
+      console.log('✅ Access token obtained successfully');
+      return response.data.access_token;
     } catch (error) {
-      console.error('MoMo payment error:', error);
+      console.error('❌ Failed to get access token:', {
+        status: error.response?.status,
+        statusText: error.response?.statusText,
+        data: error.response?.data,
+        message: error.message
+      });
+      
+      // FIX 3: Better error handling with specific error messages
+      if (error.response?.status === 401) {
+        throw new Error('Invalid API credentials. Check your API User ID and API Key.');
+      } else if (error.response?.status === 403) {
+        throw new Error('Subscription key not authorized. Check your subscription in MTN Developer Portal.');
+      } else if (error.code === 'ECONNABORTED') {
+        throw new Error('Request timeout. MTN API is not responding.');
+      } else {
+        throw new Error(`Could not authenticate with MTN MoMo API: ${error.message}`);
+      }
+    }
+  }
+
+  // FIX 4: Improved payment initiation with better error handling
+  async initiatePayment({ amount, phoneNumber, customerName, orderId }) {
+    const transactionRef = this.generateTransactionRef();
+    const referenceId = uuidv4();
+    const formattedNumber = this.formatPhoneNumber(phoneNumber);
+
+    // FIX 5: Validate inputs before making API call
+    if (!amount || amount <= 0) {
       return {
         success: false,
         transactionRef,
         status: 'failed',
-        message: 'Payment processing failed',
+        message: 'Invalid amount provided',
+        error: 'Amount must be greater than 0'
+      };
+    }
+
+    if (!this.validatePhoneNumber(phoneNumber)) {
+      return {
+        success: false,
+        transactionRef,
+        status: 'failed',
+        message: 'Invalid phone number format',
+        error: 'Please provide a valid phone number'
+      };
+    }
+
+    try {
+      console.log(`💳 Initiating payment: ${amount} ${this.currency} from ${formattedNumber}`);
+      
+      const token = await this.getAccessToken();
+
+      const paymentData = {
+        amount: String(amount),
+        currency: this.currency,
+        externalId: orderId || transactionRef,
+        payer: { 
+          partyIdType: this.partyIdType, 
+          partyId: formattedNumber 
+        },
+        payerMessage: `Payment for ${customerName || 'Order'}`,
+        payeeNote: 'Thank you for your payment'
+      };
+
+      console.log('📤 Sending payment request:', { ...paymentData, payer: { ...paymentData.payer } });
+
+      const response = await axios.post(
+        `${this.baseUrl}/collection/v1_0/requesttopay`,
+        paymentData,
+        {
+          ...this.axiosConfig,
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'X-Reference-Id': referenceId,
+            'X-Target-Environment': this.targetEnvironment,
+            'Ocp-Apim-Subscription-Key': this.subscriptionKey,
+            'Content-Type': 'application/json'
+          }
+        }
+      );
+
+      console.log('✅ Payment request sent successfully');
+      
+      return {
+        success: true,
+        transactionRef,
+        referenceId,
+        status: 'pending',
+        message: 'Payment request sent. Awaiting customer approval.',
+        paymentData: {
+          amount,
+          currency: this.currency,
+          phoneNumber: formattedNumber
+        }
+      };
+    } catch (error) {
+      console.error('❌ Payment initiation failed:', {
+        status: error.response?.status,
+        statusText: error.response?.statusText,
+        data: error.response?.data,
+        message: error.message
+      });
+
+      // FIX 6: Better error categorization
+      let errorMessage = 'Payment request failed';
+      
+      if (error.response?.status === 400) {
+        errorMessage = 'Invalid payment request data';
+      } else if (error.response?.status === 409) {
+        errorMessage = 'Duplicate transaction reference';
+      } else if (error.response?.status === 500) {
+        errorMessage = 'MTN service temporarily unavailable';
+      }
+
+      return {
+        success: false,
+        transactionRef,
+        referenceId,
+        status: 'failed',
+        message: errorMessage,
+        error: error.response?.data || error.message
+      };
+    }
+  }
+
+  // FIX 7: Enhanced payment status checking with retry logic
+  async checkPaymentStatus(referenceId, retryCount = 0) {
+    const maxRetries = 3;
+    
+    try {
+      console.log(`🔍 Checking payment status for reference: ${referenceId}`);
+      
+      const token = await this.getAccessToken();
+
+      const response = await axios.get(
+        `${this.baseUrl}/collection/v1_0/requesttopay/${referenceId}`,
+        {
+          ...this.axiosConfig,
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'X-Target-Environment': this.targetEnvironment,
+            'Ocp-Apim-Subscription-Key': this.subscriptionKey
+          }
+        }
+      );
+
+      const status = response.data.status;
+      console.log(`📊 Payment status: ${status}`);
+
+      return {
+        success: true,
+        status: status.toLowerCase(),
+        transactionId: response.data.financialTransactionId || null,
+        amount: response.data.amount,
+        currency: response.data.currency,
+        reason: response.data.reason || null,
+        message: `Payment status: ${status}`,
+        data: response.data
+      };
+    } catch (error) {
+      console.error('❌ Status check failed:', {
+        status: error.response?.status,
+        data: error.response?.data,
+        message: error.message,
+        attempt: retryCount + 1
+      });
+
+      // FIX 8: Retry logic for failed status checks
+      if (retryCount < maxRetries && error.response?.status >= 500) {
+        console.log(`🔄 Retrying status check... (${retryCount + 1}/${maxRetries})`);
+        await this.delay(2000 * (retryCount + 1)); // Exponential backoff
+        return this.checkPaymentStatus(referenceId, retryCount + 1);
+      }
+
+      return {
+        success: false,
+        status: 'unknown',
+        message: 'Could not retrieve payment status',
+        error: error.response?.data || error.message
+      };
+    }
+  }
+
+  // FIX 9: Added account balance check method
+  async getAccountBalance() {
+    try {
+      console.log('💰 Checking account balance...');
+      
+      const token = await this.getAccessToken();
+
+      const response = await axios.get(
+        `${this.baseUrl}/collection/v1_0/account/balance`,
+        {
+          ...this.axiosConfig,
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'X-Target-Environment': this.targetEnvironment,
+            'Ocp-Apim-Subscription-Key': this.subscriptionKey
+          }
+        }
+      );
+
+      console.log('✅ Balance retrieved successfully');
+      
+      return {
+        success: true,
+        balance: response.data.availableBalance,
+        currency: response.data.currency
+      };
+    } catch (error) {
+      console.error('❌ Balance check failed:', error.response?.data || error.message);
+      return {
+        success: false,
+        message: 'Could not retrieve account balance',
         error: error.message
       };
     }
   }
 
-  // Check payment status
-  async checkPaymentStatus(transactionRef) {
+  // FIX 10: Enhanced phone number validation
+  validatePhoneNumber(phoneNumber) {
+    if (!phoneNumber) return false;
+    
+    const cleanNumber = phoneNumber.replace(/[\s\-\(\)]/g, '');
+    
+    // For Ghana: supports 0XXXXXXXXX, +233XXXXXXXXX, 233XXXXXXXXX formats
+    const ghanaRegex = /^(\+?233|0)\d{9}$/;
+    
+    // For sandbox testing - international format
+    const internationalRegex = /^(\+?[1-9]\d{1,14})$/;
+    
+    return ghanaRegex.test(cleanNumber) || internationalRegex.test(cleanNumber);
+  }
+
+  // FIX 11: Improved phone number formatting
+  formatPhoneNumber(phoneNumber) {
+    if (!phoneNumber) return null;
+    
+    const cleanNumber = phoneNumber.replace(/[\s\-\(\)]/g, '');
+    
+    // Handle Ghana numbers
+    if (cleanNumber.startsWith('0') && cleanNumber.length === 10) {
+      return '233' + cleanNumber.slice(1); // Remove 0 and add 233
+    }
+    if (cleanNumber.startsWith('+233')) {
+      return cleanNumber.slice(1); // Remove +
+    }
+    if (cleanNumber.startsWith('233') && cleanNumber.length === 12) {
+      return cleanNumber; // Already properly formatted
+    }
+    
+    // For other international numbers (sandbox testing)
+    if (cleanNumber.startsWith('+')) {
+      return cleanNumber.slice(1);
+    }
+    
+    // Default: assume it's a Ghana number without country code
+    if (cleanNumber.length === 9) {
+      return '233' + cleanNumber;
+    }
+    
+    return cleanNumber; // Return as-is if can't determine format
+  }
+
+  // FIX 12: Added utility methods
+  delay(ms) {
+    return new Promise(resolve => setTimeout(resolve, ms));
+  }
+
+  // Test connection to MTN API
+  async testConnection() {
     try {
-      console.log(`🔍 Checking MoMo payment status for: ${transactionRef}`);
+      console.log('🧪 Testing MTN MoMo API connection...');
       
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 500));
+      const token = await this.getAccessToken();
+      const balance = await this.getAccountBalance();
       
-      // For demo, simulate status based on transaction ref
-      const statusRandom = Math.random();
-      
-      if (statusRandom > 0.8) {
-        return {
-          success: true,
-          status: 'completed',
-          transactionId: `TXN_${transactionRef}`,
-          message: 'Payment completed'
-        };
-      } else if (statusRandom > 0.6) {
-        return {
-          success: true,
-          status: 'pending',
-          message: 'Payment still pending user approval'
-        };
-      } else {
-        return {
-          success: false,
-          status: 'failed',
-          message: 'Payment was declined'
-        };
-      }
+      return {
+        success: true,
+        message: 'MTN MoMo API connection successful',
+        hasToken: !!token,
+        balanceCheck: balance.success,
+        environment: this.targetEnvironment,
+        currency: this.currency
+      };
     } catch (error) {
-      console.error('Status check error:', error);
       return {
         success: false,
-        status: 'failed',
-        message: 'Could not check payment status'
+        message: 'MTN MoMo API connection failed',
+        error: error.message,
+        environment: this.targetEnvironment
       };
     }
   }
 
-  // Validate phone number format
-  validatePhoneNumber(phoneNumber) {
-    // Remove any spaces or special characters
-    const cleanNumber = phoneNumber.replace(/[\s\-\(\)]/g, '');
+  // FIX 13: Added webhook verification method
+  verifyWebhookSignature(payload, signature, secret) {
+    const computedSignature = crypto
+      .createHmac('sha256', secret)
+      .update(JSON.stringify(payload))
+      .digest('hex');
     
-    // Check if it's a valid format (10-15 digits, starting with country code or local format)
-    const phoneRegex = /^(\+?[1-9]\d{1,14}|0\d{9})$/;
-    
-    return phoneRegex.test(cleanNumber);
-  }
-
-  // Format phone number
-  formatPhoneNumber(phoneNumber) {
-    const cleanNumber = phoneNumber.replace(/[\s\-\(\)]/g, '');
-    
-    // Add country code if not present (assuming Ghana +233)
-    if (cleanNumber.startsWith('0')) {
-      return '+233' + cleanNumber.substring(1);
-    } else if (!cleanNumber.startsWith('+')) {
-      return '+233' + cleanNumber;
-    }
-    
-    return cleanNumber;
+    return computedSignature === signature;
   }
 }
 

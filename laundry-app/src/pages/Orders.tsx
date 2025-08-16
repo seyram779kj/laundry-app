@@ -62,25 +62,43 @@ const Orders: React.FC = () => {
     try {
       setPaymentLoading(true);
       const token = localStorage.getItem('token');
-      const response = await axios.post(
-        `http://localhost:5000/api/payments/momo`,
-        {
-          orderId: selectedOrder._id,
-          phoneNumber,
-          amount: selectedOrder.totalAmount,
-        },
+
+      // Ensure there is a payment record for this order
+      let paymentId = (selectedOrder as any).payment?._id as string | undefined;
+      if (!paymentId) {
+        const createResp = await axios.post(
+          `http://localhost:5000/api/payments`,
+          {
+            orderId: selectedOrder._id,
+            amount: selectedOrder.totalAmount,
+            paymentMethod: 'momo',
+            paymentDetails: {}
+          },
+          { headers: { Authorization: `Bearer ${token}` } }
+        );
+        if (!createResp.data?.success) {
+          throw new Error(createResp.data?.error || 'Failed to create payment');
+        }
+        paymentId = createResp.data.data._id;
+      }
+
+      // Initiate MoMo payment for the specific payment ID
+      const momoResp = await axios.post(
+        `http://localhost:5000/api/payments/${paymentId}/momo`,
+        { phoneNumber },
         { headers: { Authorization: `Bearer ${token}` } }
       );
 
-      if (response.data.success) {
+      if (momoResp.data?.success) {
         dispatch(fetchOrdersByRole('customer'));
         setOpenPaymentDialog(false);
       } else {
-        dispatch(setError('Failed to process payment'));
+        dispatch(setError(momoResp.data?.error || 'Failed to process payment'));
       }
     } catch (err: any) {
       console.error('Payment error:', err);
-      dispatch(setError(err.response?.data?.error || 'Failed to process payment'));
+      const msg = err.response?.data?.error || err.message || 'Failed to process payment';
+      dispatch(setError(msg));
     } finally {
       setPaymentLoading(false);
     }
@@ -91,7 +109,9 @@ const Orders: React.FC = () => {
   };
 
   const getActionButtons = (order: Order) => {
-    if (order.payment.status === 'pending' && ['pending', 'confirmed', 'assigned', 'in_progress', 'ready_for_pickup'].includes(order.status)) {
+    const paymentStatus = order.payment?.status as string;
+    const orderStatus = order.status as string;
+    if (['pending', 'processing'].includes(paymentStatus) && !['cancelled', 'completed'].includes(orderStatus)) {
       return (
         <Button
           size="small"
