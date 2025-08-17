@@ -118,7 +118,7 @@ router.post('/', protect, async (req, res) => {
     const paymentData = {
       order: orderId,
       customer: order.customer._id,
-      serviceProvider: order.serviceProvider._id,
+      serviceProvider: order.serviceProvider ? order.serviceProvider._id : undefined,
       amount: parseFloat(amount),
       paymentMethod,
       paymentDetails: paymentDetails || {},
@@ -399,7 +399,10 @@ router.post('/:id/momo', protect, async (req, res) => {
     }
 
     // Check permissions: Only the customer associated with the payment can initiate MoMo
-    if (payment.customer.toString() !== req.user.id) {
+    const customerId = (payment.customer && payment.customer._id)
+      ? payment.customer._id.toString()
+      : payment.customer.toString();
+    if (customerId !== req.user.id) {
       return res.status(403).json({ success: false, error: 'Access denied' });
     }
 

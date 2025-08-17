@@ -14,9 +14,22 @@ import {
   Chip,
   Card,
   CardContent,
+  Button,
+  IconButton,
+  Tooltip,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  Stack,
 } from '@mui/material';
 import { format } from 'date-fns';
 import axios from 'axios';
+import ReceiptIcon from '@mui/icons-material/Receipt';
+import RefreshIcon from '@mui/icons-material/Refresh';
+import DownloadIcon from '@mui/icons-material/Download';
+import { useAppDispatch, useAppSelector } from '../../app/hooks';
+import { fetchPaymentHistory, fetchPaymentReceipt } from '../../features/payment/paymentSlice';
 
 interface EarningHistory {
   _id: string;
@@ -48,6 +61,8 @@ interface EarningsData {
 }
 
 const ProviderEarnings: React.FC = () => {
+  const dispatch = useAppDispatch();
+  const { paymentHistory, selectedPayment } = useAppSelector((state) => state.payment);
   const [earnings, setEarnings] = useState<EarningsData>({
     totalEarnings: 0,
     pendingEarnings: 0,
@@ -59,10 +74,19 @@ const ProviderEarnings: React.FC = () => {
   });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [receiptDialog, setReceiptDialog] = useState(false);
+  const [page, setPage] = useState(0);
+  const [rowsPerPage, setRowsPerPage] = useState(10);
 
   useEffect(() => {
     fetchEarnings();
   }, []);
+
+  useEffect(() => {
+    // Load provider's payment history
+    dispatch(fetchPaymentHistory({ page: page + 1, limit: rowsPerPage }));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [page, rowsPerPage]);
 
   const fetchEarnings = async () => {
     try {
@@ -139,6 +163,17 @@ const ProviderEarnings: React.FC = () => {
 
   const formatDate = (dateString: string) => {
     return format(new Date(dateString), 'MMM dd, yyyy');
+  };
+
+  const formatDateTime = (dateString: string) => {
+    return format(new Date(dateString), 'MMM dd, yyyy HH:mm');
+  };
+
+  const formatCurrency = (amount: number) => `${amount.toFixed(2)}`;
+
+  const handleViewReceipt = async (paymentId: string) => {
+    await dispatch(fetchPaymentReceipt(paymentId));
+    setReceiptDialog(true);
   };
 
   const getStatusColor = (status: string) => {
@@ -226,7 +261,7 @@ const ProviderEarnings: React.FC = () => {
       </Box>
 
       {/* Earnings History */}
-      <Paper sx={{ p: 3 }}>
+      <Paper sx={{ p: 3, mb: 3 }}>
         <Typography variant="h6" gutterBottom>
           Earnings History
         </Typography>
@@ -287,6 +322,132 @@ const ProviderEarnings: React.FC = () => {
           </Table>
         </TableContainer>
       </Paper>
+
+      {/* Payment History (moved from separate page) */}
+      <Paper sx={{ p: 3 }}>
+        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+          <Typography variant="h6" gutterBottom>
+            Payment History
+          </Typography>
+          <Stack direction="row" spacing={1}>
+            <Button variant="outlined" startIcon={<RefreshIcon />} onClick={() => dispatch(fetchPaymentHistory({ page: page + 1, limit: rowsPerPage }))} disabled={paymentHistory.loading}>
+              Refresh
+            </Button>
+          </Stack>
+        </Box>
+        {paymentHistory.loading ? (
+          <Box sx={{ display: 'flex', justifyContent: 'center', p: 3 }}>
+            <CircularProgress />
+          </Box>
+        ) : paymentHistory.error ? (
+          <Alert severity="error" sx={{ m: 2 }}>
+            {paymentHistory.error}
+          </Alert>
+        ) : (
+          <TableContainer>
+            <Table>
+              <TableHead>
+                <TableRow>
+                  <TableCell>Transaction ID</TableCell>
+                  <TableCell>Order</TableCell>
+                  <TableCell>Amount</TableCell>
+                  <TableCell>Method</TableCell>
+                  <TableCell>Status</TableCell>
+                  <TableCell>Date</TableCell>
+                  <TableCell>Actions</TableCell>
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {paymentHistory.data.map((payment: any) => (
+                  <TableRow key={payment._id} hover>
+                    <TableCell>
+                      <Typography variant="body2" fontFamily="monospace">
+                        {payment.transactionId || payment.paymentDetails?.transactionRef || payment._id.slice(-8)}
+                      </Typography>
+                    </TableCell>
+                    <TableCell>
+                      {payment.orderInfo && (
+                        <Box>
+                          <Typography variant="body2" fontWeight="bold">
+                            {payment.orderInfo.orderNumber}
+                          </Typography>
+                          <Typography variant="caption" color="textSecondary">
+                            {payment.orderInfo.itemCount} item(s)
+                          </Typography>
+                        </Box>
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      <Typography variant="body2" fontWeight="bold">
+                        {payment.formattedAmount || formatCurrency(payment.amount)}
+                      </Typography>
+                    </TableCell>
+                    <TableCell>
+                      <Chip label={(payment.paymentMethod || '').replace('_', ' ').toUpperCase()} size="small" variant="outlined" />
+                    </TableCell>
+                    <TableCell>
+                      <Chip label={(payment.status || '').toUpperCase()} color={getStatusColor(payment.status) as any} size="small" />
+                    </TableCell>
+                    <TableCell>
+                      <Typography variant="body2">{formatDateTime(payment.createdAt)}</Typography>
+                    </TableCell>
+                    <TableCell>
+                      <Tooltip title="View Receipt">
+                        <span>
+                          <IconButton size="small" onClick={() => handleViewReceipt(payment._id)} disabled={payment.status !== 'completed'}>
+                            <ReceiptIcon />
+                          </IconButton>
+                        </span>
+                      </Tooltip>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </TableContainer>
+        )}
+      </Paper>
+
+      {/* Receipt Dialog */}
+      <Dialog open={receiptDialog} onClose={() => setReceiptDialog(false)} maxWidth="md" fullWidth>
+        <DialogTitle>Payment Receipt</DialogTitle>
+        <DialogContent>
+          {selectedPayment && (
+            <Box sx={{ p: 2 }}>
+              <Box sx={{ display: 'grid', gap: 2 }}>
+                <Box>
+                  <Typography variant="h6" gutterBottom>Payment Information</Typography>
+                  <Typography><strong>Transaction ID:</strong> {selectedPayment.payment?.transactionId}</Typography>
+                  <Typography><strong>Amount:</strong> {selectedPayment.payment?.formattedAmount}</Typography>
+                  <Typography><strong>Status:</strong> {selectedPayment.payment?.status}</Typography>
+                  <Typography><strong>Method:</strong> {selectedPayment.payment?.paymentMethod}</Typography>
+                  <Typography><strong>Date:</strong> {selectedPayment.payment?.createdAt && formatDateTime(selectedPayment.payment.createdAt)}</Typography>
+                </Box>
+                {selectedPayment.order && (
+                  <Box>
+                    <Typography variant="h6" gutterBottom>Order Information</Typography>
+                    <Typography><strong>Order Number:</strong> {selectedPayment.order.orderNumber}</Typography>
+                    <Typography><strong>Status:</strong> {selectedPayment.order.status}</Typography>
+                    <Typography><strong>Items:</strong> {selectedPayment.order.items?.length || 0} item(s)</Typography>
+                  </Box>
+                )}
+                <Box>
+                  <Typography variant="h6" gutterBottom>Customer Information</Typography>
+                  <Typography><strong>Name:</strong> {selectedPayment.customer?.name}</Typography>
+                  <Typography><strong>Email:</strong> {selectedPayment.customer?.email}</Typography>
+                  <Typography><strong>Phone:</strong> {selectedPayment.customer?.phone}</Typography>
+                </Box>
+              </Box>
+            </Box>
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setReceiptDialog(false)}>Close</Button>
+          <Button variant="contained" startIcon={<DownloadIcon />}>
+            Download Receipt
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   );
 };

@@ -52,7 +52,8 @@ const Orders: React.FC = () => {
 
   const handlePayNow = (order: Order) => {
     setSelectedOrder(order);
-    setPhoneNumber(order.payment.paymentDetails.phoneNumber || '');
+    const fallbackPhone = (order as any)?.customer?.phoneNumber || '';
+    setPhoneNumber(order.payment?.paymentDetails?.phoneNumber || fallbackPhone);
     setOpenPaymentDialog(true);
   };
 
@@ -109,9 +110,14 @@ const Orders: React.FC = () => {
   };
 
   const getActionButtons = (order: Order) => {
-    const paymentStatus = order.payment?.status as string;
-    const orderStatus = order.status as string;
-    if (['pending', 'processing'].includes(paymentStatus) && !['cancelled', 'completed'].includes(orderStatus)) {
+    const paymentStatus = (order.payment?.status || 'pending').toLowerCase();
+    const orderStatus = (order.status || '').toLowerCase();
+
+    // Show Pay Now if order is active and payment not finalized
+    const canPay = !['cancelled', 'completed'].includes(orderStatus)
+      && !['completed', 'failed', 'refunded'].includes(paymentStatus);
+
+    if (canPay) {
       return (
         <Button
           size="small"

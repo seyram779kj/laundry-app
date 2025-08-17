@@ -59,7 +59,6 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children, title }) => {
           { text: 'Dashboard', icon: <DashboardIcon />, path: '/provider' },
           { text: 'Orders', icon: <ListIcon />, path: '/provider/orders' },
           { text: 'Earnings', icon: <EarningsIcon />, path: '/provider/earnings' },
-          { text: 'Payment History', icon: <HistoryIcon />, path: '/provider/payment-history' },
           { text: 'Availability', icon: <AvailabilityIcon />, path: '/provider/availability' },
           { text: 'Profile', icon: <PersonIcon />, path: '/provider/profile' },
           { text: 'Settings', icon: <SettingsIcon />, path: '/provider/settings' },

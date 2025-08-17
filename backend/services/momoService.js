@@ -345,6 +345,7 @@ class MoMoService {
   verifyWebhookSignature(payload, signature, secret) {
     const computedSignature = crypto
       .createHmac('sha256', secret)
+      
       .update(JSON.stringify(payload))
       .digest('hex');
     

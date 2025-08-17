@@ -352,9 +352,11 @@ const PaymentHistory: React.FC = () => {
                       </TableCell>
                       <TableCell>
                         <Tooltip title="View Receipt">
-                          <IconButton size="small" onClick={() => handleViewReceipt(payment._id)} disabled={payment.status !== 'completed'}>
-                            <ReceiptIcon />
-                          </IconButton>
+                          <span>
+                            <IconButton size="small" onClick={() => handleViewReceipt(payment._id)} disabled={payment.status !== 'completed'}>
+                              <ReceiptIcon />
+                            </IconButton>
+                          </span>
                         </Tooltip>
                       </TableCell>
                     </TableRow>

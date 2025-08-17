@@ -266,10 +266,7 @@ const ProviderOrders: React.FC = () => {
         <Typography variant="h4" gutterBottom color="primary" sx={{ mb: 0 }}>
           My Orders
         </Typography>
-        <Button variant="outlined" onClick={() => navigate('/provider/payment-history')}>
-          Payment History
-        </Button>
-      </Box>
+              </Box>
 
       {orders.length === 0 ? (
         <Paper sx={{ p: 3, textAlign: 'center', bgcolor: 'background.paper', borderRadius: 2, boxShadow: 1 }}>

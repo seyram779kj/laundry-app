@@ -30,7 +30,7 @@ const initialState: PaymentState = {
   selectedPayment: null,
 };
 
-const API_BASE_URL = 'http://localhost:5000/api';
+const API_BASE_URL = (process.env.REACT_APP_API_BASE_URL as string) || (typeof window !== 'undefined' && (window as any).API_BASE_URL) || 'http://localhost:5000/api';
 
 const authHeaders = () => ({
   'Authorization': `Bearer ${localStorage.getItem('token') || ''}`,
@@ -255,14 +255,28 @@ const paymentSlice = createSlice({
       .addCase(fetchPaymentHistory.fulfilled, (state, action) => {
         state.paymentHistory.loading = false;
         const payload = action.payload as any;
-        // Accept both paginated and flat array shapes
-        const docs = payload?.data?.docs || payload?.data || [];
-        const pagination = payload?.data?.pagination || {
-          page: payload?.data?.page,
-          pages: payload?.data?.pages,
-          total: payload?.data?.total,
-          limit: payload?.data?.limit,
+
+        // Normalize various response shapes
+        const root = payload?.data ?? payload;
+        let docs: any[] = [];
+
+        if (Array.isArray(root)) {
+          docs = root;
+        } else if (Array.isArray(root?.docs)) {
+          docs = root.docs;
+        } else if (Array.isArray(root?.data)) {
+          docs = root.data;
+        } else if (Array.isArray(payload?.docs)) {
+          docs = payload.docs;
+        }
+
+        const pagination = root?.pagination ?? {
+          page: root?.page ?? root?.currentPage ?? 1,
+          pages: root?.pages ?? root?.totalPages ?? (root?.pagination?.pages ?? 1),
+          total: root?.total ?? root?.totalDocs ?? root?.count ?? (Array.isArray(docs) ? docs.length : 0),
+          limit: root?.limit ?? root?.pageSize ?? 10,
         };
+
         state.paymentHistory.data = Array.isArray(docs) ? docs : [];
         state.paymentHistory.pagination = pagination || {};
       })

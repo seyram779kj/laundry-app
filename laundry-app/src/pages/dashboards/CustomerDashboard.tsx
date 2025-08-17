@@ -164,7 +164,7 @@ const CustomerDashboard: React.FC = () => {
       );
 
       const chatRoomId = response.data._id;
-      navigate(`/customer/chat/${chatRoomId}`);
+      navigate(`/chat/customer/${chatRoomId}`);
     } catch (err: any) {
       console.error('Error opening support chat:', err);
       setError('Failed to open support chat');
