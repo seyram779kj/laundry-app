@@ -76,6 +76,7 @@ const ProviderOrders: React.FC = () => {
   const navigate = useNavigate();
   const [confirming, setConfirming] = useState<string | null>(null);
   const [advancing, setAdvancing] = useState<string | null>(null);
+  const [confirmingItem, setConfirmingItem] = useState<string | null>(null);
 
   useEffect(() => {
     dispatch(fetchProviderOrders({ includeAvailable: true }));
@@ -159,6 +160,29 @@ const ProviderOrders: React.FC = () => {
       dispatch(setError(err?.message || 'Failed to update order status'));
     } finally {
       setAdvancing(null);
+    }
+  };
+
+  const handleConfirmItem = async (orderId: string, itemId: string) => {
+    try {
+      setConfirmingItem(itemId);
+      const token = localStorage.getItem('token');
+      const response = await axios.patch(
+        `${API_BASE_URL}/orders/${orderId}/clothing-items/${itemId}/confirm`,
+        { confirmed: true },
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+
+      if (response.data.success) {
+        dispatch(fetchProviderOrders({ includeAvailable: true }));
+      } else {
+        dispatch(setError('Failed to confirm clothing item'));
+      }
+    } catch (err: any) {
+      console.error('Confirm clothing item error:', err);
+      dispatch(setError(err.response?.data?.error || 'Failed to confirm clothing item'));
+    } finally {
+      setConfirmingItem(null);
     }
   };
 
@@ -337,7 +361,49 @@ const ProviderOrders: React.FC = () => {
                   </Typography>
 
                   <Typography variant="body2" color="text.secondary" gutterBottom>
-                    Items: {order.items.map((item) => `${item.serviceName} (${item.quantity})`).join(', ')}
+                    {/* Show individual items if available, otherwise show service summary */}
+                    {order.items.some(item => item.clothingItems && item.clothingItems.length > 0) ? (
+                      <Box>
+                        <Typography variant="subtitle2" sx={{ fontWeight: 'bold', mb: 1 }}>
+                          Individual Items:
+                        </Typography>
+                        {order.items.map((item, itemIndex) => 
+                          item.clothingItems?.map((clothingItem) => (
+                            <Box key={clothingItem.itemId} sx={{ ml: 1, mb: 1, p: 1, bgcolor: 'grey.50', borderRadius: 1 }}>
+                              <Typography variant="body2" sx={{ mb: 0.5 }}>
+                                <strong>{clothingItem.itemId}</strong>: {clothingItem.description}
+                              </Typography>
+                              <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 0.5 }}>
+                                {clothingItem.serviceName} - ¢{clothingItem.unitPrice.toFixed(2)}
+                              </Typography>
+                              <Chip
+                                label={clothingItem.isConfirmed ? 'Confirmed' : 'Pending'}
+                                size="small"
+                                color={clothingItem.isConfirmed ? 'success' : 'warning'}
+                                variant="outlined"
+                                sx={{ mr: 1 }}
+                              />
+                              {order.serviceProvider && !clothingItem.isConfirmed && (
+                                <Button
+                                  size="small"
+                                  variant="outlined"
+                                  color="primary"
+                                  onClick={() => handleConfirmItem(order._id, clothingItem.itemId)}
+                                  disabled={confirmingItem === clothingItem.itemId}
+                                  sx={{ fontSize: '0.7rem', py: 0.2, px: 1 }}
+                                >
+                                  {confirmingItem === clothingItem.itemId ? 'Confirming...' : 'Confirm Received'}
+                                </Button>
+                              )}
+                            </Box>
+                          ))
+                        )}
+                      </Box>
+                    ) : (
+                      <Typography variant="body2">
+                        Services: {order.items.map((item) => `${item.serviceName} (${item.quantity})`).join(', ')}
+                      </Typography>
+                    )}
                   </Typography>
 
                   <Typography variant="h6" color="primary" gutterBottom>

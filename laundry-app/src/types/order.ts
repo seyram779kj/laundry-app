@@ -41,6 +41,16 @@ export interface Payment {
   }>;
 }
 
+export interface ClothingItem {
+  itemId: string;
+  description: string;
+  service: string;
+  serviceName: string;
+  unitPrice: number;
+  isConfirmed?: boolean;
+  specialInstructions?: string;
+}
+
 export interface OrderItem {
   service: string;
   serviceName: string;
@@ -48,6 +58,7 @@ export interface OrderItem {
   unitPrice: number;
   totalPrice: number;
   specialInstructions?: string;
+  clothingItems?: ClothingItem[];
 }
 
 export interface Address {

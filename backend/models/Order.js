@@ -1,6 +1,42 @@
 const mongoose = require('mongoose');
 const mongoosePaginate = require('mongoose-paginate-v2');
 
+const clothingItemSchema = new mongoose.Schema({
+  itemId: {
+    type: String,
+    required: true,
+    unique: false, // Unique within the order context
+  },
+  description: {
+    type: String,
+    required: true,
+    trim: true,
+    maxlength: [100, 'Item description cannot exceed 100 characters'],
+  },
+  service: {
+    type: String, // Service ID
+    required: true,
+  },
+  serviceName: {
+    type: String,
+    required: true,
+  },
+  unitPrice: {
+    type: Number,
+    required: true,
+    min: [0, 'Unit price cannot be negative'],
+  },
+  isConfirmed: {
+    type: Boolean,
+    default: false, // Provider confirms receiving this item
+  },
+  specialInstructions: {
+    type: String,
+    trim: true,
+    maxlength: [200, 'Special instructions cannot exceed 200 characters'],
+  },
+});
+
 const orderItemSchema = new mongoose.Schema({
   service: {
     type: String, // Changed from Schema.Types.ObjectId to String
@@ -30,6 +66,8 @@ const orderItemSchema = new mongoose.Schema({
     trim: true,
     maxlength: [200, 'Special instructions cannot exceed 200 characters'],
   },
+  // Individual clothing items for this service
+  clothingItems: [clothingItemSchema],
 });
 
 const orderSchema = new mongoose.Schema({
@@ -45,7 +83,7 @@ const orderSchema = new mongoose.Schema({
   items: [orderItemSchema],
   status: {
     type: String,
-    enum: ['pending', 'confirmed', 'assigned', 'in_progress', 'ready_for_pickup', 'completed', 'cancelled'],
+    enum: ['pending', 'confirmed', 'assigned', 'in_progress', 'ready_for_pickup', 'picked_up', 'ready_for_delivery', 'completed', 'cancelled'],
     default: 'pending',
   },
   totalAmount: {
@@ -164,9 +202,9 @@ orderSchema.virtual('orderNumber').get(function () {
   return `ORD-${this._id.toString().slice(-8).toUpperCase()}`;
 });
 
-// Virtual for formatted total amount
+// Virtual for formatted total amount (Ghana Cedis)
 orderSchema.virtual('formattedTotal').get(function () {
-  return `$${this.totalAmount.toFixed(2)}`;
+  return `¢${this.totalAmount.toFixed(2)}`;
 });
 
 // Virtual for order duration in days
@@ -192,6 +230,61 @@ orderSchema.methods.updateStatus = function (newStatus, notes = '') {
     this.notes.admin = notes;
   }
   return this.save();
+};
+
+// Method to generate unique item ID
+orderSchema.methods.generateItemId = function () {
+  const orderNumber = this.orderNumber || `ORD-${this._id.toString().slice(-8).toUpperCase()}`;
+  const itemCount = this.items.reduce((total, item) => total + (item.clothingItems?.length || 0), 0);
+  return `${orderNumber}-${String(itemCount + 1).padStart(3, '0')}`;
+};
+
+// Method to add clothing item
+orderSchema.methods.addClothingItem = function (serviceId, description, specialInstructions = '') {
+  const service = this.items.find(item => item.service === serviceId);
+  if (!service) {
+    throw new Error('Service not found in order');
+  }
+  
+  const itemId = this.generateItemId();
+  const clothingItem = {
+    itemId,
+    description,
+    service: serviceId,
+    serviceName: service.serviceName,
+    unitPrice: service.unitPrice,
+    specialInstructions,
+    isConfirmed: false
+  };
+  
+  service.clothingItems = service.clothingItems || [];
+  service.clothingItems.push(clothingItem);
+  return clothingItem;
+};
+
+// Method to confirm clothing item (provider use)
+orderSchema.methods.confirmClothingItem = function (itemId, confirmed = true) {
+  for (const item of this.items) {
+    if (item.clothingItems) {
+      const clothingItem = item.clothingItems.find(ci => ci.itemId === itemId);
+      if (clothingItem) {
+        clothingItem.isConfirmed = confirmed;
+        return clothingItem;
+      }
+    }
+  }
+  throw new Error('Clothing item not found');
+};
+
+// Method to get all clothing items
+orderSchema.methods.getAllClothingItems = function () {
+  const allItems = [];
+  for (const item of this.items) {
+    if (item.clothingItems && item.clothingItems.length > 0) {
+      allItems.push(...item.clothingItems);
+    }
+  }
+  return allItems;
 };
 
 // Pre-save middleware to calculate total

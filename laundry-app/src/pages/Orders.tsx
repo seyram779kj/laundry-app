@@ -33,6 +33,7 @@ import {
   paymentStatusLabels
 } from '../types/order';
 import { formatOrderForDisplay } from '../utils/typeUtils';
+import PaystackPayment from '../components/PaystackPayment';
 
 // Use thunks from the central slice instead of local ones
 import { fetchOrdersByRole, setError } from '../features/orders/orderSlice';
@@ -40,10 +41,9 @@ import { fetchOrdersByRole, setError } from '../features/orders/orderSlice';
 const Orders: React.FC = () => {
   const dispatch = useDispatch<AppDispatch>();
   const { orders, loading, error } = useSelector((state: RootState) => state.orders || { orders: [], loading: false, error: null }, shallowEqual);
-  const [openPaymentDialog, setOpenPaymentDialog] = useState(false);
+  const [showPaystackDialog, setShowPaystackDialog] = useState(false);
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
-  const [phoneNumber, setPhoneNumber] = useState('');
-  const [paymentLoading, setPaymentLoading] = useState(false);
+  const [paymentProcessing, setPaymentProcessing] = useState(false);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -52,56 +52,31 @@ const Orders: React.FC = () => {
 
   const handlePayNow = (order: Order) => {
     setSelectedOrder(order);
-    const fallbackPhone = (order as any)?.customer?.phoneNumber || '';
-    setPhoneNumber(order.payment?.paymentDetails?.phoneNumber || fallbackPhone);
-    setOpenPaymentDialog(true);
+    setShowPaystackDialog(true);
   };
 
-  const handlePaymentSubmit = async () => {
-    if (!selectedOrder) return;
+  // Handle successful payment
+  const handlePaymentSuccess = async (reference: string) => {
+    setPaymentProcessing(false);
+    setShowPaystackDialog(false);
+    
+    // Refresh orders to show updated payment status
+    dispatch(fetchOrdersByRole('customer'));
+    
+    alert('Payment completed successfully! Your order is now confirmed.');
+  };
 
-    try {
-      setPaymentLoading(true);
-      const token = localStorage.getItem('token');
+  // Handle payment error
+  const handlePaymentError = (error: string) => {
+    setPaymentProcessing(false);
+    console.error('Payment error:', error);
+    dispatch(setError(`Payment failed: ${error}`));
+  };
 
-      // Ensure there is a payment record for this order
-      let paymentId = (selectedOrder as any).payment?._id as string | undefined;
-      if (!paymentId) {
-        const createResp = await axios.post(
-          `http://localhost:5000/api/payments`,
-          {
-            orderId: selectedOrder._id,
-            amount: selectedOrder.totalAmount,
-            paymentMethod: 'momo',
-            paymentDetails: {}
-          },
-          { headers: { Authorization: `Bearer ${token}` } }
-        );
-        if (!createResp.data?.success) {
-          throw new Error(createResp.data?.error || 'Failed to create payment');
-        }
-        paymentId = createResp.data.data._id;
-      }
-
-      // Initiate MoMo payment for the specific payment ID
-      const momoResp = await axios.post(
-        `http://localhost:5000/api/payments/${paymentId}/momo`,
-        { phoneNumber },
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
-
-      if (momoResp.data?.success) {
-        dispatch(fetchOrdersByRole('customer'));
-        setOpenPaymentDialog(false);
-      } else {
-        dispatch(setError(momoResp.data?.error || 'Failed to process payment'));
-      }
-    } catch (err: any) {
-      console.error('Payment error:', err);
-      const msg = err.response?.data?.error || err.message || 'Failed to process payment';
-      dispatch(setError(msg));
-    } finally {
-      setPaymentLoading(false);
+  // Handle payment dialog close
+  const handlePaymentDialogClose = () => {
+    if (!paymentProcessing) {
+      setShowPaystackDialog(false);
     }
   };
 
@@ -112,22 +87,29 @@ const Orders: React.FC = () => {
   const getActionButtons = (order: Order) => {
     const paymentStatus = (order.payment?.status || 'pending').toLowerCase();
     const orderStatus = (order.status || '').toLowerCase();
+    const paymentMethod = (order.payment?.paymentMethod || 'cash') as string;
 
-    // Show Pay Now if order is active and payment not finalized
+    // Show Pay Now if order is active and payment not completed
+    // Only for electronic payment methods (not cash)
     const canPay = !['cancelled', 'completed'].includes(orderStatus)
-      && !['completed', 'failed', 'refunded'].includes(paymentStatus);
+      && !['completed'].includes(paymentStatus)
+      && paymentMethod !== 'cash'
+      && ['momo', 'mobile_money', 'credit_card', 'debit_card'].includes(paymentMethod);
 
     if (canPay) {
+      const buttonText = paymentStatus === 'failed' ? 'Retry Payment' : 'Pay Now';
+      const buttonColor = paymentStatus === 'failed' ? 'warning' : 'primary';
+      
       return (
         <Button
           size="small"
           variant="contained"
-          color="primary"
+          color={buttonColor}
           onClick={() => handlePayNow(order)}
           startIcon={<CheckCircleIcon />}
           sx={{ mb: 1 }}
         >
-          Pay Now
+          {buttonText}
         </Button>
       );
     }
@@ -231,7 +213,26 @@ const Orders: React.FC = () => {
                   </Typography>
 
                   <Typography variant="body2" color="text.secondary" gutterBottom>
-                    Items: {order.items.map((item) => `${item.serviceName} (${item.quantity})`).join(', ')}
+                    {/* Show individual items if available, otherwise show service summary */}
+                    {order.items.some(item => item.clothingItems && item.clothingItems.length > 0) ? (
+                      <Box>
+                        <Typography variant="subtitle2" sx={{ fontWeight: 'bold', mb: 1 }}>
+                          Individual Items:
+                        </Typography>
+                        {order.items.map((item) => 
+                          item.clothingItems?.map((clothingItem) => (
+                            <Typography key={clothingItem.itemId} variant="body2" sx={{ ml: 1, mb: 0.5 }}>
+                              • <strong>{clothingItem.itemId}</strong>: {clothingItem.description} 
+                              ({clothingItem.serviceName}) - ¢{clothingItem.unitPrice.toFixed(2)}
+                            </Typography>
+                          ))
+                        )}
+                      </Box>
+                    ) : (
+                      <Typography variant="body2">
+                        Services: {order.items.map((item) => `${item.serviceName} (${item.quantity})`).join(', ')}
+                      </Typography>
+                    )}
                   </Typography>
 
                   <Typography variant="h6" color="primary" gutterBottom>
@@ -257,34 +258,19 @@ const Orders: React.FC = () => {
         </Box>
       )}
 
-      <Dialog open={openPaymentDialog} onClose={() => setOpenPaymentDialog(false)}>
-        <DialogTitle>Pay for Order #{selectedOrder?.orderNumber}</DialogTitle>
-        <DialogContent>
-          <TextField
-            autoFocus
-            margin="dense"
-            label="Phone Number (MoMo)"
-            fullWidth
-            value={phoneNumber}
-            onChange={(e) => setPhoneNumber(e.target.value)}
-            disabled={paymentLoading}
-          />
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setOpenPaymentDialog(false)} disabled={paymentLoading} color="primary">
-            Cancel
-          </Button>
-          <Button
-            onClick={handlePaymentSubmit}
-            variant="contained"
-            color="primary"
-            disabled={paymentLoading}
-            startIcon={paymentLoading ? <CircularProgress size={16} /> : null}
-          >
-            {paymentLoading ? 'Processing...' : 'Pay Now'}
-          </Button>
-        </DialogActions>
-      </Dialog>
+      {/* Paystack Payment Dialog */}
+      {showPaystackDialog && selectedOrder && (
+        <PaystackPayment
+          open={showPaystackDialog}
+          onClose={handlePaymentDialogClose}
+          orderId={selectedOrder._id}
+          amount={selectedOrder.totalAmount}
+          customerEmail={JSON.parse(localStorage.getItem('user') || '{}').email || ''}
+          customerName={`${JSON.parse(localStorage.getItem('user') || '{}').firstName || ''} ${JSON.parse(localStorage.getItem('user') || '{}').lastName || ''}`.trim()}
+          onPaymentSuccess={handlePaymentSuccess}
+          onPaymentError={handlePaymentError}
+        />
+      )}
     </Box>
   );
 };

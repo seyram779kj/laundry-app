@@ -209,7 +209,7 @@ const Services: React.FC = () => {
                       {service.description}
                     </Typography>
                     <Typography variant="subtitle2" color="primary">
-                      Starting at ${service.basePrice}
+                      Starting at ¢{service.basePrice}
                     </Typography>
                   </CardContent>
                 </Card>

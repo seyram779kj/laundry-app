@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   Box,
   Typography,
@@ -37,8 +37,19 @@ import {
   Smartphone,
   AttachMoney,
 } from '@mui/icons-material';
+import PaystackPayment from '../components/PaystackPayment';
 
 // Define interfaces
+interface ClothingItem {
+  itemId: string;
+  description: string;
+  service: string;
+  serviceName: string;
+  unitPrice: number;
+  isConfirmed?: boolean;
+  specialInstructions?: string;
+}
+
 interface Service {
   _id: string;
   id?: string;
@@ -55,6 +66,7 @@ interface Service {
   quantity?: number;
   icon?: string;
   specialInstructions?: string;
+  clothingItems?: ClothingItem[];
 }
 
 interface OrderData {
@@ -109,6 +121,11 @@ const NewOrderPage = () => {
     momoPhone: '',
     momoNetwork: 'mtn',
   });
+
+  // Paystack payment dialog state
+  const [showPaystackDialog, setShowPaystackDialog] = useState(false);
+  const [createdOrderId, setCreatedOrderId] = useState<string | null>(null);
+  const [paymentProcessing, setPaymentProcessing] = useState(false);
 
   const getServiceIcon = (category: string): string => {
     switch (category) {
@@ -176,9 +193,17 @@ const NewOrderPage = () => {
     { title: 'Order Summary', icon: <CheckCircle /> },
   ];
 
-  // Calculate totals
+  // Calculate totals based on individual clothing items
   const calculateSubtotal = () => {
-    return selectedServices.reduce((sum, service) => sum + (service.price || 0) * (service.quantity || 0), 0);
+    return selectedServices.reduce((sum, service) => {
+      if (service.clothingItems && service.clothingItems.length > 0) {
+        // Calculate based on individual items
+        return sum + service.clothingItems.reduce((itemSum, item) => itemSum + (item.unitPrice || 0), 0);
+      } else {
+        // Fallback to quantity-based calculation
+        return sum + (service.price || 0) * (service.quantity || 0);
+      }
+    }, 0);
   };
 
   const calculateTax = (subtotal: number) => subtotal * 0.1;
@@ -198,7 +223,9 @@ const NewOrderPage = () => {
     if (activeStep > 0) setActiveStep(activeStep - 1);
   };
 
+  // Legacy handlers - kept for backward compatibility if needed
   const handleServiceQuantityChange = (service: Service, change: number) => {
+    // This is now mainly used for fallback scenarios
     const serviceId = service._id || service.id;
     const selectedService = selectedServices.find((s) => (s._id || s.id) === serviceId);
     const currentQuantity = selectedService?.quantity || 0;
@@ -214,52 +241,6 @@ const NewOrderPage = () => {
       setSelectedServices((prev) => [...prev, { ...service, quantity: newQuantity, price: service.basePrice || service.price || 0, icon: getServiceIcon(service.category) }]);
     }
   };
-
-const handleServiceSelect = (service: Service, quantity: number) => {
-  // Ensure serviceId is a string, using _id first, then id, or a fallback
-  const serviceId = service._id || service.id || `fallback-${Date.now()}`; // Fallback to avoid undefined
-
-  const existingIndex = selectedServices.findIndex(s => s._id === serviceId);
-
-  if (existingIndex >= 0) {
-    // Update existing service
-    setSelectedServices((prev) =>
-      prev.map((s, index) =>
-        index === existingIndex
-          ? {
-              ...service,
-              _id: serviceId,
-              quantity,
-              price: service.basePrice || service.price || 0,
-              icon: getServiceIcon(service.category),
-            }
-          : s
-      )
-    );
-  } else {
-    // Add new service
-    const newService: Service = {
-      ...service,
-      _id: serviceId,
-      quantity,
-      price: service.basePrice || service.price || 0,
-      icon: getServiceIcon(service.category),
-      // Ensure all required Service properties are included
-      name: service.name,
-      description: service.description,
-      category: service.category,
-      // Optional properties can remain as-is or be explicitly set
-      id: service.id,
-      imageUrl: service.imageUrl,
-      estimatedTime: service.estimatedTime,
-      requirements: service.requirements,
-      isActive: service.isActive,
-      isAvailable: service.isAvailable,
-      specialInstructions: service.specialInstructions,
-    };
-    setSelectedServices([...selectedServices, newService]);
-  }
-};
 
   const copyPickupToDelivery = () => {
     setOrderData((prev) => ({
@@ -295,15 +276,19 @@ const handleServiceSelect = (service: Service, quantity: number) => {
       const deliveryFee = orderData.isUrgent ? 10 : 5;
       const totalAmount = subtotal + tax + deliveryFee;
 
-      // Prepare order data
+      // Prepare order data with individual clothing items
       const orderPayload = {
         items: selectedServices.map((service) => ({
           service: service._id || service.id, // Use _id first, fallback to id
           serviceName: service.name,
           quantity: service.quantity || 0,
-          unitPrice: service.price || 0,
-          totalPrice: (service.price || 0) * (service.quantity || 0),
-          specialInstructions: service.specialInstructions || ''
+          unitPrice: service.price || service.basePrice || 0,
+          totalPrice: service.clothingItems && service.clothingItems.length > 0
+            ? service.clothingItems.reduce((sum, item) => sum + (item.unitPrice || 0), 0)
+            : (service.price || service.basePrice || 0) * (service.quantity || 0),
+          specialInstructions: service.specialInstructions || '',
+          // Include individual clothing items
+          clothingItems: service.clothingItems || []
         })),
         pickupAddress: {
           type: orderData.pickupAddress.type || 'home',
@@ -355,26 +340,19 @@ const handleServiceSelect = (service: Service, quantity: number) => {
         throw new Error(result.error || 'Failed to submit order');
       }
 
-      alert('Order submitted successfully!');
       console.log('Order created:', result.data);
+      const createdOrder = result.data;
 
-      // Reset form
-      setOrderData({
-        items: [],
-        pickupAddress: { type: 'home', street: '', city: '', state: '', zipCode: '', instructions: '' },
-        deliveryAddress: { type: 'home', street: '', city: '', state: '', zipCode: '', instructions: '' },
-        pickupDate: '',
-        deliveryDate: '',
-        paymentMethod: '',
-        paymentTiming: 'before_pickup',
-        specialInstructions: '',
-        isUrgent: false,
-        priority: 'normal',
-        momoPhone: '',
-        momoNetwork: 'mtn',
-      });
-      setSelectedServices([]);
-      setActiveStep(0);
+      // Check if payment method requires immediate payment (mobile money or card)
+      if (orderData.paymentMethod === 'momo' || orderData.paymentMethod === 'mobile_money' || orderData.paymentMethod === 'credit_card') {
+        // Store order ID and show payment dialog
+        setCreatedOrderId(createdOrder._id);
+        setShowPaystackDialog(true);
+      } else {
+        // For cash payments, just show success message
+        alert('Order submitted successfully! You can track its progress in the Orders section.');
+        resetForm();
+      }
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
       console.error('Order submission error:', errorMessage, error);
@@ -382,6 +360,69 @@ const handleServiceSelect = (service: Service, quantity: number) => {
       alert(`Failed to submit order: ${errorMessage}`);
     } finally {
       setLoading(false);
+    }
+  };
+
+  // Reset form to initial state
+  const resetForm = () => {
+    setOrderData({
+      items: [],
+      pickupAddress: { type: 'home', street: '', city: '', state: '', zipCode: '', instructions: '' },
+      deliveryAddress: { type: 'home', street: '', city: '', state: '', zipCode: '', instructions: '' },
+      pickupDate: '',
+      deliveryDate: '',
+      paymentMethod: '',
+      paymentTiming: 'before_pickup',
+      specialInstructions: '',
+      isUrgent: false,
+      priority: 'normal',
+      momoPhone: '',
+      momoNetwork: 'mtn',
+    });
+    setSelectedServices([]);
+    setActiveStep(0);
+    setCreatedOrderId(null);
+    setShowPaystackDialog(false);
+  };
+
+  // Handle successful payment
+  const handlePaymentSuccess = async (reference: string) => {
+    setPaymentProcessing(false);
+    setShowPaystackDialog(false);
+    
+    alert('Payment completed successfully! Your order is now confirmed.');
+    
+    // Navigate to orders page to show the confirmed order
+    const navigate = () => {
+      window.location.href = '/orders';
+    };
+    navigate();
+    
+    resetForm();
+  };
+
+  // Handle payment error
+  const handlePaymentError = (error: string) => {
+    setPaymentProcessing(false);
+    console.error('Payment error:', error);
+    alert(`Payment failed: ${error}. You can retry payment from the Orders page.`);
+    
+    // Still navigate to orders page so user can see their order
+    const navigate = () => {
+      window.location.href = '/orders';
+    };
+    navigate();
+  };
+
+  // Handle payment dialog close
+  const handlePaymentDialogClose = () => {
+    if (!paymentProcessing) {
+      setShowPaystackDialog(false);
+      // Navigate to orders page
+      const navigate = () => {
+        window.location.href = '/orders';
+      };
+      navigate();
     }
   };
 
@@ -398,105 +439,280 @@ const handleServiceSelect = (service: Service, quantity: number) => {
     </Box>
   );
 
-  // Service Selection Component
-  const ServiceSelectionStep = () => (
-    <Box sx={{ py: 4 }}>
-      <Typography variant="h2" align="center" gutterBottom>
-        Select Your Services
-      </Typography>
-      <Typography variant="body1" align="center" color="text.secondary" sx={{ mb: 4 }}>
-        Choose the laundry services you need
-      </Typography>
-      {error && (
-        <Alert severity="error" sx={{ mb: 4 }}>
-          {error}
-        </Alert>
-      )}
-      {loading && (
-        <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
-          <CircularProgress />
-        </Box>
-      )}
-      {!loading && services.length === 0 && !error && (
-        <Alert severity="warning" sx={{ mb: 4 }}>
-          No services available. Please try again later.
-        </Alert>
-      )}
-      {!loading && services.length > 0 && (
-        <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 2, justifyContent: 'center' }}>
-          {services.map((service) => {
-            const selectedService = selectedServices.find((s) => (s._id || s.id) === (service._id || service.id));
-            const quantity = selectedService?.quantity || 0;
-            return (
-              <Card key={service._id || service.id} sx={{ width: 300, transition: 'transform 0.3s', '&:hover': { transform: 'translateY(-4px)' } }}>
-                <CardMedia component="img" height="160" image={service.imageUrl || 'https://via.placeholder.com/300x200'} alt={service.name} />
-                <CardContent>
-                  <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
-                    <Box sx={{ bgcolor: 'primary.light', p: 1, borderRadius: '50%', mr: 2 }}>{service.icon}</Box>
-                    <Typography variant="h6">{service.name}</Typography>
-                  </Box>
-                  <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-                    {service.description}
-                  </Typography>
-                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-                    <Typography variant="h6" color="primary">
-                      ${(service.price || 0).toFixed(2)}
-                    </Typography>
-                    <Box sx={{ bgcolor: 'success.light', color: 'success.main', px: 2, py: 1, borderRadius: 4, fontSize: '0.75rem' }}>
-                      {service.estimatedTime || 'Unknown'}
-                    </Box>
-                  </Box>
-                  <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 2 }}>
-                    <IconButton
-                      onClick={() => handleServiceQuantityChange(service, -1)}
-                      disabled={quantity === 0}
-                      sx={{ bgcolor: 'grey.200', '&:hover': { bgcolor: 'grey.300' } }}
-                    >
-                      <Remove />
-                    </IconButton>
-                    <Typography variant="body1" sx={{ minWidth: 32, textAlign: 'center' }}>
-                      {quantity}
-                    </Typography>
-                    <IconButton
-                      onClick={() => handleServiceQuantityChange(service, 1)}
-                      sx={{ bgcolor: 'primary.main', color: 'white', '&:hover': { bgcolor: 'primary.dark' } }}
-                      disabled={selectedServices.length >= 1 && !selectedService}
-                    >
-                      <Add />
-                    </IconButton>
-                  </Box>
-                </CardContent>
-              </Card>
-            );
-          })}
-        </Box>
-      )}
-      {selectedServices.length > 0 && (
-        <Card sx={{ mt: 4, p: 3 }}>
-          <Typography variant="h5" gutterBottom>
-            Selected Services
-          </Typography>
-          {selectedServices.map((service) => (
-            <Box key={service._id || service.id} sx={{ display: 'flex', justifyContent: 'space-between', py: 1 }}>
-              <Typography>{service.name} × {service.quantity}</Typography>
-              <Typography color="primary">${((service.price || 0) * (service.quantity || 0)).toFixed(2)}</Typography>
-            </Box>
-          ))}
-          <Box sx={{ borderTop: 1, borderColor: 'divider', pt: 2, mt: 2 }}>
-            <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-              <Typography variant="h6">Subtotal:</Typography>
-              <Typography variant="h6" color="primary">
-                ${calculateSubtotal().toFixed(2)}
-              </Typography>
-            </Box>
+  // Service Selection Step as a separate component (so its hooks don't affect parent hook order)
+  const ServiceSelectionStep: React.FC<{
+    services: Service[];
+    selectedServices: Service[];
+    setSelectedServices: React.Dispatch<React.SetStateAction<Service[]>>;
+    error: string | null;
+    loading: boolean;
+    calculateSubtotal: () => number;
+  }> = ({ services, selectedServices, setSelectedServices, error, loading, calculateSubtotal }) => {
+    const [selectedServiceId, setSelectedServiceId] = useState<string | null>(null);
+    const [newItemDescription, setNewItemDescription] = useState('');
+    const [newItemInstructions, setNewItemInstructions] = useState('');
+    const descriptionInputRef = useRef<HTMLInputElement | null>(null);
+
+    const handleAddIndividualItem = () => {
+      if (!selectedServiceId || !newItemDescription.trim()) return;
+
+      const service = services.find(s => s._id === selectedServiceId);
+      if (!service) return;
+
+      const existingServiceIndex = selectedServices.findIndex(s => s._id === selectedServiceId);
+      const tempItemId = `TEMP-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+      
+      const newClothingItem = {
+        itemId: tempItemId,
+        description: newItemDescription.trim(),
+        service: selectedServiceId,
+        serviceName: service.name,
+        unitPrice: service.basePrice || service.price || 0,
+        specialInstructions: newItemInstructions.trim(),
+        isConfirmed: false
+      };
+
+      if (existingServiceIndex >= 0) {
+        // Add to existing service
+        const updatedServices = [...selectedServices];
+        if (!updatedServices[existingServiceIndex].clothingItems) {
+          updatedServices[existingServiceIndex].clothingItems = [];
+        }
+        updatedServices[existingServiceIndex].clothingItems!.push(newClothingItem);
+        updatedServices[existingServiceIndex].quantity = updatedServices[existingServiceIndex].clothingItems!.length;
+        setSelectedServices(updatedServices);
+      } else {
+        // Create new service with this item
+        const newService: Service = {
+          ...service,
+          quantity: 1,
+          clothingItems: [newClothingItem]
+        };
+        setSelectedServices([...selectedServices, newService]);
+      }
+
+      setNewItemDescription('');
+      setNewItemInstructions('');
+      // Re-focus description for quick multi-add
+      setTimeout(() => descriptionInputRef.current?.focus(), 0);
+    };
+
+    const handleRemoveItem = (serviceId: string, itemId: string) => {
+      const updatedServices = selectedServices.map(service => {
+        if (service._id === serviceId && service.clothingItems) {
+          const filteredItems = service.clothingItems.filter(item => item.itemId !== itemId);
+          return {
+            ...service,
+            clothingItems: filteredItems,
+            quantity: filteredItems.length
+          };
+        }
+        return service;
+      }).filter(service => (service.quantity ?? 0) > 0);
+      
+      setSelectedServices(updatedServices);
+    };
+
+    const getTotalItemsCount = () => {
+      return selectedServices.reduce((total, service) => {
+        return total + (service.clothingItems?.length || 0);
+      }, 0);
+    };
+
+    return (
+      <Box sx={{ py: 4 }}>
+        <Typography variant="h2" align="center" gutterBottom>
+          Add Your Clothing Items
+        </Typography>
+        <Typography variant="body1" align="center" color="text.secondary" sx={{ mb: 4 }}>
+          Select a service and add each clothing item individually for precise tracking
+        </Typography>
+        
+        {error && (
+          <Alert severity="error" sx={{ mb: 4 }}>
+            {error}
+          </Alert>
+        )}
+
+        {loading && (
+          <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
+            <CircularProgress />
           </Box>
-        </Card>
-      )}
-    </Box>
-  );
+        )}
+
+        {!loading && services.length === 0 && !error && (
+          <Alert severity="warning" sx={{ mb: 4 }}>
+            No services available. Please try again later.
+          </Alert>
+        )}
+
+        {!loading && services.length > 0 && (
+          <>
+            {/* Service Selection */}
+            <Card sx={{ mb: 4, p: 3 }}>
+              <Typography variant="h5" gutterBottom>
+                Step 1: Choose a Service
+              </Typography>
+              <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 2 }}>
+                {services.map((service) => (
+                  <Card 
+                    key={service._id || service.id} 
+                    sx={{ 
+                      width: 280, 
+                      cursor: 'pointer',
+                      border: selectedServiceId === service._id ? 2 : 1,
+                      borderColor: selectedServiceId === service._id ? 'primary.main' : 'divider',
+                      transition: 'all 0.3s',
+                      '&:hover': { transform: 'translateY(-2px)', boxShadow: 3 }
+                    }}
+                    onClick={() => setSelectedServiceId(service._id)}
+                  >
+                    <CardContent>
+                      <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
+                        <Box sx={{ bgcolor: 'primary.light', p: 1, borderRadius: '50%', mr: 2 }}>
+                          {service.icon}
+                        </Box>
+                        <Typography variant="h6">{service.name}</Typography>
+                      </Box>
+                      <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                        {service.description}
+                      </Typography>
+                      <Typography variant="h6" color="primary">
+                        ¢{(service.basePrice || service.price || 0).toFixed(2)} per item
+                      </Typography>
+                      {service.estimatedTime && (
+                        <Box sx={{ bgcolor: 'success.light', color: 'success.main', px: 2, py: 1, borderRadius: 4, fontSize: '0.75rem', mt: 1, display: 'inline-block' }}>
+                          {service.estimatedTime}
+                        </Box>
+                      )}
+                    </CardContent>
+                  </Card>
+                ))}
+              </Box>
+            </Card>
+
+            {/* Item Entry */}
+            {selectedServiceId && (
+              <Card sx={{ mb: 4, p: 3 }}>
+                <Typography variant="h5" gutterBottom>
+                  Step 2: Add Individual Items
+                </Typography>
+                <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
+                  Selected Service: <strong>{services.find(s => s._id === selectedServiceId)?.name}</strong>
+                </Typography>
+                
+                <Box sx={{ display: 'flex', gap: 2, mb: 2, flexWrap: 'wrap' }}>
+                  <TextField
+                    inputRef={descriptionInputRef}
+                    label="Item Description"
+                    placeholder="e.g., Blue cotton shirt, Black jeans"
+                    value={newItemDescription}
+                    onChange={(e) => setNewItemDescription(e.target.value)}
+                    sx={{ minWidth: 300, flex: 1 }}
+                    required
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' && newItemDescription.trim()) {
+                        e.preventDefault();
+                        handleAddIndividualItem();
+                      }
+                    }}
+                  />
+                  <TextField
+                    label="Special Instructions (Optional)"
+                    placeholder="e.g., Handle with care, No bleach"
+                    value={newItemInstructions}
+                    onChange={(e) => setNewItemInstructions(e.target.value)}
+                    sx={{ minWidth: 250, flex: 1 }}
+                  />
+                  <Button
+                    variant="contained"
+                    onClick={handleAddIndividualItem}
+                    disabled={!newItemDescription.trim()}
+                    sx={{ minHeight: 56 }}
+                  >
+                    Add Item
+                  </Button>
+                  <Button
+                    variant="outlined"
+                    onClick={() => {
+                      setNewItemDescription('');
+                      setNewItemInstructions('');
+                      setTimeout(() => descriptionInputRef.current?.focus(), 0);
+                    }}
+                    sx={{ minHeight: 56 }}
+                  >
+                    Add Another
+                  </Button>
+                </Box>
+              </Card>
+            )}
+
+            {/* Selected Items Summary */}
+            {selectedServices.length > 0 && (
+              <Card sx={{ mt: 4, p: 3 }}>
+                <Typography variant="h5" gutterBottom>
+                  Your Items ({getTotalItemsCount()} total)
+                </Typography>
+                {selectedServices.map((service) => (
+                  <Box key={service._id || service.id} sx={{ mb: 3 }}>
+                    <Typography variant="h6" color="primary" sx={{ mb: 2 }}>
+                      {service.name} - ¢{(service.basePrice || service.price || 0).toFixed(2)} each
+                    </Typography>
+                    {service.clothingItems?.map((item) => (
+                      <Box key={item.itemId} sx={{ 
+                        display: 'flex', 
+                        justifyContent: 'space-between', 
+                        alignItems: 'center',
+                        py: 1, 
+                        px: 2, 
+                        mb: 1, 
+                        bgcolor: 'grey.50', 
+                        borderRadius: 1 
+                      }}>
+                        <Box>
+                          <Typography variant="body1" sx={{ fontWeight: 'medium' }}>
+                            {item.itemId}: {item.description}
+                          </Typography>
+                          {item.specialInstructions && (
+                            <Typography variant="caption" color="text.secondary">
+                              Instructions: {item.specialInstructions}
+                            </Typography>
+                          )}
+                        </Box>
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                          <Typography variant="body2" color="primary" sx={{ fontWeight: 'bold' }}>
+                            ¢{item.unitPrice.toFixed(2)}
+                          </Typography>
+                          <IconButton
+                            size="small"
+                            onClick={() => handleRemoveItem((service._id || service.id) as string, item.itemId)}
+                            sx={{ color: 'error.main' }}
+                          >
+                            <Remove />
+                          </IconButton>
+                        </Box>
+                      </Box>
+                    ))}
+                  </Box>
+                ))}
+                <Box sx={{ borderTop: 1, borderColor: 'divider', pt: 2, mt: 2 }}>
+                  <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                    <Typography variant="h6">Subtotal ({getTotalItemsCount()} items):</Typography>
+                    <Typography variant="h6" color="primary">
+                      ¢{calculateSubtotal().toFixed(2)}
+                    </Typography>
+                  </Box>
+                </Box>
+              </Card>
+            )}
+          </>
+        )}
+      </Box>
+    );
+  };
 
   // Address Selection Component
-  const AddressSelectionStep = () => (
+  const renderAddressSelectionStep = () => (
     <Box sx={{ py: 4 }}>
       <Typography variant="h2" align="center" gutterBottom>
         Pickup & Delivery Details
@@ -713,14 +929,14 @@ const handleServiceSelect = (service: Service, quantity: number) => {
           </Box>
           <FormControlLabel
             control={<Checkbox checked={orderData.isUrgent} onChange={(e) => setOrderData((prev) => ({ ...prev, isUrgent: e.target.checked }))} />}
-            label="Urgent Service (+$10.00)"
+            label="Urgent Service (+¢10.00)"
           />
         </Box>
       </Card>
     </Box>
   );
 
-  const PaymentSelectionStep = () => (
+  const renderPaymentSelectionStep = () => (
     <Box sx={{ py: 4 }}>
       <Typography variant="h2" align="center" gutterBottom>
         Payment Details
@@ -836,7 +1052,7 @@ const handleServiceSelect = (service: Service, quantity: number) => {
     </Box>
   );
 
-  const OrderSummaryStep = () => (
+  const renderOrderSummaryStep = () => (
     <Box sx={{ py: 4 }}>
       <Typography variant="h2" align="center" gutterBottom>
         Order Summary
@@ -846,20 +1062,61 @@ const handleServiceSelect = (service: Service, quantity: number) => {
       </Typography>
       <Card sx={{ mb: 4, p: 3 }}>
         <Typography variant="h5" gutterBottom>
-          Selected Services
+          Your Items
         </Typography>
         {selectedServices.map((service) => (
-          <Box key={service._id || service.id} sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', p: 2, bgcolor: 'grey.50', borderRadius: 2, mb: 1 }}>
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+          <Box key={service._id || service.id} sx={{ mb: 3 }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 2 }}>
               <Box sx={{ bgcolor: 'primary.light', p: 1, borderRadius: '50%' }}>{service.icon}</Box>
-              <Box>
-                <Typography>{service.name}</Typography>
+              <Typography variant="h6" color="primary">{service.name}</Typography>
+            </Box>
+            
+            {service.clothingItems && service.clothingItems.length > 0 ? (
+              // Show individual clothing items
+              <Box sx={{ ml: 3 }}>
+                {service.clothingItems.map((item) => (
+                  <Box key={item.itemId} sx={{ 
+                    display: 'flex', 
+                    justifyContent: 'space-between', 
+                    alignItems: 'center',
+                    py: 1, 
+                    px: 2, 
+                    mb: 1, 
+                    bgcolor: 'grey.50', 
+                    borderRadius: 1 
+                  }}>
+                    <Box>
+                      <Typography variant="body2" sx={{ fontWeight: 'medium' }}>
+                        {item.itemId}: {item.description}
+                      </Typography>
+                      {item.specialInstructions && (
+                        <Typography variant="caption" color="text.secondary">
+                          Instructions: {item.specialInstructions}
+                        </Typography>
+                      )}
+                    </Box>
+                    <Typography variant="body2" color="primary" sx={{ fontWeight: 'bold' }}>
+                      ¢{item.unitPrice.toFixed(2)}
+                    </Typography>
+                  </Box>
+                ))}
+                <Box sx={{ textAlign: 'right', mt: 1, pt: 1, borderTop: '1px solid', borderColor: 'divider' }}>
+                  <Typography variant="subtitle2" color="primary">
+                    Service Total: ¢{service.clothingItems.reduce((sum, item) => sum + (item.unitPrice || 0), 0).toFixed(2)}
+                  </Typography>
+                </Box>
+              </Box>
+            ) : (
+              // Fallback to quantity display
+              <Box sx={{ ml: 3 }}>
                 <Typography variant="body2" color="text.secondary">
-                  Quantity: {service.quantity} × ${service.price?.toFixed(2)}
+                  Quantity: {service.quantity} × ¢{(service.price || service.basePrice || 0).toFixed(2)}
+                </Typography>
+                <Typography variant="subtitle2" color="primary">
+                  Total: ¢{((service.price || service.basePrice || 0) * (service.quantity || 0)).toFixed(2)}
                 </Typography>
               </Box>
-            </Box>
-            <Typography color="primary">${((service.price || 0) * (service.quantity || 0)).toFixed(2)}</Typography>
+            )}
           </Box>
         ))}
       </Card>
@@ -924,15 +1181,15 @@ const handleServiceSelect = (service: Service, quantity: number) => {
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
           <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
             <Typography>Subtotal:</Typography>
-            <Typography>${calculateSubtotal().toFixed(2)}</Typography>
+            <Typography>¢{calculateSubtotal().toFixed(2)}</Typography>
           </Box>
           <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
             <Typography>Tax (10%):</Typography>
-            <Typography>${calculateTax(calculateSubtotal()).toFixed(2)}</Typography>
+            <Typography>¢{calculateTax(calculateSubtotal()).toFixed(2)}</Typography>
           </Box>
           <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
             <Typography>Delivery Fee:</Typography>
-            <Typography>${orderData.isUrgent ? '10.00' : '5.00'}</Typography>
+            <Typography>¢{orderData.isUrgent ? '10.00' : '5.00'}</Typography>
           </Box>
           {orderData.isUrgent && (
             <Box sx={{ display: 'flex', justifyContent: 'space-between', color: 'warning.main' }}>
@@ -943,7 +1200,7 @@ const handleServiceSelect = (service: Service, quantity: number) => {
           <Box sx={{ borderTop: 1, borderColor: 'divider', pt: 2, mt: 2, display: 'flex', justifyContent: 'space-between' }}>
             <Typography variant="h6">Total:</Typography>
             <Typography variant="h6" color="primary">
-              ${calculateTotal().toFixed(2)}
+              ¢{calculateTotal().toFixed(2)}
             </Typography>
           </Box>
         </Box>
@@ -954,7 +1211,10 @@ const handleServiceSelect = (service: Service, quantity: number) => {
   const canProceed = () => {
     switch (activeStep) {
       case 0:
-        return selectedServices.length > 0;
+        // Check if we have any items (either individual clothing items or quantity-based)
+        return selectedServices.length > 0 && selectedServices.some(service => {
+          return (service.clothingItems && service.clothingItems.length > 0) || (service.quantity && service.quantity > 0);
+        });
       case 1:
         return (
           orderData.pickupAddress.street &&
@@ -985,6 +1245,7 @@ const handleServiceSelect = (service: Service, quantity: number) => {
       </Typography>
       <StepperComponent />
       {renderStepContent()}
+      {/* Debug: keep hook order stable by avoiding early returns in renderStepContent */}
       <Box sx={{ display: 'flex', justifyContent: 'space-between', mt: 4 }}>
         <Button
           variant="outlined"
@@ -1018,21 +1279,53 @@ const handleServiceSelect = (service: Service, quantity: number) => {
           )}
         </Box>
       </Box>
+
+      {/* Paystack Payment Dialog */}
+      {showPaystackDialog && createdOrderId && (
+        <PaystackPayment
+          open={showPaystackDialog}
+          onClose={handlePaymentDialogClose}
+          orderId={createdOrderId}
+          amount={calculateTotal()}
+          customerEmail={JSON.parse(localStorage.getItem('user') || '{}').email || ''}
+          customerName={`${JSON.parse(localStorage.getItem('user') || '{}').firstName || ''} ${JSON.parse(localStorage.getItem('user') || '{}').lastName || ''}`.trim()}
+          onPaymentSuccess={handlePaymentSuccess}
+          onPaymentError={handlePaymentError}
+        />
+      )}
     </Container>
   );
 
   function renderStepContent() {
     switch (activeStep) {
       case 0:
-        return <ServiceSelectionStep />;
+        return (
+          <ServiceSelectionStep
+            services={services}
+            selectedServices={selectedServices}
+            setSelectedServices={setSelectedServices}
+            error={error}
+            loading={loading}
+            calculateSubtotal={calculateSubtotal}
+          />
+        );
       case 1:
-        return <AddressSelectionStep />;
+        return renderAddressSelectionStep();
       case 2:
-        return <PaymentSelectionStep />;
+        return renderPaymentSelectionStep();
       case 3:
-        return <OrderSummaryStep />;
+        return renderOrderSummaryStep();
       default:
-        return <ServiceSelectionStep />;
+        return (
+          <ServiceSelectionStep
+            services={services}
+            selectedServices={selectedServices}
+            setSelectedServices={setSelectedServices}
+            error={error}
+            loading={loading}
+            calculateSubtotal={calculateSubtotal}
+          />
+        );
     }
   }
 };

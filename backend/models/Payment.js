@@ -25,11 +25,29 @@ const paymentSchema = new mongoose.Schema({
   paymentMethod: {
     type: String,
     required: true,
-    enum: ['credit_card', 'debit_card', 'bank_transfer', 'cash', 'digital_wallet', 'momo']
+    enum: ['credit_card', 'debit_card', 'bank_transfer', 'cash', 'digital_wallet', 'momo', 'mobile_money']
   },
   paymentDetails: {
     type: mongoose.Schema.Types.Mixed,
     default: {}
+  },
+  // Paystack-specific fields
+  reference: {
+    type: String,
+    unique: true,
+    sparse: true
+  },
+  paystackData: {
+    access_code: String,
+    authorization_url: String,
+    reference: String,
+    transaction_id: String,
+    gateway_response: String,
+    channel: String, // mobile_money, card, bank, etc.
+    authorization: mongoose.Schema.Types.Mixed,
+    verified_at: Date,
+    webhook_verified_at: Date,
+    failed_at: Date
   },
   status: {
     type: String,
@@ -41,6 +59,10 @@ const paymentSchema = new mongoose.Schema({
     type: String,
     unique: true,
     sparse: true
+  },
+  // Add paidAt field
+  paidAt: {
+    type: Date
   },
   processedAt: {
     type: Date

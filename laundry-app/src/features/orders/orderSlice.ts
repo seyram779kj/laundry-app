@@ -161,7 +161,7 @@ export const updateOrderStatus = createAsyncThunk(
     }
 
     const response = await fetch(`${API_BASE_URL}/orders/${orderId}/status`, {
-      method: 'PATCH',
+      method: 'PUT',
       headers: getAuthHeaders(),
       body: JSON.stringify(payload),
     });
@@ -171,7 +171,8 @@ export const updateOrderStatus = createAsyncThunk(
       throw new Error(errorData.error || 'Failed to update order status');
     }
     
-    return response.json();
+    const result = await response.json();
+    return result.data;
   }
 );
 
@@ -257,12 +258,13 @@ const orderSlice = createSlice({
       })
       // Update Order Status
       .addCase(updateOrderStatus.fulfilled, (state, action) => {
-        const index = state.orders.findIndex((order) => order._id === action.payload._id);
+        const updated = action.payload;
+        const index = state.orders.findIndex((order) => order._id === updated._id);
         if (index !== -1) {
-          state.orders[index] = action.payload;
+          state.orders[index] = { ...state.orders[index], ...updated };
         }
-        if (state.currentOrder?._id === action.payload._id) {
-          state.currentOrder = action.payload;
+        if (state.currentOrder?._id === updated._id) {
+          state.currentOrder = { ...state.currentOrder, ...updated } as any;
         }
       });
   },

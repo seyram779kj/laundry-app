@@ -4,6 +4,7 @@ const Order = require('../models/Order');
 const { protect, admin, serviceProvider, customer } = require('../middleware/auth');
 const Payment = require('../models/Payment'); // Import Payment model
 const OrderTracking = require('../models/OrderTracking'); // Import OrderTracking model
+const { sendOrderStatusEmail } = require('../services/emailService'); // Import email service
 
 // Get all orders (with filtering)
 router.get('/', protect, async (req, res) => {
@@ -286,7 +287,7 @@ router.put('/:id/status', protect, async (req, res) => {
     const { status } = req.body;
     
     // Validate status
-    const validStatuses = ['pending', 'confirmed', 'assigned', 'in_progress', 'ready_for_pickup', 'completed', 'cancelled'];
+    const validStatuses = ['pending', 'confirmed', 'assigned', 'in_progress', 'ready_for_pickup', 'picked_up', 'ready_for_delivery', 'completed', 'cancelled'];
     if (!validStatuses.includes(status)) {
       return res.status(400).json({ 
         success: false, 
@@ -320,7 +321,9 @@ router.put('/:id/status', protect, async (req, res) => {
       confirmed: ['assigned', 'in_progress', 'cancelled'],
       assigned: ['confirmed', 'in_progress', 'cancelled'],
       in_progress: ['ready_for_pickup', 'cancelled'],
-      ready_for_pickup: ['completed', 'cancelled'],
+      ready_for_pickup: ['picked_up', 'cancelled'],
+      picked_up: ['ready_for_delivery', 'cancelled'],
+      ready_for_delivery: ['completed', 'cancelled'],
       completed: [],
       cancelled: [],
     };
@@ -332,6 +335,9 @@ router.put('/:id/status', protect, async (req, res) => {
       });
     }
 
+    // Store old status for email notification
+    const oldStatus = order.status;
+    
     // Update the order
     order.status = status;
     
@@ -352,20 +358,54 @@ router.put('/:id/status', protect, async (req, res) => {
     // Find or create OrderTracking document and update location/status
     let tracking = await OrderTracking.findOne({ order: order._id });
     if (!tracking) tracking = new OrderTracking({ order: order._id });
-    await tracking.updateLocation(status, req.body.notes, req.user.id);
+
+    // Map order status to tracking currentLocation enum
+    const statusToTracking = {
+      pending: 'pending',
+      confirmed: 'pickup_scheduled',
+      assigned: 'in_transit_to_facility',
+      in_progress: 'cleaning',
+      ready_for_pickup: 'at_facility',
+      picked_up: 'picked_up',
+      ready_for_delivery: 'ready_for_delivery',
+      completed: 'delivered',
+      cancelled: 'pending', // neutral fallback
+    };
+    const trackingLocation = statusToTracking[status] || 'pending';
+    await tracking.updateLocation(trackingLocation, req.body.notes, req.user.id);
     // Populate the order with user details
     await order.populate([
       { path: 'customer', select: 'firstName lastName email phoneNumber' },
       { path: 'serviceProvider', select: 'firstName lastName email phoneNumber businessDetails' },
     ]);
 
-    // Add formatted total for frontend
+    // Send email notification to customer about status change
+    try {
+      const customerName = `${order.customer.firstName} ${order.customer.lastName}`;
+      const orderNumber = order.orderNumber;
+      const allClothingItems = order.getAllClothingItems();
+      
+      await sendOrderStatusEmail(
+        order.customer.email,
+        customerName,
+        orderNumber,
+        oldStatus,
+        status,
+        allClothingItems
+      );
+      console.log(`📧 Status update email sent to ${order.customer.email} for order ${orderNumber}`);
+    } catch (emailError) {
+      console.error('⚠️ Failed to send status update email:', emailError);
+      // Don't fail the request if email fails
+    }
+
+    // Add formatted total for frontend (Ghana Cedis)
     const orderWithFormatted = {
       ...order.toObject(),
-      formattedTotal: `$${order.totalAmount.toFixed(2)}`
+      formattedTotal: `¢${order.totalAmount.toFixed(2)}`
     };
 
-    console.log(`Order ${order._id} status updated from ${order.status} to ${status} by user ${req.user.id}`);
+    console.log(`Order ${order._id} status updated from ${oldStatus} to ${status} by user ${req.user.id}`);
 
     res.json({
       success: true,
@@ -725,5 +765,153 @@ const updateOrderPaymentStatusHandler = async (req, res) => {
 // Support both PATCH and PUT for flexibility
 router.patch('/:id/payment-status', protect, updateOrderPaymentStatusHandler);
 router.put('/:id/payment-status', protect, updateOrderPaymentStatusHandler);
+
+// Add individual clothing item to an existing order item
+router.post('/:id/items/:itemIndex/clothing-items', protect, async (req, res) => {
+  try {
+    const { description, specialInstructions } = req.body;
+    
+    if (!description) {
+      return res.status(400).json({ 
+        success: false, 
+        error: 'Item description is required' 
+      });
+    }
+
+    const order = await Order.findById(req.params.id);
+    if (!order) {
+      return res.status(404).json({ success: false, error: 'Order not found' });
+    }
+
+    // Check permissions
+    if (req.user.role === 'customer') {
+      if (order.customer.toString() !== req.user.id) {
+        return res.status(403).json({ success: false, error: 'Access denied' });
+      }
+    } else if (req.user.role !== 'admin') {
+      return res.status(403).json({ success: false, error: 'Access denied' });
+    }
+
+    const itemIndex = parseInt(req.params.itemIndex);
+    if (itemIndex >= order.items.length || itemIndex < 0) {
+      return res.status(400).json({ 
+        success: false, 
+        error: 'Invalid item index' 
+      });
+    }
+
+    const orderItem = order.items[itemIndex];
+    const itemId = order.generateItemId();
+    
+    const clothingItem = {
+      itemId,
+      description,
+      service: orderItem.service,
+      serviceName: orderItem.serviceName,
+      unitPrice: orderItem.unitPrice,
+      specialInstructions: specialInstructions || '',
+      isConfirmed: false
+    };
+
+    if (!orderItem.clothingItems) {
+      orderItem.clothingItems = [];
+    }
+    orderItem.clothingItems.push(clothingItem);
+
+    await order.save();
+
+    res.status(201).json({
+      success: true,
+      data: clothingItem,
+      message: `Clothing item added with ID: ${itemId}`
+    });
+  } catch (error) {
+    console.error('Add clothing item error:', error);
+    res.status(500).json({ 
+      success: false, 
+      error: error.message || 'Failed to add clothing item' 
+    });
+  }
+});
+
+// Confirm/unconfirm clothing item (provider use)
+router.patch('/:id/clothing-items/:itemId/confirm', protect, serviceProvider, async (req, res) => {
+  try {
+    const { confirmed = true } = req.body;
+    const order = await Order.findById(req.params.id);
+    
+    if (!order) {
+      return res.status(404).json({ success: false, error: 'Order not found' });
+    }
+
+    // Check if provider is assigned to this order
+    if (!order.serviceProvider || order.serviceProvider.toString() !== req.user.id) {
+      return res.status(403).json({ 
+        success: false, 
+        error: 'You can only confirm items for orders assigned to you' 
+      });
+    }
+
+    try {
+      const clothingItem = order.confirmClothingItem(req.params.itemId, confirmed);
+      await order.save();
+      
+      res.json({
+        success: true,
+        data: clothingItem,
+        message: `Clothing item ${confirmed ? 'confirmed' : 'unconfirmed'}`
+      });
+    } catch (itemError) {
+      return res.status(404).json({ 
+        success: false, 
+        error: itemError.message 
+      });
+    }
+  } catch (error) {
+    console.error('Confirm clothing item error:', error);
+    res.status(500).json({ 
+      success: false, 
+      error: 'Failed to update clothing item confirmation' 
+    });
+  }
+});
+
+// Get all clothing items for an order
+router.get('/:id/clothing-items', protect, async (req, res) => {
+  try {
+    const order = await Order.findById(req.params.id);
+    
+    if (!order) {
+      return res.status(404).json({ success: false, error: 'Order not found' });
+    }
+
+    // Check permissions
+    if (req.user.role === 'customer') {
+      if (order.customer.toString() !== req.user.id) {
+        return res.status(403).json({ success: false, error: 'Access denied' });
+      }
+    } else if (req.user.role === 'service_provider') {
+      if (!order.serviceProvider || order.serviceProvider.toString() !== req.user.id) {
+        return res.status(403).json({ success: false, error: 'Access denied' });
+      }
+    } else if (req.user.role !== 'admin') {
+      return res.status(403).json({ success: false, error: 'Access denied' });
+    }
+
+    const allClothingItems = order.getAllClothingItems();
+    
+    res.json({
+      success: true,
+      data: allClothingItems,
+      count: allClothingItems.length
+    });
+  } catch (error) {
+    console.error('Get clothing items error:', error);
+    res.status(500).json({ 
+      success: false, 
+      error: 'Failed to fetch clothing items' 
+    });
+  }
+});
 
 module.exports = router;
