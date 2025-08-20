@@ -39,6 +39,7 @@ import {
   TrendingUp as TrendingUpIcon,
   Payment as PaymentIcon,
   Clear as ClearIcon,
+  Sync as SyncIcon,
 } from '@mui/icons-material';
 import { format, subDays, startOfDay, endOfDay } from 'date-fns';
 import { useAppDispatch, useAppSelector } from '../app/hooks';
@@ -66,7 +67,8 @@ const paymentMethods = [
   { value: 'bank_transfer', label: 'Bank Transfer' },
   { value: 'cash', label: 'Cash' },
   { value: 'digital_wallet', label: 'Digital Wallet' },
-  { value: 'momo', label: 'Mobile Money' },
+  { value: 'momo', label: 'Mobile Money (Legacy)' },
+  { value: 'mobile_money', label: 'Mobile Money' },
 ];
 
 const sortOptions = [
@@ -129,6 +131,26 @@ const PaymentHistory: React.FC = () => {
     if (endDate) params.endDate = endOfDay(endDate).toISOString();
 
     dispatch(fetchPaymentStats(params));
+  };
+
+  // Call Paystack status for all pending/processing payments in current page
+  const syncPendingWithPaystack = async () => {
+    try {
+      const token = localStorage.getItem('token') || '';
+      const headers = { Authorization: `Bearer ${token}` };
+      const pending = (paymentHistory.data || []).filter((p: any) => ['pending', 'processing'].includes((p.status || '').toLowerCase()) && p.reference);
+      // sequential requests to avoid rate limits; can be parallel if needed
+      for (const p of pending) {
+        await fetch(`${(window as any).API_BASE_URL || process.env.REACT_APP_API_BASE_URL || 'http://localhost:5000/api'}/paystack/status/${p.reference}`, {
+          headers,
+        });
+      }
+      // reload after syncing
+      loadPaymentHistory();
+      loadPaymentStats();
+    } catch (e) {
+      console.error('Sync with Paystack failed:', e);
+    }
   };
 
   const handleChangePage = (_: unknown, newPage: number) => setPage(newPage);
@@ -210,6 +232,9 @@ const PaymentHistory: React.FC = () => {
         <Stack direction="row" spacing={2}>
           <Button variant="outlined" startIcon={<RefreshIcon />} onClick={loadPaymentHistory} disabled={paymentHistory.loading}>
             Refresh
+          </Button>
+          <Button variant="outlined" startIcon={<SyncIcon />} onClick={syncPendingWithPaystack} disabled={paymentHistory.loading}>
+            Sync with Paystack
           </Button>
           <Button variant="outlined" startIcon={<FilterIcon />} onClick={() => setFilterDialog(true)}>
             Filters
@@ -312,6 +337,9 @@ const PaymentHistory: React.FC = () => {
                     <TableCell>Amount</TableCell>
                     <TableCell>Method</TableCell>
                     <TableCell>Status</TableCell>
+                    <TableCell>Channel</TableCell>
+                    <TableCell>Gateway Resp</TableCell>
+                    <TableCell>Ref</TableCell>
                     <TableCell>Date</TableCell>
                     <TableCell>Actions</TableCell>
                   </TableRow>
@@ -346,6 +374,17 @@ const PaymentHistory: React.FC = () => {
                       </TableCell>
                       <TableCell>
                         <Chip label={payment.status.toUpperCase()} color={getStatusColor(payment.status)} size="small" />
+                      </TableCell>
+                      <TableCell>
+                        <Typography variant="body2">{payment.paystackData?.channel || '-'}</Typography>
+                      </TableCell>
+                      <TableCell>
+                        <Typography variant="body2" noWrap maxWidth={160} title={payment.paystackData?.gateway_response || ''}>
+                          {payment.paystackData?.gateway_response || '-'}
+                        </Typography>
+                      </TableCell>
+                      <TableCell>
+                        <Typography variant="body2" fontFamily="monospace">{payment.reference || '-'}</Typography>
                       </TableCell>
                       <TableCell>
                         <Typography variant="body2">{formatDate(payment.createdAt)}</Typography>

@@ -177,6 +177,35 @@ const PaystackPayment: React.FC<PaystackPaymentProps> = ({
     setError('Payment was cancelled');
   };
 
+  // Poll Paystack status to auto-update after redirect
+  useEffect(() => {
+    let interval: any;
+    const pollStatus = async () => {
+      try {
+        if (!paymentData?.reference) return;
+        const token = localStorage.getItem('token');
+        const res = await axios.get(`${API_BASE_URL}/paystack/status/${paymentData.reference}`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        const status = res.data?.data?.payment?.status;
+        if (status === 'completed') {
+          clearInterval(interval);
+          onPaymentSuccess(paymentData.reference);
+        } else if (status === 'failed') {
+          clearInterval(interval);
+          onPaymentError('Payment failed');
+        }
+      } catch (e) {
+        // ignore temporary network errors during polling
+      }
+    };
+
+    if (open && paymentData?.reference) {
+      interval = setInterval(pollStatus, 5000); // poll every 5s
+    }
+    return () => interval && clearInterval(interval);
+  }, [open, paymentData?.reference]);
+
   // Validate mobile money input
   const validateMoMoInput = (): boolean => {
     if (paymentMethod === 'mobile_money') {
@@ -377,11 +406,16 @@ const PaystackPayment: React.FC<PaystackPaymentProps> = ({
             {isInitializing ? 'Initializing...' : 'Initialize Payment'}
           </Button>
         ) : (
-          <PaystackButton
-            {...paystackProps}
-            className="paystack-button"
+          <Button
+            component="a"
+            href={paymentData.authorization_url}
+            target="_blank"
+            rel="noopener noreferrer"
+            variant="contained"
             disabled={loading}
-          />
+          >
+            Proceed to Paystack
+          </Button>
         )}
       </DialogActions>
 

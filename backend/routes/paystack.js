@@ -69,7 +69,8 @@ router.post('/initialize/:orderId', protect, async (req, res) => {
     let mobileMoneyData = {};
 
     if (paymentMethod === 'momo' || paymentMethod === 'mobile_money') {
-      channels = ['mobile_money', 'card']; // Prioritize mobile money
+      // Force mobile money only to avoid Paystack defaulting to card
+      channels = ['mobile_money'];
       
       if (momoPhone) {
         // Clean phone number (remove spaces, dashes, etc.)
@@ -456,12 +457,12 @@ async function handleFailedPayment(data) {
   }
 }
 
-// Get payment status
+// Get payment status (auto-verify with Paystack when pending)
 router.get('/status/:reference', protect, async (req, res) => {
   try {
     const { reference } = req.params;
 
-    const payment = await Payment.findOne({ reference })
+    let payment = await Payment.findOne({ reference })
       .populate({
         path: 'order',
         select: 'orderNumber totalAmount items status',
@@ -484,6 +485,73 @@ router.get('/status/:reference', protect, async (req, res) => {
         success: false,
         error: 'Access denied'
       });
+    }
+
+    // If payment still pending/processing, verify with Paystack to auto-update
+    if (payment.status === 'pending' || payment.status === 'processing') {
+      try {
+        const verification = await paystackService.verifyPayment(reference);
+        if (verification.success && verification.data?.status === 'success') {
+          // Update payment to completed
+          payment.status = 'completed';
+          payment.paidAt = new Date(verification.data.paid_at || Date.now());
+          payment.paystackData = {
+            ...payment.paystackData,
+            transaction_id: verification.data.id,
+            gateway_response: verification.data.gateway_response,
+            channel: verification.data.channel,
+            authorization: verification.data.authorization,
+            verified_at: new Date()
+          };
+          payment.statusHistory.push({
+            status: 'completed',
+            changedBy: req.user.id,
+            changedAt: new Date(),
+            notes: 'Auto-verified via status check'
+          });
+          await payment.save();
+
+          // Optionally update order status if needed
+          if (payment.order && payment.order.status === 'pending') {
+            const order = await Order.findById(payment.order._id);
+            if (order) {
+              order.status = 'confirmed';
+              order.statusHistory = order.statusHistory || [];
+              order.statusHistory.push({
+                status: 'confirmed',
+                changedBy: req.user.id,
+                changedAt: new Date(),
+                notes: 'Order confirmed - payment auto-verified'
+              });
+              await order.save();
+              // re-populate to include updated order state
+              payment = await Payment.findOne({ reference }).populate({
+                path: 'order',
+                select: 'orderNumber totalAmount items status',
+                populate: { path: 'customer', select: 'firstName lastName email' }
+              });
+            }
+          }
+        } else if (verification.success && verification.data?.status === 'failed') {
+          payment.status = 'failed';
+          payment.failedAt = new Date();
+          payment.paystackData = {
+            ...payment.paystackData,
+            gateway_response: verification.data.gateway_response,
+            verified_at: new Date()
+          };
+          payment.statusHistory.push({
+            status: 'failed',
+            changedBy: req.user.id,
+            changedAt: new Date(),
+            notes: 'Auto-verified as failed via status check'
+          });
+          await payment.save();
+        }
+      } catch (e) {
+        // Ignore verification errors here; keep returning current status
+        console.warn('Paystack auto-verify during status check failed:', e?.message || e);
+      }
     }
 
     res.json({

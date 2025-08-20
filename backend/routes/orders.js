@@ -179,7 +179,21 @@ router.post('/', protect, customer, async (req, res) => {
       const service = STATIC_SERVICES.find(s => s._id === item.service);
       const quantity = parseInt(item.quantity) || 1;
       const unitPrice = parseFloat(item.unitPrice) || service.price || 0;
-      const totalPrice = quantity * unitPrice;
+
+      // If clothingItems are provided, compute total from them and persist details
+      let clothingItems = Array.isArray(item.clothingItems) ? item.clothingItems.map(ci => ({
+        itemId: ci.itemId,
+        description: ci.description,
+        service: item.service,
+        serviceName: item.serviceName || service.name,
+        unitPrice: parseFloat(ci.unitPrice) || 0,
+        specialInstructions: ci.specialInstructions || '',
+        isConfirmed: !!ci.isConfirmed,
+      })) : [];
+
+      const totalPrice = clothingItems.length > 0
+        ? clothingItems.reduce((sum, ci) => sum + (parseFloat(ci.unitPrice) || 0), 0)
+        : (quantity * unitPrice);
 
       processedItems.push({
         service: item.service, // Store the static service ID as a string
@@ -188,6 +202,7 @@ router.post('/', protect, customer, async (req, res) => {
         unitPrice: unitPrice,
         totalPrice: totalPrice,
         specialInstructions: item.specialInstructions || '',
+        clothingItems: clothingItems,
       });
 
       calculatedSubtotal += totalPrice;

@@ -212,7 +212,7 @@ const Orders: React.FC = () => {
                       : 'Provider: Not assigned'}
                   </Typography>
 
-                  <Typography variant="body2" color="text.secondary" gutterBottom>
+                  <Typography component="div" variant="body2" color="text.secondary" gutterBottom>
                     {/* Show individual items if available, otherwise show service summary */}
                     {order.items.some(item => item.clothingItems && item.clothingItems.length > 0) ? (
                       <Box>
@@ -221,17 +221,21 @@ const Orders: React.FC = () => {
                         </Typography>
                         {order.items.map((item) => 
                           item.clothingItems?.map((clothingItem) => (
-                            <Typography key={clothingItem.itemId} variant="body2" sx={{ ml: 1, mb: 0.5 }}>
-                              • <strong>{clothingItem.itemId}</strong>: {clothingItem.description} 
-                              ({clothingItem.serviceName}) - ¢{clothingItem.unitPrice.toFixed(2)}
-                            </Typography>
+                            <Box key={clothingItem.itemId} sx={{ ml: 1, mb: 0.5 }}>
+                              <Typography variant="body2" component="span">• </Typography>
+                              <Typography variant="body2" component="span"><strong>{clothingItem.itemId}</strong>: {clothingItem.description} </Typography>
+                              <Typography variant="body2" component="span">({clothingItem.serviceName}) - ¢{clothingItem.unitPrice.toFixed(2)}</Typography>
+                            </Box>
                           ))
                         )}
                       </Box>
                     ) : (
-                      <Typography variant="body2">
-                        Services: {order.items.map((item) => `${item.serviceName} (${item.quantity})`).join(', ')}
-                      </Typography>
+                      <Box>
+                        <Typography variant="body2" component="span">Services: </Typography>
+                        <Typography variant="body2" component="span">
+                          {order.items.map((item) => `${item.serviceName} (${item.quantity})`).join(', ')}
+                        </Typography>
+                      </Box>
                     )}
                   </Typography>
 

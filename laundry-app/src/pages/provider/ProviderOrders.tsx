@@ -205,23 +205,23 @@ const ProviderOrders: React.FC = () => {
       </Button>
     );
 
-    // Confirm Payment
-    if (order.payment?.status === 'pending') {
-      buttons.push(
-        <Button
-          key="confirm-payment"
-          size="small"
-          variant="contained"
-          color="primary"
-          onClick={() => handleConfirmPayment(order)}
-          startIcon={<CheckCircleIcon />}
-          disabled={confirming === order._id}
-          sx={{ mb: 1 }}
-        >
-          {confirming === order._id ? 'Confirming...' : 'Confirm Payment'}
-        </Button>
-      );
-    }
+    // Removed Confirm Payment button - payments now auto-sync via Paystack
+    // if (order.payment?.status === 'pending') {
+    //   buttons.push(
+    //     <Button
+    //       key="confirm-payment"
+    //       size="small"
+    //       variant="contained"
+    //       color="primary"
+    //       onClick={() => handleConfirmPayment(order)}
+    //       startIcon={<CheckCircleIcon />}
+    //       disabled={confirming === order._id}
+    //       sx={{ mb: 1 }}
+    //     >
+    //       {confirming === order._id ? 'Confirming...' : 'Confirm Payment'}
+    //     </Button>
+    //   );
+    // }
 
     // Self-assign if not assigned yet
     if (!order.serviceProvider && ['pending', 'confirmed'].includes(order.status)) {
