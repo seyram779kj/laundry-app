@@ -798,10 +798,14 @@ router.post('/:id/items/:itemIndex/clothing-items', protect, async (req, res) =>
       return res.status(404).json({ success: false, error: 'Order not found' });
     }
 
-    // Check permissions
+    // Check permissions: allow customer, admin, or assigned service provider
     if (req.user.role === 'customer') {
       if (order.customer.toString() !== req.user.id) {
         return res.status(403).json({ success: false, error: 'Access denied' });
+      }
+    } else if (req.user.role === 'service_provider') {
+      if (!order.serviceProvider || order.serviceProvider.toString() !== req.user.id) {
+        return res.status(403).json({ success: false, error: 'You can only add items to orders assigned to you' });
       }
     } else if (req.user.role !== 'admin') {
       return res.status(403).json({ success: false, error: 'Access denied' });

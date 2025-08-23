@@ -21,11 +21,10 @@ const io = new Server(server, {
 
 // Hardcoded configuration (no env files)
 const PORT = 5000;
-const MONGODB_URI = 'mongodb://localhost:27017/laundry-app';
+const MONGODB_URI = 'mongodb+srv://ohenebasayram:KinG123%40%26@cluster0.m3p1erd.mongodb.net/';
 const JWT_SECRET = 'your-super-secret-jwt-key-change-this-in-production';
 const JWT_EXPIRE = '7d';
 const NODE_ENV = 'development';
-
 // Middleware
 app.use(cors());
 app.use(express.json());

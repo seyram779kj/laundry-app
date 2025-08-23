@@ -287,11 +287,40 @@ orderSchema.methods.getAllClothingItems = function () {
   return allItems;
 };
 
-// Pre-save middleware to calculate total
+// Pre-save middleware to calculate total and ensure clothing item IDs
 orderSchema.pre('save', function (next) {
-  if (this.isModified('items') || this.isModified('tax') || this.isModified('deliveryFee') || this.isModified('discount')) {
+  // Recalculate totals when relevant fields change
+  if (
+    this.isModified('items') ||
+    this.isModified('tax') ||
+    this.isModified('deliveryFee') ||
+    this.isModified('discount')
+  ) {
     this.calculateTotal();
   }
+
+  // Ensure each clothing item has a unique itemId within the order
+  try {
+    if (Array.isArray(this.items)) {
+      for (const orderItem of this.items) {
+        if (Array.isArray(orderItem.clothingItems)) {
+          for (const ci of orderItem.clothingItems) {
+            // Assign ID if missing
+            if (!ci.itemId || typeof ci.itemId !== 'string' || ci.itemId.trim() === '') {
+              ci.itemId = this.generateItemId();
+            }
+            // Fallbacks to keep data consistent
+            if (!ci.serviceName && orderItem.serviceName) ci.serviceName = orderItem.serviceName;
+            if (typeof ci.unitPrice !== 'number' || isNaN(ci.unitPrice)) ci.unitPrice = orderItem.unitPrice || 0;
+          }
+        }
+      }
+    }
+  } catch (e) {
+    // Do not block save on ID backfill errors; continue
+    // You can log here if needed
+  }
+
   next();
 });
 

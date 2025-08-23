@@ -186,6 +186,30 @@ const ProviderOrders: React.FC = () => {
     }
   };
 
+  // Add a clothing item to a specific order item (service)
+  const handleAddClothingItem = async (orderId: string, itemIndex: number) => {
+    try {
+      const description = window.prompt('Enter item description');
+      if (!description || !description.trim()) return;
+      const specialInstructions = window.prompt('Any special instructions?') || '';
+      setConfirmingItem('adding');
+
+      const token = localStorage.getItem('token');
+      await axios.post(
+        `${API_BASE_URL}/orders/${orderId}/items/${itemIndex}/clothing-items`,
+        { description: description.trim(), specialInstructions },
+        { headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' } }
+      );
+
+      dispatch(fetchProviderOrders({ includeAvailable: true }));
+    } catch (err: any) {
+      console.error('Add clothing item error:', err);
+      dispatch(setError(err.response?.data?.error || 'Failed to add clothing item'));
+    } finally {
+      setConfirmingItem(null);
+    }
+  };
+
   const formatDate = (dateString: string) => format(new Date(dateString), 'MMM dd, yyyy hh:mm a');
 
   const getActionButtons = (order: Order) => {
@@ -361,49 +385,64 @@ const ProviderOrders: React.FC = () => {
                   </Typography>
 
                   <Typography variant="body2" color="text.secondary" gutterBottom>
-                    {/* Show individual items if available, otherwise show service summary */}
-                    {order.items.some(item => item.clothingItems && item.clothingItems.length > 0) ? (
-                      <Box>
-                        <Typography variant="subtitle2" sx={{ fontWeight: 'bold', mb: 1 }}>
-                          Individual Items:
-                        </Typography>
-                        {order.items.map((item, itemIndex) => 
-                          item.clothingItems?.map((clothingItem) => (
-                            <Box key={clothingItem.itemId} sx={{ ml: 1, mb: 1, p: 1, bgcolor: 'grey.50', borderRadius: 1 }}>
-                              <Typography variant="body2" sx={{ mb: 0.5 }}>
-                                <strong>{clothingItem.itemId}</strong>: {clothingItem.description}
-                              </Typography>
-                              <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 0.5 }}>
-                                {clothingItem.serviceName} - ¢{clothingItem.unitPrice.toFixed(2)}
-                              </Typography>
-                              <Chip
-                                label={clothingItem.isConfirmed ? 'Confirmed' : 'Pending'}
-                                size="small"
-                                color={clothingItem.isConfirmed ? 'success' : 'warning'}
-                                variant="outlined"
-                                sx={{ mr: 1 }}
-                              />
-                              {order.serviceProvider && !clothingItem.isConfirmed && (
-                                <Button
-                                  size="small"
-                                  variant="outlined"
-                                  color="primary"
-                                  onClick={() => handleConfirmItem(order._id, clothingItem.itemId)}
-                                  disabled={confirmingItem === clothingItem.itemId}
-                                  sx={{ fontSize: '0.7rem', py: 0.2, px: 1 }}
-                                >
-                                  {confirmingItem === clothingItem.itemId ? 'Confirming...' : 'Confirm Received'}
-                                </Button>
-                              )}
-                            </Box>
-                          ))
-                        )}
-                      </Box>
-                    ) : (
-                      <Typography variant="body2">
-                        Services: {order.items.map((item) => `${item.serviceName} (${item.quantity})`).join(', ')}
+                    <Box>
+                      <Typography variant="subtitle2" sx={{ fontWeight: 'bold', mb: 1 }}>
+                        Items per Service:
                       </Typography>
-                    )}
+                      {order.items.map((item, itemIndex) => (
+                        <Box key={`${order._id}-${itemIndex}`} sx={{ mb: 1 }}>
+                          <Typography variant="subtitle2" sx={{ mb: 0.5 }}>
+                            {item.serviceName}
+                          </Typography>
+                          {(item.clothingItems && item.clothingItems.length > 0) ? (
+                            item.clothingItems.map((clothingItem) => (
+                              <Box key={clothingItem.itemId} sx={{ ml: 1, mb: 1, p: 1, bgcolor: 'grey.50', borderRadius: 1 }}>
+                                <Typography variant="body2" sx={{ mb: 0.5 }}>
+                                  <strong>{clothingItem.itemId}</strong>: {clothingItem.description}
+                                </Typography>
+                                <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 0.5 }}>
+                                  {clothingItem.serviceName} - ¢{clothingItem.unitPrice.toFixed(2)}
+                                </Typography>
+                                <Chip
+                                  label={clothingItem.isConfirmed ? 'Confirmed' : 'Pending'}
+                                  size="small"
+                                  color={clothingItem.isConfirmed ? 'success' : 'warning'}
+                                  variant="outlined"
+                                  sx={{ mr: 1 }}
+                                />
+                                {order.serviceProvider && !clothingItem.isConfirmed && (
+                                  <Button
+                                    size="small"
+                                    variant="outlined"
+                                    color="primary"
+                                    onClick={() => handleConfirmItem(order._id, clothingItem.itemId)}
+                                    disabled={confirmingItem === clothingItem.itemId}
+                                    sx={{ fontSize: '0.7rem', py: 0.2, px: 1, mr: 1 }}
+                                  >
+                                    {confirmingItem === clothingItem.itemId ? 'Confirming...' : 'Confirm Received'}
+                                  </Button>
+                                )}
+                              </Box>
+                            ))
+                          ) : (
+                            <Typography variant="caption" color="text.secondary" sx={{ ml: 1, display: 'block' }}>
+                              No items yet.
+                            </Typography>
+                          )}
+                          {order.serviceProvider && (
+                            <Button
+                              size="small"
+                              variant="outlined"
+                              onClick={() => handleAddClothingItem(order._id, itemIndex)}
+                              disabled={confirmingItem === 'adding'}
+                              sx={{ fontSize: '0.7rem', py: 0.2, px: 1 }}
+                            >
+                              {confirmingItem === 'adding' ? 'Adding...' : 'Add Item'}
+                            </Button>
+                          )}
+                        </Box>
+                      ))}
+                    </Box>
                   </Typography>
 
                   <Typography variant="h6" color="primary" gutterBottom>
