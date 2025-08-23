@@ -2,7 +2,7 @@ import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
 import type { OrderState } from '../../types';
 import type { Order, OrderItem } from '../../types/order';
 
-const API_BASE_URL = 'http://localhost:5000/api';
+import { API_BASE_URL } from '../../services/api';
 
 const initialState: OrderState = {
   orders: [],

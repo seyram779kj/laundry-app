@@ -12,7 +12,7 @@ const OrderList: React.FC = () => {
   const { user } = useAppSelector((state) => state.auth);
   const [unreadChats, setUnreadChats] = useState<{ [orderId: string]: boolean }>({});
   const [supplierId, setSupplierId] = useState<string | null>(null);
-  const API_BASE_URL = 'http://localhost:5000/api';
+  const { API_BASE_URL } = await import('../../services/api') as any;
 
   useEffect(() => {
     const fetchOrders = async () => {

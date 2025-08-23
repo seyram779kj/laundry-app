@@ -34,7 +34,7 @@ import { formatOrderForDisplay } from '../../utils/typeUtils';
 // Slice thunks
 import { fetchProviderOrders, setError, updateOrderStatus } from '../../features/orders/orderSlice';
 
-const API_BASE_URL = 'http://localhost:5000/api';
+import { API_BASE_URL } from '../../services/api';
 
 const statusFlow: OrderStatus[] = [
   'pending',

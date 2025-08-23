@@ -86,7 +86,8 @@ const EmailVerification: React.FC = () => {
     setError(null);
 
     try {
-      const response = await fetch('http://localhost:5000/api/auth/resend-verification', {
+      const { API_BASE_URL } = await import('../services/api');
+      const response = await fetch(`${API_BASE_URL}/auth/resend-verification`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

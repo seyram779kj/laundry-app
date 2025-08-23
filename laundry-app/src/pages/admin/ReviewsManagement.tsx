@@ -69,7 +69,8 @@ const ReviewsManagement: React.FC = () => {
         setLoading(true);
         setError(null);
         
-        const response = await fetch('http://localhost:5000/api/reviews', {
+        const { API_BASE_URL } = await import('../../services/api');
+        const response = await fetch(`${API_BASE_URL}/reviews`, {
           headers: {
             'Authorization': `Bearer ${localStorage.getItem('token')}`,
             'Content-Type': 'application/json',
@@ -103,7 +104,8 @@ const ReviewsManagement: React.FC = () => {
 
   const handleApproveReview = async (reviewId: string) => {
     try {
-      const response = await fetch(`http://localhost:5000/api/reviews/${reviewId}/approve`, {
+      const { API_BASE_URL } = await import('../../services/api');
+      const response = await fetch(`${API_BASE_URL}/reviews/${reviewId}/approve`, {
         method: 'PUT',
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('token')}`,
@@ -129,7 +131,8 @@ const ReviewsManagement: React.FC = () => {
 
   const handleRejectReview = async (reviewId: string) => {
     try {
-      const response = await fetch(`http://localhost:5000/api/reviews/${reviewId}/reject`, {
+      const { API_BASE_URL } = await import('../../services/api');
+      const response = await fetch(`${API_BASE_URL}/reviews/${reviewId}/reject`, {
         method: 'PUT',
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('token')}`,
@@ -156,7 +159,8 @@ const ReviewsManagement: React.FC = () => {
   const handleDeleteReview = async (reviewId: string) => {
     if (window.confirm('Are you sure you want to delete this review?')) {
       try {
-        const response = await fetch(`http://localhost:5000/api/reviews/${reviewId}`, {
+        const { API_BASE_URL } = await import('../../services/api');
+        const response = await fetch(`${API_BASE_URL}/reviews/${reviewId}`, {
           method: 'DELETE',
           headers: {
             'Authorization': `Bearer ${localStorage.getItem('token')}`,

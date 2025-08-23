@@ -30,7 +30,7 @@ const initialState: PaymentState = {
   selectedPayment: null,
 };
 
-const API_BASE_URL = (process.env.REACT_APP_API_BASE_URL as string) || (typeof window !== 'undefined' && (window as any).API_BASE_URL) || 'http://localhost:5000/api';
+import { API_BASE_URL } from '../../services/api';
 
 const authHeaders = () => ({
   'Authorization': `Bearer ${localStorage.getItem('token') || ''}`,

@@ -147,7 +147,8 @@ const NewOrderPage = () => {
         setLoading(true);
         setError(null);
 
-        const response = await fetch('http://localhost:5000/api/services/static', {
+        const { API_BASE_URL } = await import('../services/api');
+        const response = await fetch(`${API_BASE_URL}/services/static`, {
           headers: {
             'Authorization': `Bearer ${localStorage.getItem('token')}`,
             'Content-Type': 'application/json',
@@ -325,7 +326,8 @@ const NewOrderPage = () => {
 
       console.log('Submitting order payload:', JSON.stringify(orderPayload, null, 2));
 
-      const response = await fetch('http://localhost:5000/api/orders', {
+      const { API_BASE_URL } = await import('../services/api');
+      const response = await fetch(`${API_BASE_URL}/orders`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

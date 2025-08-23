@@ -184,7 +184,8 @@ export const verifyEmail = createAsyncThunk(
   'auth/verifyEmail',
   async (verificationData: { email: string; code: string }, { rejectWithValue }) => {
     try {
-      const response = await fetch('http://localhost:5000/api/auth/verify-email', {
+      const { API_BASE_URL } = await import('../../services/api');
+      const response = await fetch(`${API_BASE_URL}/auth/verify-email`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
