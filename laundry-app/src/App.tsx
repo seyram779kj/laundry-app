@@ -225,7 +225,7 @@ const App: React.FC = () => {
                 path="/admin/*"
                 element={
                   <RoleBasedRoute allowedRoles={['admin']}>
-                    <MainLayout title="Admin Dashboard">
+                    <MainLayout title="Shop Owner Dashboard">
                       <Routes>
                         <Route index element={<Dashboard />} />
                         <Route path="users" element={<UsersManagement />} />
