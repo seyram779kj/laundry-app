@@ -64,7 +64,6 @@ const OrderTracking: React.FC<OrderTrackingProps> = ({ orderId, open, onClose })
       fetchTrackingData();
 
       // Setup socket connection for real-time updates
-      const { API_BASE_URL } = await import('../../services/api');
       const socketBase = (API_BASE_URL || '').replace(/\/api$/, '') || 'http://localhost:5000';
       const socket = io(socketBase);
       socket.emit('joinRoom', { chatRoomId: `order_${orderId}` });
