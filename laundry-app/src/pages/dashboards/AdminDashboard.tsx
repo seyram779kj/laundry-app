@@ -21,7 +21,7 @@ const AdminDashboard: React.FC = () => {
   return (
     <Box sx={{ p: 3 }}>
       <Typography variant="h4" gutterBottom>
-        Admin Dashboard
+        Shop Owner Dashboard
       </Typography>
       <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 3 }}>
         {/* User Management Section */}
@@ -136,4 +136,4 @@ const AdminDashboard: React.FC = () => {
   );
 };
 
-export default AdminDashboard; 
+export default AdminDashboard;
