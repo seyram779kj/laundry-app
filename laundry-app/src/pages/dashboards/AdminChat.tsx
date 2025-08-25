@@ -15,7 +15,7 @@ const AdminChat: React.FC = () => {
 
   return (
     <div style={{ marginTop: 32 }}>
-      <h2>Chat (Admin View)</h2>
+      <h2>Chat (Shop Owner View)</h2>
       <Chat chatRoomId={chatRoomId} userId={userId} userRole={userRole} apiUrl={apiUrl} />
     </div>
   );
