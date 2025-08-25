@@ -250,7 +250,7 @@ const UsersManagement: React.FC = () => {
         });
 
         // Real API call to create user
-        const response = await fetch('http://localhost:5000/api/users', {
+        const response = await fetch(`${API_BASE_URL}/users`, {
           method: 'POST',
           headers: {
             'Authorization': `Bearer ${localStorage.getItem('token')}`,
@@ -271,7 +271,7 @@ const UsersManagement: React.FC = () => {
         const newUser = await response.json();
         
         // Refresh the users list to get the updated data
-        const usersResponse = await fetch('http://localhost:5000/api/users', {
+        const usersResponse = await fetch(`${API_BASE_URL}/users`, {
           headers: {
             'Authorization': `Bearer ${localStorage.getItem('token')}`,
             'Content-Type': 'application/json',
@@ -297,7 +297,7 @@ const UsersManagement: React.FC = () => {
         });
 
         // Real API call to update user
-        const response = await fetch(`http://localhost:5000/api/users/${selectedUser?.id}`, {
+        const response = await fetch(`${API_BASE_URL}/users/${selectedUser?.id}`, {
           method: 'PUT',
           headers: {
             'Authorization': `Bearer ${localStorage.getItem('token')}`,
@@ -315,7 +315,7 @@ const UsersManagement: React.FC = () => {
         }
 
         // Refresh the users list
-        const usersResponse = await fetch('http://localhost:5000/api/users', {
+        const usersResponse = await fetch(`${API_BASE_URL}/users`, {
           headers: {
             'Authorization': `Bearer ${localStorage.getItem('token')}`,
             'Content-Type': 'application/json',
