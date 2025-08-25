@@ -3,6 +3,7 @@ import { Box, Typography, Button, List, ListItem, ListItemText, CircularProgress
 import { useNavigate } from 'react-router-dom';
 import { useAppSelector } from '../../app/hooks';
 import axios from 'axios';
+import { API_BASE_URL } from '../../services/api';
 
 const OrderList: React.FC = () => {
   const [orders, setOrders] = useState<any[]>([]);
@@ -12,7 +13,6 @@ const OrderList: React.FC = () => {
   const { user } = useAppSelector((state) => state.auth);
   const [unreadChats, setUnreadChats] = useState<{ [orderId: string]: boolean }>({});
   const [supplierId, setSupplierId] = useState<string | null>(null);
-  const { API_BASE_URL } = await import('../../services/api') as any;
 
   useEffect(() => {
     const fetchOrders = async () => {
@@ -119,4 +119,4 @@ const OrderList: React.FC = () => {
   );
 };
 
-export default OrderList; 
+export default OrderList;
