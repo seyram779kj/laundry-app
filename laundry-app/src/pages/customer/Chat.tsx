@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
@@ -18,6 +17,7 @@ import {
 import { ArrowBack as ArrowBackIcon } from '@mui/icons-material';
 import { format } from 'date-fns';
 import axios from 'axios';
+import { API_BASE_URL } from '../../services/api';
 
 interface Message {
   _id: string;
@@ -58,12 +58,12 @@ const CustomerChat: React.FC = () => {
         const token = localStorage.getItem('token');
 
         // Fetch chat room info
-        const chatRoomResponse = await axios.get(`http://localhost:5000/api/chats/${chatRoomId}/messages`, {
+        const chatRoomResponse = await axios.get(`${API_BASE_URL}/chats/${chatRoomId}/messages`, {
           headers: { Authorization: `Bearer ${token}` },
         });
         
         // Get chat room details
-        const allChatRooms = await axios.get('http://localhost:5000/api/chats', {
+        const allChatRooms = await axios.get(`${API_BASE_URL}/chats`, {
           headers: { Authorization: `Bearer ${token}` },
         });
         
@@ -73,7 +73,7 @@ const CustomerChat: React.FC = () => {
         // Fetch provider info if we have the chat room and provider ID
         if (currentChatRoom?.supplierId) {
           try {
-            const providerResponse = await axios.get(`http://localhost:5000/api/users/${currentChatRoom.supplierId}`, {
+            const providerResponse = await axios.get(`${API_BASE_URL}/users/${currentChatRoom.supplierId}`, {
               headers: { Authorization: `Bearer ${token}` },
             });
             setProviderInfo(providerResponse.data);
@@ -87,7 +87,7 @@ const CustomerChat: React.FC = () => {
         // Mark messages as read
         if (userId) {
           await axios.patch(
-            `http://localhost:5000/api/chats/${chatRoomId}/messages/read`,
+            `${API_BASE_URL}/chats/${chatRoomId}/messages/read`,
             { userId },
             { headers: { Authorization: `Bearer ${token}` } }
           );
@@ -111,7 +111,7 @@ const CustomerChat: React.FC = () => {
 
     try {
       const response = await axios.post(
-        `http://localhost:5000/api/chats/${chatRoomId}/message`,
+        `${API_BASE_URL}/chats/${chatRoomId}/message`,
         {
           senderType: 'customer',
           senderId: userId,
