@@ -72,7 +72,7 @@ const Chat: React.FC<ChatProps> = ({ chatRoomId, userId, userRole, apiUrl }) => 
           <div key={msg._id} style={{ margin: '8px 0', textAlign: msg.senderId === userId ? 'right' : 'left' }}>
             <span style={{ fontWeight: 'bold', color: msg.senderType === 'customer' ? '#1976d2' : msg.senderType === 'service_provider' ? '#388e3c' : '#d32f2f' }}>
               {userRole === 'customer' && msg.senderType === 'service_provider' ? 'Provider' :
-               userRole === 'customer' && msg.senderType === 'admin' ? 'Admin' :
+               userRole === 'customer' && msg.senderType === 'admin' ? 'Shop Owner' :
                (userRole === 'supplier' || userRole === 'service_provider') && msg.senderType === 'service_provider' ? 'Me' :
                msg.senderType === 'service_provider' ? 'Provider' :
                msg.senderType.charAt(0).toUpperCase() + msg.senderType.slice(1)}
@@ -100,4 +100,4 @@ const Chat: React.FC<ChatProps> = ({ chatRoomId, userId, userRole, apiUrl }) => 
   );
 };
 
-export default Chat; 
+export default Chat;
