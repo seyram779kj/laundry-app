@@ -41,6 +41,7 @@ import ReviewsManagement from './pages/admin/ReviewsManagement';
 
 // Payment History
 import PaymentHistory from './pages/PaymentHistory';
+import TestPaymentAPI from './pages/TestPaymentAPI';
 
 // Authentication Initialization Component
 const AuthInitializer: React.FC<{ children: React.ReactNode }> = ({ children }) => {
