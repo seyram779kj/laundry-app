@@ -40,6 +40,7 @@ import {
 import { usePermissions } from '../../hooks/usePermissions';
 import { UserRole, User, AdminUser, CustomerUser, ServiceProviderUser } from '../../types/auth';
 import { formatUserData } from '../../utils/textUtils';
+import { API_BASE_URL } from '../../services/api';
 
 interface UserWithStatus extends User {
   status: 'active' | 'inactive' | 'suspended';
@@ -76,7 +77,7 @@ const UsersManagement: React.FC = () => {
         setLoading(true);
         setError(null);
         
-        const response = await fetch('http://localhost:5000/api/users', {
+        const response = await fetch(`${API_BASE_URL}/users`, {
           headers: {
             'Authorization': `Bearer ${localStorage.getItem('token')}`,
             'Content-Type': 'application/json',
@@ -139,7 +140,7 @@ const UsersManagement: React.FC = () => {
     }
     if (window.confirm('Are you sure you want to delete this user?')) {
       try {
-        const response = await fetch(`http://localhost:5000/api/users/${userId}`, {
+        const response = await fetch(`${API_BASE_URL}/users/${userId}`, {
           method: 'DELETE',
           headers: {
             'Authorization': `Bearer ${localStorage.getItem('token')}`,
@@ -170,7 +171,7 @@ const UsersManagement: React.FC = () => {
 
       const newStatus = user.status === 'active' ? 'suspended' : 'active';
       
-      const response = await fetch(`http://localhost:5000/api/users/${userId}`, {
+      const response = await fetch(`${API_BASE_URL}/users/${userId}`, {
         method: 'PUT',
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('token')}`,
@@ -670,4 +671,4 @@ const UsersManagement: React.FC = () => {
   );
 };
 
-export default UsersManagement; 
+export default UsersManagement;
