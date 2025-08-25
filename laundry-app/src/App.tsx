@@ -192,7 +192,7 @@ const App: React.FC = () => {
                 path="/chat/admin/:chatRoomId"
                 element={
                   <RoleBasedRoute allowedRoles={['admin']}>
-                    <MainLayout title="Admin Chat">
+                    <MainLayout title="Shop Owner Chat">
                       <AdminChat />
                     </MainLayout>
                   </RoleBasedRoute>
