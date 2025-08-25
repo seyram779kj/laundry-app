@@ -245,39 +245,6 @@ const PaymentHistory: React.FC = () => {
         </Stack>
       </Box>
 
-      {/* Stats */}
-      {paymentStats && (
-        <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 3, mb: 3 }}>
-          {[0, 1, 2, 3].map((idx) => (
-            <Box key={idx} sx={{ flex: '1 1 240px', minWidth: 240 }}>
-              <Card>
-                <CardContent>
-                  <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                    <Box>
-                      <Typography color="textSecondary" gutterBottom variant="h6">
-                        {idx === 0 && 'Total Payments'}
-                        {idx === 1 && 'Total Amount'}
-                        {idx === 2 && 'Completed'}
-                        {idx === 3 && 'Pending'}
-                      </Typography>
-                      <Typography variant="h4">
-                        {idx === 0 && (paymentStats.totals?.totalPayments || 0)}
-                        {idx === 1 && formatCurrency(paymentStats.totals?.totalAmount || 0)}
-                        {idx === 2 && formatCurrency(paymentStats.totals?.completedAmount || 0)}
-                        {idx === 3 && formatCurrency(paymentStats.totals?.pendingAmount || 0)}
-                      </Typography>
-                    </Box>
-                    {idx === 0 && <PaymentIcon color="primary" sx={{ fontSize: 40 }} />}
-                    {idx === 1 && <TrendingUpIcon color="success" sx={{ fontSize: 40 }} />}
-                    {idx === 2 && <Chip label="Completed" color="success" />}
-                    {idx === 3 && <Chip label="Pending" color="warning" />}
-                  </Box>
-                </CardContent>
-              </Card>
-            </Box>
-          ))}
-        </Box>
-      )}
 
       {/* Search and Quick Filters */}
       <Paper sx={{ p: 2, mb: 3 }}>
