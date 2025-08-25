@@ -25,6 +25,7 @@ import {
 } from '@mui/material';
 import { format } from 'date-fns';
 import axios from 'axios';
+import { API_BASE_URL } from '../../services/api';
 import ReceiptIcon from '@mui/icons-material/Receipt';
 import RefreshIcon from '@mui/icons-material/Refresh';
 import DownloadIcon from '@mui/icons-material/Download';
@@ -101,7 +102,7 @@ const ProviderEarnings: React.FC = () => {
 
       // Fetch orders assigned to this provider
       const response = await axios.get(
-        'http://localhost:5000/api/orders?role=service_provider&include_available=false',
+        `${API_BASE_URL}/orders?role=service_provider&include_available=false`,
         { headers: { Authorization: `Bearer ${token}` } }
       );
 
