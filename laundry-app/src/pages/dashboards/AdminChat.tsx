@@ -2,8 +2,9 @@ import React from 'react';
 import { useParams } from 'react-router-dom';
 import { useSelector } from 'react-redux';
 import Chat from '../../components/Chat';
+import { API_BASE_URL } from '../../services/api';
 
-const apiUrl = 'http://localhost:5000/api';
+const apiUrl = API_BASE_URL;
 
 const AdminChat: React.FC = () => {
   const { chatRoomId } = useParams<{ chatRoomId: string }>();
@@ -20,4 +21,4 @@ const AdminChat: React.FC = () => {
   );
 };
 
-export default AdminChat; 
+export default AdminChat;
