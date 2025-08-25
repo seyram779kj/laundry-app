@@ -199,6 +199,16 @@ const App: React.FC = () => {
                 }
               />
 
+              {/* Test Route */}
+              <Route
+                path="/test-api"
+                element={
+                  <MainLayout title="API Test">
+                    <TestPaymentAPI />
+                  </MainLayout>
+                }
+              />
+
               {/* Root Route - Redirects to appropriate dashboard */}
               <Route
                 path="/dashboard"
