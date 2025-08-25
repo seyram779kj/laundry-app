@@ -31,8 +31,6 @@ const initialState: PaymentState = {
   selectedPayment: null,
 };
 
-import { API_BASE_URL } from '../../services/api';
-
 const authHeaders = () => ({
   'Authorization': `Bearer ${localStorage.getItem('token') || ''}`,
 });
