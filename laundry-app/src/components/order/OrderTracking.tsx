@@ -28,7 +28,7 @@ import {
 } from '@mui/icons-material';
 import { format } from 'date-fns';
 import io from 'socket.io-client';
-import api from '../../services/api';
+import api, { API_BASE_URL } from '../../services/api';
 
 interface TrackingStep {
   status: string;
