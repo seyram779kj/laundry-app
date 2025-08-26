@@ -568,7 +568,7 @@ const UsersManagement: React.FC = () => {
                   >
                     <MenuItem value="customer">Customer</MenuItem>
                     <MenuItem value="service_provider">Service Provider</MenuItem>
-                    <MenuItem value="admin">Admin</MenuItem>
+                    <MenuItem value="admin">Shop Owner</MenuItem>
                   </Select>
                 </FormControl>
                 
