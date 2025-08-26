@@ -364,7 +364,7 @@ const ProviderOrders: React.FC = () => {
                   <Typography variant="body2" color="text.secondary" gutterBottom>
                     <Box>
                       <Typography variant="subtitle2" sx={{ fontWeight: 'bold', mb: 1 }}>
-                        Items per Service:
+                        Customer's Items:
                       </Typography>
                       {order.items.map((item, itemIndex) => (
                         <Box key={`${order._id}-${itemIndex}`} sx={{ mb: 1 }}>
