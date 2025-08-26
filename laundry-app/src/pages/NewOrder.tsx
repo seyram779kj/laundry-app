@@ -636,165 +636,183 @@ const NewOrderPage = () => {
               </Box>
             </Card>
 
-            {/* Item Entry */}
+            {/* Item Entry Form - Always stays visible when service is selected */}
             {selectedServiceId && (
-              <Card sx={{ mb: 4, p: 3, border: 2, borderColor: 'primary.main' }}>
-                <Typography variant="h5" gutterBottom>
-                  Step 2: Add Your Items (One by One)
-                </Typography>
-                <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-                  Selected Service: <strong>{services.find(s => s._id === selectedServiceId)?.name}</strong>
-                </Typography>
-                <Alert severity="success" sx={{ mb: 3 }}>
-                  <Typography variant="body2">
-                    <strong>Add multiple items easily:</strong> Enter each item's description and press "Add Item".
-                    The form will clear automatically so you can quickly add more items!
+              <Box sx={{ display: 'flex', gap: 3, flexDirection: { xs: 'column', lg: 'row' } }}>
+                {/* Left Column - Item Entry Form */}
+                <Card sx={{
+                  flex: { xs: 1, lg: '1 1 60%' },
+                  p: 3,
+                  border: 2,
+                  borderColor: 'primary.main',
+                  position: 'sticky',
+                  top: 20,
+                  height: 'fit-content'
+                }}>
+                  <Typography variant="h5" gutterBottom>
+                    Step 2: Add Your Items (One by One)
                   </Typography>
-                </Alert>
-
-                <Box sx={{ display: 'flex', gap: 2, mb: 3, flexWrap: 'wrap' }}>
-                  <TextField
-                    inputRef={descriptionInputRef}
-                    label="Item Description *"
-                    placeholder="e.g., Blue dress shirt, Black jeans, White T-shirt"
-                    value={newItemDescription}
-                    onChange={(e) => setNewItemDescription(e.target.value)}
-                    sx={{ minWidth: 300, flex: 1 }}
-                    required
-                    helperText="Be specific - this helps us track your item"
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter' && newItemDescription.trim()) {
-                        e.preventDefault();
-                        handleAddIndividualItem();
-                      }
-                    }}
-                  />
-                  <TextField
-                    label="Special Instructions (Optional)"
-                    placeholder="e.g., Handle with care, No bleach, Gentle cycle"
-                    value={newItemInstructions}
-                    onChange={(e) => setNewItemInstructions(e.target.value)}
-                    sx={{ minWidth: 250, flex: 1 }}
-                    helperText="Any special care instructions"
-                  />
-                </Box>
-
-                <Box sx={{ display: 'flex', gap: 2, mb: 3, flexWrap: 'wrap' }}>
-                  <Button
-                    variant="contained"
-                    size="large"
-                    onClick={handleAddIndividualItem}
-                    disabled={!newItemDescription.trim()}
-                    sx={{ minHeight: 56, px: 4 }}
-                  >
-                    Add This Item
-                  </Button>
-                  <Button
-                    variant="outlined"
-                    size="large"
-                    onClick={() => {
-                      setNewItemDescription('');
-                      setNewItemInstructions('');
-                      setTimeout(() => descriptionInputRef.current?.focus(), 0);
-                    }}
-                    sx={{ minHeight: 56, px: 4 }}
-                  >
-                    Clear & Add Another
-                  </Button>
-                </Box>
-
-                {/* Quick Add Examples */}
-                <Box sx={{ mt: 3, p: 2, bgcolor: 'grey.50', borderRadius: 2 }}>
-                  <Typography variant="subtitle2" gutterBottom>
-                    Quick Add Common Items:
+                  <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                    Selected Service: <strong>{services.find(s => s._id === selectedServiceId)?.name}</strong>
                   </Typography>
-                  <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
-                    {[
-                      ['White shirt', 'Black pants', 'Blue jeans'],
-                      ['Cotton T-shirt', 'Dress shirt', 'Polo shirt'],
-                      ['Blouse', 'Skirt', 'Dress'],
-                      ['Sweater', 'Jacket', 'Hoodie']
-                    ].map((itemGroup, index) => (
-                      <Button
-                        key={index}
-                        size="small"
-                        variant="outlined"
-                        onClick={() => quickAddItems(selectedServiceId, itemGroup)}
-                        sx={{ mb: 1, fontSize: '0.75rem' }}
-                      >
-                        + {itemGroup.join(', ')}
-                      </Button>
-                    ))}
-                  </Box>
-                </Box>
-              </Card>
-            )}
-
-            {/* Selected Items Summary */}
-            {selectedServices.length > 0 && (
-              <Card sx={{ mt: 4, p: 3, bgcolor: 'success.light' }}>
-                <Typography variant="h5" gutterBottom color="success.dark">
-                  Your Items ({getTotalItemsCount()} total)
-                </Typography>
-                <Typography variant="body2" color="success.dark" sx={{ mb: 3 }}>
-                  Review your items below. Each has a unique ID for tracking through the cleaning process.
-                </Typography>
-                {selectedServices.map((service) => (
-                  <Box key={service._id || service.id} sx={{ mb: 3 }}>
-                    <Typography variant="h6" color="primary" sx={{ mb: 2 }}>
-                      {service.name} - ¢{(service.basePrice || service.price || 0).toFixed(2)} each
+                  <Alert severity="success" sx={{ mb: 3 }}>
+                    <Typography variant="body2">
+                      <strong>Keep adding items:</strong> Enter each item's description and press "Add Item".
+                      The form stays here so you can keep adding more items easily!
                     </Typography>
-                    {service.clothingItems?.map((item, index) => (
-                      <Box key={item.itemId} sx={{
-                        display: 'flex',
-                        justifyContent: 'space-between',
-                        alignItems: 'center',
-                        py: 2,
-                        px: 3,
-                        mb: 1,
-                        bgcolor: 'background.paper',
-                        borderRadius: 2,
-                        border: 1,
-                        borderColor: 'success.main'
-                      }}>
-                        <Box>
-                          <Typography variant="body1" sx={{ fontWeight: 'medium' }}>
-                            <strong>#{index + 1}</strong> - {item.description}
+                  </Alert>
+
+                  <Box sx={{ display: 'flex', gap: 2, mb: 3, flexDirection: 'column' }}>
+                    <TextField
+                      inputRef={descriptionInputRef}
+                      label="Item Description *"
+                      placeholder="e.g., Blue dress shirt, Black jeans, White T-shirt"
+                      value={newItemDescription}
+                      onChange={(e) => setNewItemDescription(e.target.value)}
+                      fullWidth
+                      required
+                      helperText="Be specific - this helps us track your item"
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' && newItemDescription.trim()) {
+                          e.preventDefault();
+                          handleAddIndividualItem();
+                        }
+                      }}
+                    />
+                    <TextField
+                      label="Special Instructions (Optional)"
+                      placeholder="e.g., Handle with care, No bleach, Gentle cycle"
+                      value={newItemInstructions}
+                      onChange={(e) => setNewItemInstructions(e.target.value)}
+                      fullWidth
+                      helperText="Any special care instructions"
+                    />
+                  </Box>
+
+                  <Box sx={{ display: 'flex', gap: 2, mb: 3 }}>
+                    <Button
+                      variant="contained"
+                      size="large"
+                      onClick={handleAddIndividualItem}
+                      disabled={!newItemDescription.trim()}
+                      sx={{ flex: 1 }}
+                    >
+                      Add This Item
+                    </Button>
+                    <Button
+                      variant="outlined"
+                      size="large"
+                      onClick={() => {
+                        setNewItemDescription('');
+                        setNewItemInstructions('');
+                        setTimeout(() => descriptionInputRef.current?.focus(), 0);
+                      }}
+                      sx={{ flex: 1 }}
+                    >
+                      Clear Form
+                    </Button>
+                  </Box>
+
+                  {/* Quick Add Examples */}
+                  <Box sx={{ mt: 3, p: 2, bgcolor: 'grey.50', borderRadius: 2 }}>
+                    <Typography variant="subtitle2" gutterBottom>
+                      Quick Add Common Items:
+                    </Typography>
+                    <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+                      {[
+                        ['White shirt', 'Black pants', 'Blue jeans'],
+                        ['Cotton T-shirt', 'Dress shirt', 'Polo shirt'],
+                        ['Blouse', 'Skirt', 'Dress'],
+                        ['Sweater', 'Jacket', 'Hoodie']
+                      ].map((itemGroup, index) => (
+                        <Button
+                          key={index}
+                          size="small"
+                          variant="outlined"
+                          onClick={() => quickAddItems(selectedServiceId, itemGroup)}
+                          sx={{ mb: 1, fontSize: '0.75rem' }}
+                        >
+                          + {itemGroup.join(', ')}
+                        </Button>
+                      ))}
+                    </Box>
+                  </Box>
+
+                  {/* Current items count */}
+                  {selectedServices.length > 0 && (
+                    <Alert severity="info" sx={{ mt: 3 }}>
+                      <Typography variant="body2">
+                        ✅ <strong>{getTotalItemsCount()} items added</strong> - Keep adding more or proceed to step 2 when ready!
+                      </Typography>
+                    </Alert>
+                  )}
+                </Card>
+
+                {/* Right Column - Items Preview (only show if items exist) */}
+                {selectedServices.length > 0 && (
+                  <Box sx={{ flex: { xs: 1, lg: '1 1 40%' } }}>
+                    <Card sx={{ p: 3, bgcolor: 'grey.50' }}>
+                      <Typography variant="h6" gutterBottom>
+                        Added Items ({getTotalItemsCount()})
+                      </Typography>
+                      <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
+                        Preview of your items - you can remove any if needed
+                      </Typography>
+                      {selectedServices.map((service) => (
+                        <Box key={service._id || service.id} sx={{ mb: 2 }}>
+                          <Typography variant="subtitle2" color="primary" sx={{ mb: 1, fontWeight: 'bold' }}>
+                            {service.name} - ¢{(service.basePrice || service.price || 0).toFixed(2)} each
                           </Typography>
-                          <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
-                            Item ID: {item.itemId}
-                          </Typography>
-                          {item.specialInstructions && (
-                            <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
-                              Instructions: {item.specialInstructions}
-                            </Typography>
-                          )}
+                          {service.clothingItems?.map((item, index) => (
+                            <Box key={item.itemId} sx={{
+                              display: 'flex',
+                              justifyContent: 'space-between',
+                              alignItems: 'center',
+                              py: 1,
+                              px: 2,
+                              mb: 1,
+                              bgcolor: 'background.paper',
+                              borderRadius: 1,
+                              fontSize: '0.875rem'
+                            }}>
+                              <Box sx={{ flex: 1 }}>
+                                <Typography variant="body2" sx={{ fontWeight: 'medium' }}>
+                                  #{index + 1} - {item.description}
+                                </Typography>
+                                {item.specialInstructions && (
+                                  <Typography variant="caption" color="text.secondary">
+                                    {item.specialInstructions}
+                                  </Typography>
+                                )}
+                              </Box>
+                              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                <Typography variant="caption" color="primary">
+                                  ¢{item.unitPrice.toFixed(2)}
+                                </Typography>
+                                <IconButton
+                                  size="small"
+                                  onClick={() => handleRemoveItem((service._id || service.id) as string, item.itemId)}
+                                  sx={{ color: 'error.main', p: 0.5 }}
+                                >
+                                  <Remove fontSize="small" />
+                                </IconButton>
+                              </Box>
+                            </Box>
+                          ))}
                         </Box>
-                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                          <Typography variant="body2" color="primary" sx={{ fontWeight: 'bold' }}>
-                            ¢{item.unitPrice.toFixed(2)}
+                      ))}
+                      <Box sx={{ borderTop: 1, borderColor: 'divider', pt: 2, mt: 2 }}>
+                        <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                          <Typography variant="subtitle2">Subtotal ({getTotalItemsCount()} items):</Typography>
+                          <Typography variant="subtitle2" color="primary" sx={{ fontWeight: 'bold' }}>
+                            ¢{calculateSubtotal().toFixed(2)}
                           </Typography>
-                          <IconButton
-                            size="small"
-                            onClick={() => handleRemoveItem((service._id || service.id) as string, item.itemId)}
-                            sx={{ color: 'error.main' }}
-                          >
-                            <Remove />
-                          </IconButton>
                         </Box>
                       </Box>
-                    ))}
+                    </Card>
                   </Box>
-                ))}
-                <Box sx={{ borderTop: 1, borderColor: 'success.main', pt: 2, mt: 2 }}>
-                  <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                    <Typography variant="h6" color="success.dark">Subtotal ({getTotalItemsCount()} items):</Typography>
-                    <Typography variant="h6" color="success.dark" sx={{ fontWeight: 'bold' }}>
-                      ¢{calculateSubtotal().toFixed(2)}
-                    </Typography>
-                  </Box>
-                </Box>
-              </Card>
+                )}
+              </Box>
             )}
           </>
         )}
