@@ -625,10 +625,10 @@ const UsersManagement: React.FC = () => {
               {formData.role === 'admin' && (
                 <Box sx={{ mb: 3 }}>
                   <Typography variant="h6" gutterBottom>
-                    Admin Permissions
+                    Shop Owner Permissions
                   </Typography>
                   <Typography variant="body2" color="text.secondary">
-                    Admin permissions will be set to default values. They can be modified after user creation.
+                    Shop Owner permissions will be set to default values. They can be modified after user creation.
                   </Typography>
                 </Box>
               )}
