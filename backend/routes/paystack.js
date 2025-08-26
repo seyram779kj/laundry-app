@@ -26,6 +26,14 @@ router.get('/config', protect, (req, res) => {
 
 // Initialize payment for an order
 router.post('/initialize/:orderId', protect, async (req, res) => {
+  if (!process.env.APP_URL) {
+    console.error('APP_URL environment variable is not set.');
+    return res.status(500).json({
+      success: false,
+      error: 'Server configuration error: APP_URL is not defined.'
+    });
+  }
+
   try {
     const { orderId } = req.params;
     const { paymentMethod, momoPhone, momoProvider } = req.body;

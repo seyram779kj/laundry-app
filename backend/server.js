@@ -19,12 +19,12 @@ const io = new Server(server, {
   }
 });
 
-// Hardcoded configuration (no env files)
-const PORT = 5000;
-const MONGODB_URI = 'mongodb+srv://ohenebasayram:KinG123%40%26@cluster0.m3p1erd.mongodb.net/';
-const JWT_SECRET = 'your-super-secret-jwt-key-change-this-in-production';
-const JWT_EXPIRE = '7d';
-const NODE_ENV = 'development';
+// Environment variables
+const PORT = process.env.PORT || 5000;
+const MONGODB_URI = process.env.MONGODB_URI;
+const JWT_SECRET = process.env.JWT_SECRET;
+const JWT_EXPIRE = process.env.JWT_EXPIRE || '7d';
+const NODE_ENV = process.env.NODE_ENV || 'development';
 // Middleware
 app.use(cors());
 app.use(express.json());
