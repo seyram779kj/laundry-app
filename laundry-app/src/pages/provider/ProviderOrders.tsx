@@ -186,29 +186,6 @@ const ProviderOrders: React.FC = () => {
     }
   };
 
-  // Add a clothing item to a specific order item (service)
-  const handleAddClothingItem = async (orderId: string, itemIndex: number) => {
-    try {
-      const description = window.prompt('Enter item description');
-      if (!description || !description.trim()) return;
-      const specialInstructions = window.prompt('Any special instructions?') || '';
-      setConfirmingItem('adding');
-
-      const token = localStorage.getItem('token');
-      await axios.post(
-        `${API_BASE_URL}/orders/${orderId}/items/${itemIndex}/clothing-items`,
-        { description: description.trim(), specialInstructions },
-        { headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' } }
-      );
-
-      dispatch(fetchProviderOrders({ includeAvailable: true }));
-    } catch (err: any) {
-      console.error('Add clothing item error:', err);
-      dispatch(setError(err.response?.data?.error || 'Failed to add clothing item'));
-    } finally {
-      setConfirmingItem(null);
-    }
-  };
 
   const formatDate = (dateString: string) => format(new Date(dateString), 'MMM dd, yyyy hh:mm a');
 
