@@ -403,19 +403,8 @@ const ProviderOrders: React.FC = () => {
                             ))
                           ) : (
                             <Typography variant="caption" color="text.secondary" sx={{ ml: 1, display: 'block' }}>
-                              No items yet.
+                              No items listed by customer.
                             </Typography>
-                          )}
-                          {order.serviceProvider && (
-                            <Button
-                              size="small"
-                              variant="outlined"
-                              onClick={() => handleAddClothingItem(order._id, itemIndex)}
-                              disabled={confirmingItem === 'adding'}
-                              sx={{ fontSize: '0.7rem', py: 0.2, px: 1 }}
-                            >
-                              {confirmingItem === 'adding' ? 'Adding...' : 'Add Item'}
-                            </Button>
                           )}
                         </Box>
                       ))}
