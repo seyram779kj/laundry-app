@@ -41,6 +41,7 @@ import ReviewsManagement from './pages/admin/ReviewsManagement';
 
 // Payment History
 import PaymentHistory from './pages/PaymentHistory';
+import TestPaymentAPI from './pages/TestPaymentAPI';
 
 // Authentication Initialization Component
 const AuthInitializer: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -191,10 +192,20 @@ const App: React.FC = () => {
                 path="/chat/admin/:chatRoomId"
                 element={
                   <RoleBasedRoute allowedRoles={['admin']}>
-                    <MainLayout title="Admin Chat">
+                    <MainLayout title="Shop Owner Chat">
                       <AdminChat />
                     </MainLayout>
                   </RoleBasedRoute>
+                }
+              />
+
+              {/* Test Route */}
+              <Route
+                path="/test-api"
+                element={
+                  <MainLayout title="API Test">
+                    <TestPaymentAPI />
+                  </MainLayout>
                 }
               />
 
@@ -214,7 +225,7 @@ const App: React.FC = () => {
                 path="/admin/*"
                 element={
                   <RoleBasedRoute allowedRoles={['admin']}>
-                    <MainLayout title="Admin Dashboard">
+                    <MainLayout title="Shop Owner Dashboard">
                       <Routes>
                         <Route index element={<Dashboard />} />
                         <Route path="users" element={<UsersManagement />} />

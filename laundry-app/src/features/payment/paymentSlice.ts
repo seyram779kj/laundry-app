@@ -1,4 +1,5 @@
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
+import { API_BASE_URL } from '../../services/api';
 
 interface PaymentState {
   loading: boolean;
@@ -29,8 +30,6 @@ const initialState: PaymentState = {
   paymentStats: null,
   selectedPayment: null,
 };
-
-import { API_BASE_URL } from '../../services/api';
 
 const authHeaders = () => ({
   'Authorization': `Bearer ${localStorage.getItem('token') || ''}`,

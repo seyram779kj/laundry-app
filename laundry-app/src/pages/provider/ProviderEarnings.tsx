@@ -25,6 +25,7 @@ import {
 } from '@mui/material';
 import { format } from 'date-fns';
 import axios from 'axios';
+import { API_BASE_URL } from '../../services/api';
 import ReceiptIcon from '@mui/icons-material/Receipt';
 import RefreshIcon from '@mui/icons-material/Refresh';
 import DownloadIcon from '@mui/icons-material/Download';
@@ -101,7 +102,7 @@ const ProviderEarnings: React.FC = () => {
 
       // Fetch orders assigned to this provider
       const response = await axios.get(
-        'http://localhost:5000/api/orders?role=service_provider&include_available=false',
+        `${API_BASE_URL}/orders?role=service_provider&include_available=false`,
         { headers: { Authorization: `Bearer ${token}` } }
       );
 
@@ -323,90 +324,6 @@ const ProviderEarnings: React.FC = () => {
         </TableContainer>
       </Paper>
 
-      {/* Payment History (moved from separate page) */}
-      <Paper sx={{ p: 3 }}>
-        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-          <Typography variant="h6" gutterBottom>
-            Payment History
-          </Typography>
-          <Stack direction="row" spacing={1}>
-            <Button variant="outlined" startIcon={<RefreshIcon />} onClick={() => dispatch(fetchPaymentHistory({ page: page + 1, limit: rowsPerPage }))} disabled={paymentHistory.loading}>
-              Refresh
-            </Button>
-          </Stack>
-        </Box>
-        {paymentHistory.loading ? (
-          <Box sx={{ display: 'flex', justifyContent: 'center', p: 3 }}>
-            <CircularProgress />
-          </Box>
-        ) : paymentHistory.error ? (
-          <Alert severity="error" sx={{ m: 2 }}>
-            {paymentHistory.error}
-          </Alert>
-        ) : (
-          <TableContainer>
-            <Table>
-              <TableHead>
-                <TableRow>
-                  <TableCell>Transaction ID</TableCell>
-                  <TableCell>Order</TableCell>
-                  <TableCell>Amount</TableCell>
-                  <TableCell>Method</TableCell>
-                  <TableCell>Status</TableCell>
-                  <TableCell>Date</TableCell>
-                  <TableCell>Actions</TableCell>
-                </TableRow>
-              </TableHead>
-              <TableBody>
-                {paymentHistory.data.map((payment: any) => (
-                  <TableRow key={payment._id} hover>
-                    <TableCell>
-                      <Typography variant="body2" fontFamily="monospace">
-                        {payment.transactionId || payment.paymentDetails?.transactionRef || payment._id.slice(-8)}
-                      </Typography>
-                    </TableCell>
-                    <TableCell>
-                      {payment.orderInfo && (
-                        <Box>
-                          <Typography variant="body2" fontWeight="bold">
-                            {payment.orderInfo.orderNumber}
-                          </Typography>
-                          <Typography variant="caption" color="textSecondary">
-                            {payment.orderInfo.itemCount} item(s)
-                          </Typography>
-                        </Box>
-                      )}
-                    </TableCell>
-                    <TableCell>
-                      <Typography variant="body2" fontWeight="bold">
-                        {payment.formattedAmount || formatCurrency(payment.amount)}
-                      </Typography>
-                    </TableCell>
-                    <TableCell>
-                      <Chip label={(payment.paymentMethod || '').replace('_', ' ').toUpperCase()} size="small" variant="outlined" />
-                    </TableCell>
-                    <TableCell>
-                      <Chip label={(payment.status || '').toUpperCase()} color={getStatusColor(payment.status) as any} size="small" />
-                    </TableCell>
-                    <TableCell>
-                      <Typography variant="body2">{formatDateTime(payment.createdAt)}</Typography>
-                    </TableCell>
-                    <TableCell>
-                      <Tooltip title="View Receipt">
-                        <span>
-                          <IconButton size="small" onClick={() => handleViewReceipt(payment._id)} disabled={payment.status !== 'completed'}>
-                            <ReceiptIcon />
-                          </IconButton>
-                        </span>
-                      </Tooltip>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </TableContainer>
-        )}
-      </Paper>
 
       {/* Receipt Dialog */}
       <Dialog open={receiptDialog} onClose={() => setReceiptDialog(false)} maxWidth="md" fullWidth>

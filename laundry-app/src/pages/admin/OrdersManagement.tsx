@@ -39,6 +39,7 @@ import {
 import { usePermissions } from '../../hooks/usePermissions';
 import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
+import { API_BASE_URL } from '../../services/api';
 
 interface Order {
   _id: string;
@@ -270,7 +271,7 @@ const OrdersManagement: React.FC = () => {
 
   const handleUpdateStatus = async (orderId: string, status: Order['status']) => {
     try {
-      const response = await fetch(`http://localhost:5000/api/orders/${orderId}/status`, {
+      const response = await fetch(`${API_BASE_URL}/orders/${orderId}/status`, {
         method: 'PUT',
         headers: {
           Authorization: `Bearer ${localStorage.getItem('token')}`,
@@ -297,7 +298,7 @@ const OrdersManagement: React.FC = () => {
     try {
       const token = localStorage.getItem('token');
       const res = await axios.post(
-        'http://localhost:5000/api/chats/room',
+        `${API_BASE_URL}/chats/room`,
         { customerId: order.customer._id },
         { headers: { Authorization: `Bearer ${token}` } }
       );
