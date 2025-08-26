@@ -369,7 +369,7 @@ const ReviewsManagement: React.FC = () => {
                 
                 {review.adminNotes && (
                   <Typography variant="body2" color="error" sx={{ mt: 1 }}>
-                    Admin Note: {review.adminNotes}
+                    Shop Owner Note: {review.adminNotes}
                   </Typography>
                 )}
               </CardContent>
@@ -475,7 +475,7 @@ const ReviewsManagement: React.FC = () => {
               {selectedReview.adminNotes && (
                 <>
                   <Typography variant="h6" gutterBottom>
-                    Admin Notes
+                    Shop Owner Notes
                   </Typography>
                   <Typography variant="body1" sx={{ mb: 2 }}>
                     {selectedReview.adminNotes}
@@ -501,4 +501,4 @@ const ReviewsManagement: React.FC = () => {
   );
 };
 
-export default ReviewsManagement; 
+export default ReviewsManagement;
