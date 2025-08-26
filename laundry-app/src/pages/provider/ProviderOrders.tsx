@@ -372,33 +372,37 @@ const ProviderOrders: React.FC = () => {
                             {item.serviceName}
                           </Typography>
                           {(item.clothingItems && item.clothingItems.length > 0) ? (
-                            item.clothingItems.map((clothingItem) => (
-                              <Box key={clothingItem.itemId} sx={{ ml: 1, mb: 1, p: 1, bgcolor: 'grey.50', borderRadius: 1 }}>
-                                <Typography variant="body2" sx={{ mb: 0.5 }}>
-                                  <strong>{clothingItem.itemId}</strong>: {clothingItem.description}
+                            item.clothingItems.map((clothingItem, itemIndex) => (
+                              <Box key={clothingItem.itemId} sx={{ ml: 1, mb: 1, p: 2, bgcolor: 'background.paper', borderRadius: 1, border: 1, borderColor: 'divider' }}>
+                                <Typography variant="body2" sx={{ mb: 0.5, fontWeight: 'medium' }}>
+                                  <span style={{ color: '#1976d2', fontWeight: 'bold' }}>Item #{itemIndex + 1}</span> - {clothingItem.description}
                                 </Typography>
                                 <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 0.5 }}>
-                                  {clothingItem.serviceName} - ¢{clothingItem.unitPrice.toFixed(2)}
+                                  <strong>Customer ID:</strong> {clothingItem.itemId}
                                 </Typography>
-                                <Chip
-                                  label={clothingItem.isConfirmed ? 'Confirmed' : 'Pending'}
-                                  size="small"
-                                  color={clothingItem.isConfirmed ? 'success' : 'warning'}
-                                  variant="outlined"
-                                  sx={{ mr: 1 }}
-                                />
-                                {order.serviceProvider && !clothingItem.isConfirmed && (
-                                  <Button
+                                <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 1 }}>
+                                  Service: {clothingItem.serviceName} - ¢{clothingItem.unitPrice.toFixed(2)}
+                                </Typography>
+                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                  <Chip
+                                    label={clothingItem.isConfirmed ? 'Received ✓' : 'Pending Receipt'}
                                     size="small"
-                                    variant="outlined"
-                                    color="primary"
-                                    onClick={() => handleConfirmItem(order._id, clothingItem.itemId)}
-                                    disabled={confirmingItem === clothingItem.itemId}
-                                    sx={{ fontSize: '0.7rem', py: 0.2, px: 1, mr: 1 }}
-                                  >
-                                    {confirmingItem === clothingItem.itemId ? 'Confirming...' : 'Confirm Received'}
-                                  </Button>
-                                )}
+                                    color={clothingItem.isConfirmed ? 'success' : 'warning'}
+                                    variant={clothingItem.isConfirmed ? 'filled' : 'outlined'}
+                                  />
+                                  {order.serviceProvider && !clothingItem.isConfirmed && (
+                                    <Button
+                                      size="small"
+                                      variant="contained"
+                                      color="primary"
+                                      onClick={() => handleConfirmItem(order._id, clothingItem.itemId)}
+                                      disabled={confirmingItem === clothingItem.itemId}
+                                      sx={{ fontSize: '0.7rem', py: 0.3, px: 1.5 }}
+                                    >
+                                      {confirmingItem === clothingItem.itemId ? 'Confirming...' : 'Confirm Received'}
+                                    </Button>
+                                  )}
+                                </Box>
                               </Box>
                             ))
                           ) : (
