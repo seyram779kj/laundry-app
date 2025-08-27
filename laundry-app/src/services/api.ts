@@ -66,7 +66,7 @@ const apiRequest = async <T>(
   endpoint: string,
   options: RequestInit = {}
 ): Promise<ApiResponse<T>> => {
-  let response: Response;
+  let response: Response | undefined;
 
   try {
     console.log(`🔍 API request to: ${API_BASE_URL}${endpoint}`);
