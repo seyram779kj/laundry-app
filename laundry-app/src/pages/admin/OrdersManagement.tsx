@@ -38,6 +38,8 @@ import {
 } from '@mui/icons-material';
 import { usePermissions } from '../../hooks/usePermissions';
 import axios from 'axios';
+import { useNavigate } from 'react-router-dom';
+import { API_BASE_URL } from '../../services/api';
 
 interface Order {
   _id: string;
@@ -95,6 +97,7 @@ interface Order {
 
 const OrdersManagement: React.FC = () => {
   const { canManageOrders } = usePermissions();
+  const navigate = useNavigate();
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
@@ -120,7 +123,8 @@ const OrdersManagement: React.FC = () => {
         setLoading(true);
         setError(null);
 
-        const response = await fetch('http://localhost:5000/api/orders', {
+        const { API_BASE_URL } = await import('../../services/api');
+        const response = await fetch(`${API_BASE_URL}/orders`, {
           headers: {
             Authorization: `Bearer ${localStorage.getItem('token')}`,
             'Content-Type': 'application/json',
@@ -212,14 +216,15 @@ const OrdersManagement: React.FC = () => {
       for (const order of orders) {
         try {
           const token = localStorage.getItem('token');
+          const { API_BASE_URL } = await import('../../services/api');
           const chatRoomRes = await axios.post(
-            'http://localhost:5000/api/chats/room',
-            { customerId: order.customer._id, orderId: order._id },
+            `${API_BASE_URL}/chats/room`,
+            { customerId: order.customer._id },
             { headers: { Authorization: `Bearer ${token}` } }
           );
           const chatRoomId = chatRoomRes.data._id;
           const messagesRes = await axios.get(
-            `http://localhost:5000/api/chats/${chatRoomId}/messages`,
+            `${API_BASE_URL}/chats/${chatRoomId}/messages`,
             { headers: { Authorization: `Bearer ${token}` } }
           );
           const messages = messagesRes.data;
@@ -240,7 +245,8 @@ const OrdersManagement: React.FC = () => {
 
   const handleAssignOrder = async (orderId: string, serviceProviderId: string) => {
     try {
-      const response = await fetch(`http://localhost:5000/api/orders/${orderId}/assign`, {
+      const { API_BASE_URL } = await import('../../services/api');
+      const response = await fetch(`${API_BASE_URL}/orders/${orderId}/assign`, {
         method: 'PUT',
         headers: {
           Authorization: `Bearer ${localStorage.getItem('token')}`,
@@ -265,7 +271,7 @@ const OrdersManagement: React.FC = () => {
 
   const handleUpdateStatus = async (orderId: string, status: Order['status']) => {
     try {
-      const response = await fetch(`http://localhost:5000/api/orders/${orderId}/status`, {
+      const response = await fetch(`${API_BASE_URL}/orders/${orderId}/status`, {
         method: 'PUT',
         headers: {
           Authorization: `Bearer ${localStorage.getItem('token')}`,
@@ -292,12 +298,12 @@ const OrdersManagement: React.FC = () => {
     try {
       const token = localStorage.getItem('token');
       const res = await axios.post(
-        'http://localhost:5000/api/chats/room',
-        { customerId: order.customer._id, orderId: order._id },
+        `${API_BASE_URL}/chats/room`,
+        { customerId: order.customer._id },
         { headers: { Authorization: `Bearer ${token}` } }
       );
       const chatRoomId = res.data._id;
-      window.location.href = `/chat/admin/${chatRoomId}`;
+      navigate(`/chat/admin/${chatRoomId}`);
     } catch (err) {
       alert('Failed to open chat.');
     }

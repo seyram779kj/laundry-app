@@ -82,7 +82,8 @@ const Login: React.FC = () => {
     
     try {
       console.log('🔍 Testing API connection...');
-      const testResponse = await fetch('http://localhost:5000/api/health');
+      const { API_BASE_URL } = await import('../services/api');
+      const testResponse = await fetch(`${API_BASE_URL}/health`);
       console.log('API health check:', testResponse.ok ? ' OK' : ' Failed');
       
       if (!testResponse.ok) {

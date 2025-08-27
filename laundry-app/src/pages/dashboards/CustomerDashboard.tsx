@@ -21,8 +21,7 @@ import AddIcon from '@mui/icons-material/Add';
 import EditIcon from '@mui/icons-material/Edit';
 import VisibilityIcon from '@mui/icons-material/Visibility';
 import axios from 'axios';
-
-const API_BASE_URL = 'http://localhost:5000/api';
+import { API_BASE_URL } from '../../services/api';
 
 const CustomerDashboard: React.FC = () => {
   const navigate = useNavigate();
@@ -164,7 +163,7 @@ const CustomerDashboard: React.FC = () => {
       );
 
       const chatRoomId = response.data._id;
-      navigate(`/customer/chat/${chatRoomId}`);
+      navigate(`/chat/customer/${chatRoomId}`);
     } catch (err: any) {
       console.error('Error opening support chat:', err);
       setError('Failed to open support chat');

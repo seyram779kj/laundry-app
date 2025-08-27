@@ -21,7 +21,8 @@ interface AddressListProps {
 const AddressList: React.FC<AddressListProps> = ({ addresses }) => {
   const dispatch = useAppDispatch();
 
-  const handleDelete = async (addressId: string) => {
+  const handleDelete = async (addressId: string | undefined) => {
+    if (!addressId) return;
     try {
       await dispatch(deleteAddress(addressId));
     } catch (error) {
@@ -78,6 +79,7 @@ const AddressList: React.FC<AddressListProps> = ({ addresses }) => {
                 edge="end"
                 aria-label="delete"
                 onClick={() => handleDelete(address.id)}
+                disabled={!address.id}
               >
                 <DeleteIcon />
               </IconButton>

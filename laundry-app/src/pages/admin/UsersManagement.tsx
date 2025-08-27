@@ -40,6 +40,7 @@ import {
 import { usePermissions } from '../../hooks/usePermissions';
 import { UserRole, User, AdminUser, CustomerUser, ServiceProviderUser } from '../../types/auth';
 import { formatUserData } from '../../utils/textUtils';
+import { API_BASE_URL } from '../../services/api';
 
 interface UserWithStatus extends User {
   status: 'active' | 'inactive' | 'suspended';
@@ -76,7 +77,7 @@ const UsersManagement: React.FC = () => {
         setLoading(true);
         setError(null);
         
-        const response = await fetch('http://localhost:5000/api/users', {
+        const response = await fetch(`${API_BASE_URL}/users`, {
           headers: {
             'Authorization': `Bearer ${localStorage.getItem('token')}`,
             'Content-Type': 'application/json',
@@ -139,7 +140,7 @@ const UsersManagement: React.FC = () => {
     }
     if (window.confirm('Are you sure you want to delete this user?')) {
       try {
-        const response = await fetch(`http://localhost:5000/api/users/${userId}`, {
+        const response = await fetch(`${API_BASE_URL}/users/${userId}`, {
           method: 'DELETE',
           headers: {
             'Authorization': `Bearer ${localStorage.getItem('token')}`,
@@ -170,7 +171,7 @@ const UsersManagement: React.FC = () => {
 
       const newStatus = user.status === 'active' ? 'suspended' : 'active';
       
-      const response = await fetch(`http://localhost:5000/api/users/${userId}`, {
+      const response = await fetch(`${API_BASE_URL}/users/${userId}`, {
         method: 'PUT',
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('token')}`,
@@ -249,7 +250,7 @@ const UsersManagement: React.FC = () => {
         });
 
         // Real API call to create user
-        const response = await fetch('http://localhost:5000/api/users', {
+        const response = await fetch(`${API_BASE_URL}/users`, {
           method: 'POST',
           headers: {
             'Authorization': `Bearer ${localStorage.getItem('token')}`,
@@ -270,7 +271,7 @@ const UsersManagement: React.FC = () => {
         const newUser = await response.json();
         
         // Refresh the users list to get the updated data
-        const usersResponse = await fetch('http://localhost:5000/api/users', {
+        const usersResponse = await fetch(`${API_BASE_URL}/users`, {
           headers: {
             'Authorization': `Bearer ${localStorage.getItem('token')}`,
             'Content-Type': 'application/json',
@@ -296,7 +297,7 @@ const UsersManagement: React.FC = () => {
         });
 
         // Real API call to update user
-        const response = await fetch(`http://localhost:5000/api/users/${selectedUser?.id}`, {
+        const response = await fetch(`${API_BASE_URL}/users/${selectedUser?.id}`, {
           method: 'PUT',
           headers: {
             'Authorization': `Bearer ${localStorage.getItem('token')}`,
@@ -314,7 +315,7 @@ const UsersManagement: React.FC = () => {
         }
 
         // Refresh the users list
-        const usersResponse = await fetch('http://localhost:5000/api/users', {
+        const usersResponse = await fetch(`${API_BASE_URL}/users`, {
           headers: {
             'Authorization': `Bearer ${localStorage.getItem('token')}`,
             'Content-Type': 'application/json',
@@ -567,7 +568,7 @@ const UsersManagement: React.FC = () => {
                   >
                     <MenuItem value="customer">Customer</MenuItem>
                     <MenuItem value="service_provider">Service Provider</MenuItem>
-                    <MenuItem value="admin">Admin</MenuItem>
+                    <MenuItem value="admin">Shop Owner</MenuItem>
                   </Select>
                 </FormControl>
                 
@@ -624,10 +625,10 @@ const UsersManagement: React.FC = () => {
               {formData.role === 'admin' && (
                 <Box sx={{ mb: 3 }}>
                   <Typography variant="h6" gutterBottom>
-                    Admin Permissions
+                    Shop Owner Permissions
                   </Typography>
                   <Typography variant="body2" color="text.secondary">
-                    Admin permissions will be set to default values. They can be modified after user creation.
+                    Shop Owner permissions will be set to default values. They can be modified after user creation.
                   </Typography>
                 </Box>
               )}
@@ -670,4 +671,4 @@ const UsersManagement: React.FC = () => {
   );
 };
 
-export default UsersManagement; 
+export default UsersManagement;

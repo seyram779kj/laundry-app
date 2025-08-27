@@ -171,7 +171,8 @@ const Register: React.FC = () => {
     setSuccess(null);
 
     try {
-      const response = await fetch('http://localhost:5000/api/auth/check-email', {
+      const { API_BASE_URL } = await import('../services/api');
+      const response = await fetch(`${API_BASE_URL}/auth/check-email`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -204,7 +205,8 @@ const Register: React.FC = () => {
     setError(null);
 
     try {
-      const response = await fetch('http://localhost:5000/api/auth/verify-code', {
+      const { API_BASE_URL } = await import('../services/api');
+      const response = await fetch(`${API_BASE_URL}/auth/verify-code`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

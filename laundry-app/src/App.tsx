@@ -39,6 +39,10 @@ import Analytics from './pages/admin/Analytics';
 import PaymentsManagement from './pages/admin/PaymentsManagement';
 import ReviewsManagement from './pages/admin/ReviewsManagement';
 
+// Payment History
+import PaymentHistory from './pages/PaymentHistory';
+import TestPaymentAPI from './pages/TestPaymentAPI';
+
 // Authentication Initialization Component
 const AuthInitializer: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const dispatch = useDispatch<AppDispatch>();
@@ -188,10 +192,20 @@ const App: React.FC = () => {
                 path="/chat/admin/:chatRoomId"
                 element={
                   <RoleBasedRoute allowedRoles={['admin']}>
-                    <MainLayout title="Admin Chat">
+                    <MainLayout title="Shop Owner Chat">
                       <AdminChat />
                     </MainLayout>
                   </RoleBasedRoute>
+                }
+              />
+
+              {/* Test Route */}
+              <Route
+                path="/test-api"
+                element={
+                  <MainLayout title="API Test">
+                    <TestPaymentAPI />
+                  </MainLayout>
                 }
               />
 
@@ -211,7 +225,7 @@ const App: React.FC = () => {
                 path="/admin/*"
                 element={
                   <RoleBasedRoute allowedRoles={['admin']}>
-                    <MainLayout title="Admin Dashboard">
+                    <MainLayout title="Shop Owner Dashboard">
                       <Routes>
                         <Route index element={<Dashboard />} />
                         <Route path="users" element={<UsersManagement />} />
@@ -219,6 +233,7 @@ const App: React.FC = () => {
                         <Route path="services" element={<ServicesManagement />} />
                         <Route path="analytics" element={<Analytics />} />
                         <Route path="payments" element={<PaymentsManagement />} />
+                        <Route path="payment-history" element={<PaymentHistory />} />
                         <Route path="reviews" element={<ReviewsManagement />} />
                       </Routes>
                     </MainLayout>
@@ -236,6 +251,7 @@ const App: React.FC = () => {
                         <Route index element={<CustomerDashboard />} />
                         <Route path="new-order" element={<NewOrder />} />
                         <Route path="orders" element={<Orders />} />
+                        <Route path="payment-history" element={<PaymentHistory />} />
                         <Route path="services" element={<Services />} />
                         <Route path="profile" element={<Profile />} />
                         <Route path="settings" element={<Settings />} />
@@ -256,6 +272,7 @@ const App: React.FC = () => {
                         <Route path="orders" element={<Orders_t />} />
                         <Route path="earnings" element={<ProviderEarnings />} />
                         <Route path="availability" element={<ProviderAvailability />} />
+                        <Route path="payment-history" element={<PaymentHistory />} />
                         <Route path="profile" element={<Profile />} />
                         <Route path="settings" element={<Settings />} />
                         <Route path="chat/:chatRoomId" element={<ProviderChat />} />

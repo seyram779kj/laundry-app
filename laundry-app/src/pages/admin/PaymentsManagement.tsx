@@ -67,7 +67,8 @@ const PaymentsManagement: React.FC = () => {
         setLoading(true);
         setError(null);
         
-        const response = await fetch('http://localhost:5000/api/payments', {
+        const { API_BASE_URL } = await import('../../services/api');
+        const response = await fetch(`${API_BASE_URL}/payments`, {
           headers: {
             'Authorization': `Bearer ${localStorage.getItem('token')}`,
             'Content-Type': 'application/json',
@@ -101,7 +102,8 @@ const PaymentsManagement: React.FC = () => {
 
   const handleApprovePayment = async (paymentId: string) => {
     try {
-      const response = await fetch(`http://localhost:5000/api/payments/${paymentId}/approve`, {
+      const { API_BASE_URL } = await import('../../services/api');
+      const response = await fetch(`${API_BASE_URL}/payments/${paymentId}/approve`, {
         method: 'PUT',
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('token')}`,
@@ -127,7 +129,8 @@ const PaymentsManagement: React.FC = () => {
 
   const handleRejectPayment = async (paymentId: string) => {
     try {
-      const response = await fetch(`http://localhost:5000/api/payments/${paymentId}/reject`, {
+      const { API_BASE_URL } = await import('../../services/api');
+      const response = await fetch(`${API_BASE_URL}/payments/${paymentId}/reject`, {
         method: 'PUT',
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('token')}`,
@@ -154,7 +157,8 @@ const PaymentsManagement: React.FC = () => {
   const handleRefundPayment = async (paymentId: string) => {
     if (window.confirm('Are you sure you want to refund this payment?')) {
       try {
-        const response = await fetch(`http://localhost:5000/api/payments/${paymentId}/refund`, {
+        const { API_BASE_URL } = await import('../../services/api');
+        const response = await fetch(`${API_BASE_URL}/payments/${paymentId}/refund`, {
           method: 'PUT',
           headers: {
             'Authorization': `Bearer ${localStorage.getItem('token')}`,

@@ -4,7 +4,7 @@ import axios from 'axios';
 
 interface Message {
   _id: string;
-  senderType: 'customer' | 'supplier' | 'admin';
+  senderType: 'customer' | 'service_provider' | 'admin';
   senderId: string;
   content: string;
   timestamp: string;
@@ -13,7 +13,7 @@ interface Message {
 interface ChatProps {
   chatRoomId: string;
   userId: string;
-  userRole: 'customer' | 'supplier' | 'admin';
+  userRole: 'customer' | 'service_provider' | 'admin' | 'supplier';
   apiUrl: string; // e.g., process.env.REACT_APP_API_URL
 }
 
@@ -54,9 +54,10 @@ const Chat: React.FC<ChatProps> = ({ chatRoomId, userId, userRole, apiUrl }) => 
 
   const sendMessage = () => {
     if (!input.trim()) return;
+    const normalizedRole = userRole === 'supplier' ? 'service_provider' : userRole;
     const msg = {
       chatRoomId,
-      senderType: userRole,
+      senderType: normalizedRole,
       senderId: userId,
       content: input.trim(),
     };
@@ -69,10 +70,11 @@ const Chat: React.FC<ChatProps> = ({ chatRoomId, userId, userRole, apiUrl }) => 
       <div style={{ height: 300, overflowY: 'auto', marginBottom: 8, background: '#f9f9f9', padding: 8 }}>
         {messages.map((msg) => (
           <div key={msg._id} style={{ margin: '8px 0', textAlign: msg.senderId === userId ? 'right' : 'left' }}>
-            <span style={{ fontWeight: 'bold', color: msg.senderType === 'customer' ? '#1976d2' : msg.senderType === 'supplier' ? '#388e3c' : '#d32f2f' }}>
-              {userRole === 'customer' && msg.senderType === 'supplier' ? 'Supplier' :
-               userRole === 'customer' && msg.senderType === 'admin' ? 'Admin' :
-               userRole === 'supplier' && msg.senderType === 'supplier' ? 'Me' :
+            <span style={{ fontWeight: 'bold', color: msg.senderType === 'customer' ? '#1976d2' : msg.senderType === 'service_provider' ? '#388e3c' : '#d32f2f' }}>
+              {userRole === 'customer' && msg.senderType === 'service_provider' ? 'Provider' :
+               userRole === 'customer' && msg.senderType === 'admin' ? 'Shop Owner' :
+               (userRole === 'supplier' || userRole === 'service_provider') && msg.senderType === 'service_provider' ? 'Me' :
+               msg.senderType === 'service_provider' ? 'Provider' :
                msg.senderType.charAt(0).toUpperCase() + msg.senderType.slice(1)}
             </span>
             <div style={{ display: 'inline-block', background: msg.senderId === userId ? '#e3f2fd' : '#eee', borderRadius: 8, padding: '4px 12px', marginLeft: 8 }}>
@@ -98,4 +100,4 @@ const Chat: React.FC<ChatProps> = ({ chatRoomId, userId, userRole, apiUrl }) => 
   );
 };
 
-export default Chat; 
+export default Chat;

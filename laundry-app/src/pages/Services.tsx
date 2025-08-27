@@ -43,7 +43,8 @@ const Services: React.FC = () => {
       try {
         setLoading(true);
         setError(null);
-        const response = await fetch('http://localhost:5000/api/services');
+        const { API_BASE_URL } = await import('../services/api');
+        const response = await fetch(`${API_BASE_URL}/services`);
         const data = await response.json();
         let servicesArray = [];
         if (Array.isArray(data)) {
@@ -209,7 +210,7 @@ const Services: React.FC = () => {
                       {service.description}
                     </Typography>
                     <Typography variant="subtitle2" color="primary">
-                      Starting at ${service.basePrice}
+                      Starting at ¢{service.basePrice}
                     </Typography>
                   </CardContent>
                 </Card>

@@ -14,9 +14,23 @@ import {
   Chip,
   Card,
   CardContent,
+  Button,
+  IconButton,
+  Tooltip,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  Stack,
 } from '@mui/material';
 import { format } from 'date-fns';
 import axios from 'axios';
+import { API_BASE_URL } from '../../services/api';
+import ReceiptIcon from '@mui/icons-material/Receipt';
+import RefreshIcon from '@mui/icons-material/Refresh';
+import DownloadIcon from '@mui/icons-material/Download';
+import { useAppDispatch, useAppSelector } from '../../app/hooks';
+import { fetchPaymentHistory, fetchPaymentReceipt } from '../../features/payment/paymentSlice';
 
 interface EarningHistory {
   _id: string;
@@ -48,6 +62,8 @@ interface EarningsData {
 }
 
 const ProviderEarnings: React.FC = () => {
+  const dispatch = useAppDispatch();
+  const { paymentHistory, selectedPayment } = useAppSelector((state) => state.payment);
   const [earnings, setEarnings] = useState<EarningsData>({
     totalEarnings: 0,
     pendingEarnings: 0,
@@ -59,10 +75,19 @@ const ProviderEarnings: React.FC = () => {
   });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [receiptDialog, setReceiptDialog] = useState(false);
+  const [page, setPage] = useState(0);
+  const [rowsPerPage, setRowsPerPage] = useState(10);
 
   useEffect(() => {
     fetchEarnings();
   }, []);
+
+  useEffect(() => {
+    // Load provider's payment history
+    dispatch(fetchPaymentHistory({ page: page + 1, limit: rowsPerPage }));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [page, rowsPerPage]);
 
   const fetchEarnings = async () => {
     try {
@@ -77,7 +102,7 @@ const ProviderEarnings: React.FC = () => {
 
       // Fetch orders assigned to this provider
       const response = await axios.get(
-        'http://localhost:5000/api/orders?role=service_provider&include_available=false',
+        `${API_BASE_URL}/orders?role=service_provider&include_available=false`,
         { headers: { Authorization: `Bearer ${token}` } }
       );
 
@@ -94,16 +119,15 @@ const ProviderEarnings: React.FC = () => {
 
         const earningHistory: EarningHistory[] = orders.map((order: any) => {
           const amount = order.totalAmount;
+          const paymentStatus = order.payment?.status || 'pending';
           
-          if (order.status === 'completed') {
+          if (paymentStatus === 'completed') {
             completedEarnings += amount;
             completedOrders++;
-          } else if (['assigned', 'in_progress', 'ready_for_pickup'].includes(order.status)) {
+          } else if (['pending', 'processing'].includes(paymentStatus)) {
             pendingEarnings += amount;
             pendingOrders++;
           }
-
-          totalEarnings += amount;
 
           return {
             _id: order._id,
@@ -111,12 +135,13 @@ const ProviderEarnings: React.FC = () => {
             customer: order.customer,
             items: order.items,
             totalAmount: amount,
-            status: order.status,
+            status: paymentStatus,
             createdAt: order.createdAt,
-            completedAt: order.status === 'completed' ? order.updatedAt : undefined
+            completedAt: paymentStatus === 'completed' ? (order.payment?.completedAt || order.updatedAt) : undefined
           };
         });
 
+        totalEarnings = completedEarnings + pendingEarnings;
         setEarnings({
           totalEarnings,
           pendingEarnings,
@@ -141,16 +166,29 @@ const ProviderEarnings: React.FC = () => {
     return format(new Date(dateString), 'MMM dd, yyyy');
   };
 
+  const formatDateTime = (dateString: string) => {
+    return format(new Date(dateString), 'MMM dd, yyyy HH:mm');
+  };
+
+  const formatCurrency = (amount: number) => `${amount.toFixed(2)}`;
+
+  const handleViewReceipt = async (paymentId: string) => {
+    await dispatch(fetchPaymentReceipt(paymentId));
+    setReceiptDialog(true);
+  };
+
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'completed':
         return 'success';
-      case 'in_progress':
-        return 'primary';
-      case 'ready_for_pickup':
-        return 'secondary';
-      case 'assigned':
+      case 'processing':
         return 'info';
+      case 'pending':
+        return 'warning';
+      case 'failed':
+        return 'error';
+      case 'cancelled':
+        return 'default';
       default:
         return 'default';
     }
@@ -203,7 +241,7 @@ const ProviderEarnings: React.FC = () => {
               Completed Earnings
             </Typography>
             <Typography variant="body2">
-              {earnings.completedOrders} completed orders
+              {earnings.completedOrders} completed payments
             </Typography>
           </CardContent>
         </Card>
@@ -217,14 +255,14 @@ const ProviderEarnings: React.FC = () => {
               Pending Earnings
             </Typography>
             <Typography variant="body2">
-              {earnings.pendingOrders} pending orders
+              {earnings.pendingOrders} pending payments
             </Typography>
           </CardContent>
         </Card>
       </Box>
 
       {/* Earnings History */}
-      <Paper sx={{ p: 3 }}>
+      <Paper sx={{ p: 3, mb: 3 }}>
         <Typography variant="h6" gutterBottom>
           Earnings History
         </Typography>
@@ -236,7 +274,7 @@ const ProviderEarnings: React.FC = () => {
                 <TableCell>Customer</TableCell>
                 <TableCell>Services</TableCell>
                 <TableCell>Amount</TableCell>
-                <TableCell>Status</TableCell>
+                <TableCell>Payment Status</TableCell>
                 <TableCell>Date</TableCell>
               </TableRow>
             </TableHead>
@@ -285,6 +323,48 @@ const ProviderEarnings: React.FC = () => {
           </Table>
         </TableContainer>
       </Paper>
+
+
+      {/* Receipt Dialog */}
+      <Dialog open={receiptDialog} onClose={() => setReceiptDialog(false)} maxWidth="md" fullWidth>
+        <DialogTitle>Payment Receipt</DialogTitle>
+        <DialogContent>
+          {selectedPayment && (
+            <Box sx={{ p: 2 }}>
+              <Box sx={{ display: 'grid', gap: 2 }}>
+                <Box>
+                  <Typography variant="h6" gutterBottom>Payment Information</Typography>
+                  <Typography><strong>Transaction ID:</strong> {selectedPayment.payment?.transactionId}</Typography>
+                  <Typography><strong>Amount:</strong> {selectedPayment.payment?.formattedAmount}</Typography>
+                  <Typography><strong>Status:</strong> {selectedPayment.payment?.status}</Typography>
+                  <Typography><strong>Method:</strong> {selectedPayment.payment?.paymentMethod}</Typography>
+                  <Typography><strong>Date:</strong> {selectedPayment.payment?.createdAt && formatDateTime(selectedPayment.payment.createdAt)}</Typography>
+                </Box>
+                {selectedPayment.order && (
+                  <Box>
+                    <Typography variant="h6" gutterBottom>Order Information</Typography>
+                    <Typography><strong>Order Number:</strong> {selectedPayment.order.orderNumber}</Typography>
+                    <Typography><strong>Status:</strong> {selectedPayment.order.status}</Typography>
+                    <Typography><strong>Items:</strong> {selectedPayment.order.items?.length || 0} item(s)</Typography>
+                  </Box>
+                )}
+                <Box>
+                  <Typography variant="h6" gutterBottom>Customer Information</Typography>
+                  <Typography><strong>Name:</strong> {selectedPayment.customer?.name}</Typography>
+                  <Typography><strong>Email:</strong> {selectedPayment.customer?.email}</Typography>
+                  <Typography><strong>Phone:</strong> {selectedPayment.customer?.phone}</Typography>
+                </Box>
+              </Box>
+            </Box>
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setReceiptDialog(false)}>Close</Button>
+          <Button variant="contained" startIcon={<DownloadIcon />}>
+            Download Receipt
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   );
 };

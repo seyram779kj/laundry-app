@@ -30,6 +30,7 @@ import {
   Analytics as AnalyticsIcon,
   Payment as PaymentIcon,
   RateReview as ReviewsIcon,
+  History as HistoryIcon,
 } from '@mui/icons-material';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAppDispatch, useAppSelector } from '../../app/hooks';
@@ -67,6 +68,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children, title }) => {
           { text: 'Dashboard', icon: <DashboardIcon />, path: '/customer' },
           { text: 'New Order', icon: <AddIcon />, path: '/customer/new-order' },
           { text: 'Orders', icon: <ListIcon />, path: '/customer/orders' },
+          { text: 'Payment History', icon: <HistoryIcon />, path: '/customer/payment-history' },
           { text: 'Services', icon: <ServicesIcon />, path: '/customer/services' },
           { text: 'Profile', icon: <PersonIcon />, path: '/customer/profile' },
           { text: 'Settings', icon: <SettingsIcon />, path: '/customer/settings' },
@@ -79,6 +81,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children, title }) => {
           { text: 'Services', icon: <ServicesIcon />, path: '/admin/services' },
           { text: 'Analytics', icon: <AnalyticsIcon />, path: '/admin/analytics' },
           { text: 'Payments', icon: <PaymentIcon />, path: '/admin/payments' },
+          { text: 'Payment History', icon: <HistoryIcon />, path: '/admin/payment-history' },
           { text: 'Reviews', icon: <ReviewsIcon />, path: '/admin/reviews' },
           { text: 'Settings', icon: <SettingsIcon />, path: '/admin/settings' },
         ];
@@ -202,4 +205,4 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children, title }) => {
   );
 };
 
-export default MainLayout; 
+export default MainLayout;

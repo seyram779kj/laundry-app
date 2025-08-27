@@ -55,7 +55,8 @@ const ServiceSelection: React.FC<ServiceSelectionProps> = ({ onServiceSelect, on
         setLoading(true);
         setError(null);
         
-        const response = await fetch('http://localhost:5000/api/services', {
+        const { API_BASE_URL } = await import('../../services/api');
+        const response = await fetch(`${API_BASE_URL}/services`, {
           headers: {
             'Authorization': `Bearer ${localStorage.getItem('token')}`,
             'Content-Type': 'application/json',

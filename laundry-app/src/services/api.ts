@@ -1,4 +1,4 @@
-const API_BASE_URL = 'http://localhost:5000/api';
+export const API_BASE_URL = process.env.REACT_APP_API_BASE_URL || 'http://localhost:5000/api';
 
 // API response types
 export interface ApiResponse<T> {
@@ -66,6 +66,8 @@ const apiRequest = async <T>(
   endpoint: string,
   options: RequestInit = {}
 ): Promise<ApiResponse<T>> => {
+  let response: Response | undefined;
+
   try {
     console.log(`🔍 API request to: ${API_BASE_URL}${endpoint}`);
     console.log('🔍 Request options:', options);
@@ -82,7 +84,7 @@ const apiRequest = async <T>(
 
     console.log('🔍 Request headers:', headers);
 
-    const response = await fetch(`${API_BASE_URL}${endpoint}`, {
+    response = await fetch(`${API_BASE_URL}${endpoint}`, {
       ...options,
       headers,
     });
@@ -90,18 +92,48 @@ const apiRequest = async <T>(
     console.log('🔍 Response status:', response.status);
     console.log('🔍 Response ok:', response.ok);
 
-    const data = await response.json();
+    // Clone the response to avoid "body stream already read" error
+    const responseClone = response.clone();
+
+    let data;
+    try {
+      data = await response.json();
+    } catch (jsonError) {
+      // If JSON parsing fails, try to get text
+      try {
+        const text = await responseClone.text();
+        console.log('🔍 Response text (JSON parse failed):', text);
+        data = { error: text || 'Invalid response format' };
+      } catch (textError) {
+        console.log('🔍 Could not parse response as JSON or text');
+        data = { error: 'Invalid response format' };
+      }
+    }
+
     console.log('🔍 Response data:', data);
 
     if (!response.ok) {
-      console.log('❌ API request failed:', data.error || 'API request failed');
-      throw new Error(data.error || 'API request failed');
+      const errorMessage = data?.error || data?.message || `HTTP ${response.status}: ${response.statusText}`;
+      console.log('❌ API request failed:', errorMessage);
+      throw new Error(errorMessage);
     }
 
     console.log('✅ API request successful');
     return { data };
   } catch (error) {
     console.error('❌ API request error:', error);
+
+    // If we have a response and it's not ok, try to get more error details
+    if (response && !response.ok) {
+      try {
+        const errorData = await response.clone().json();
+        return { error: errorData?.error || errorData?.message || (error instanceof Error ? error.message : 'Unknown error') };
+      } catch {
+        // If we can't parse error response, return the original error
+        return { error: error instanceof Error ? error.message : 'Unknown error' };
+      }
+    }
+
     return { error: error instanceof Error ? error.message : 'Unknown error' };
   }
 };
@@ -110,16 +142,27 @@ const apiRequest = async <T>(
 export const authApi = {
   // Login
   login: async (credentials: LoginRequest): Promise<ApiResponse<UserResponse>> => {
-    const response = await apiRequest<UserResponse>('/auth/login', {
-      method: 'POST',
-      body: JSON.stringify(credentials),
-    });
+    try {
+      console.log('🔍 Auth API login called');
+      const response = await apiRequest<UserResponse>('/auth/login', {
+        method: 'POST',
+        body: JSON.stringify(credentials),
+      });
 
-    if (response.data?.token) {
-      setAuthToken(response.data.token);
+      console.log('🔍 Auth API login response:', response);
+
+      if (response.data?.token) {
+        console.log('🔍 Setting auth token');
+        setAuthToken(response.data.token);
+      } else if (response.error) {
+        console.log('❌ Auth API login error:', response.error);
+      }
+
+      return response;
+    } catch (error) {
+      console.error('❌ Auth API login exception:', error);
+      return { error: error instanceof Error ? error.message : 'Login failed' };
     }
-
-    return response;
   },
 
   // Register

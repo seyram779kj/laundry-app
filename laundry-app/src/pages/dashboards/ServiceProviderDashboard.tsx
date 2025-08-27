@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Box,
   Typography,
@@ -7,26 +7,114 @@ import {
   Button,
   Stack,
   Paper,
+  CircularProgress,
+  Alert,
 } from '@mui/material';
 import { useNavigate } from 'react-router-dom';
 import { useAppSelector } from '../../app/hooks';
 import { ServiceProviderUser } from '../../types/auth';
+import axios from 'axios';
+import { API_BASE_URL } from '../../services/api';
+import { format, startOfDay, endOfDay } from 'date-fns';
+
+interface DashboardStats {
+  pendingOrders: number;
+  completedToday: number;
+  todaysEarnings: number;
+}
 
 const ServiceProviderDashboard: React.FC = () => {
   const navigate = useNavigate();
   const { user } = useAppSelector((state) => state.auth);
   const serviceProvider = user as ServiceProviderUser;
 
-  // Get earnings data from user object or use defaults
-  const pendingOrders = serviceProvider?.earnings?.pending ?? 0;
-  const completedOrders = serviceProvider?.earnings?.completed ?? 0;
-  const totalEarnings = serviceProvider?.earnings?.total ?? 0;
+  const [stats, setStats] = useState<DashboardStats>({
+    pendingOrders: 0,
+    completedToday: 0,
+    todaysEarnings: 0,
+  });
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    fetchDashboardStats();
+  }, []);
+
+  const fetchDashboardStats = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      const token = localStorage.getItem('token');
+
+      if (!token) {
+        setError('Authentication token not found');
+        return;
+      }
+
+      // Fetch orders for the provider
+      const ordersResponse = await axios.get(
+        `${API_BASE_URL}/orders?role=service_provider&include_available=false`,
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+
+      if (ordersResponse.data.success) {
+        const orders = ordersResponse.data.data.docs || ordersResponse.data.data || [];
+
+        // Calculate stats
+        const today = new Date();
+        const startOfToday = startOfDay(today);
+        const endOfToday = endOfDay(today);
+
+        let pendingCount = 0;
+        let completedTodayCount = 0;
+        let todaysEarningsAmount = 0;
+
+        orders.forEach((order: any) => {
+          // Count pending orders
+          if (['pending', 'confirmed', 'in_progress', 'ready_for_pickup'].includes(order.status)) {
+            pendingCount++;
+          }
+
+          // Count completed today and calculate today's earnings
+          const completedDate = new Date(order.completedAt || order.updatedAt);
+          if (order.status === 'completed' &&
+              completedDate >= startOfToday &&
+              completedDate <= endOfToday) {
+            completedTodayCount++;
+            if (order.payment?.status === 'completed') {
+              todaysEarningsAmount += order.totalAmount || 0;
+            }
+          }
+        });
+
+        setStats({
+          pendingOrders: pendingCount,
+          completedToday: completedTodayCount,
+          todaysEarnings: todaysEarningsAmount,
+        });
+      } else {
+        setError('Failed to fetch orders data');
+      }
+    } catch (err: any) {
+      console.error('Dashboard stats fetch error:', err);
+      setError(err.response?.data?.error || 'Failed to fetch dashboard statistics');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   return (
     <Box sx={{ p: 3 }}>
       <Typography variant="h4" gutterBottom>
         Welcome, {user ? `${user.firstName} ${user.lastName}` : 'Provider'}
       </Typography>
+
+      {/* Error Alert */}
+      {error && (
+        <Alert severity="error" sx={{ mb: 3 }}>
+          {error}
+        </Alert>
+      )}
 
       {/* Stats Overview */}
       <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 3, mb: 4 }}>
@@ -37,7 +125,7 @@ const ServiceProviderDashboard: React.FC = () => {
                 Pending Orders
               </Typography>
               <Typography variant="h3">
-                {pendingOrders}
+                {loading ? <CircularProgress size={32} color="inherit" /> : stats.pendingOrders}
               </Typography>
             </CardContent>
           </Card>
@@ -49,7 +137,7 @@ const ServiceProviderDashboard: React.FC = () => {
                 Completed Today
               </Typography>
               <Typography variant="h3">
-                {completedOrders}
+                {loading ? <CircularProgress size={32} color="inherit" /> : stats.completedToday}
               </Typography>
             </CardContent>
           </Card>
@@ -61,7 +149,7 @@ const ServiceProviderDashboard: React.FC = () => {
                 Today's Earnings
               </Typography>
               <Typography variant="h3">
-                ${totalEarnings}
+                {loading ? <CircularProgress size={32} color="inherit" /> : `$${stats.todaysEarnings.toFixed(2)}`}
               </Typography>
             </CardContent>
           </Card>
@@ -162,4 +250,4 @@ const ServiceProviderDashboard: React.FC = () => {
   );
 };
 
-export default ServiceProviderDashboard; 
+export default ServiceProviderDashboard;

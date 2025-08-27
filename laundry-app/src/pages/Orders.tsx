@@ -24,13 +24,8 @@ import { useNavigate } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
 import { RootState, AppDispatch } from '../app/store';
 import { shallowEqual } from 'react-redux';
-import { createAsyncThunk } from '@reduxjs/toolkit';
 
-// Import the centralized types
-import {
-  Order,
-  OrdersState,
-} from '../types';
+import { Order } from '../types/order';
 import {
   statusColors,
   paymentStatusColors,
@@ -38,70 +33,50 @@ import {
   paymentStatusLabels
 } from '../types/order';
 import { formatOrderForDisplay } from '../utils/typeUtils';
+import PaystackPayment from '../components/PaystackPayment';
 
-// Redux actions
-export const fetchOrders = createAsyncThunk(
-  'orders/fetchOrders',
-  async (role: string) => {
-    const token = localStorage.getItem('token');
-    const response = await axios.get(`http://localhost:5000/api/orders?role=${role}`, {
-      headers: { Authorization: `Bearer ${token}` },
-    });
-    return response.data.data.docs; // Adjust based on backend response structure
-  }
-);
-
-export const setError = (error: string) => ({
-  type: 'orders/setError',
-  payload: error,
-});
+// Use thunks from the central slice instead of local ones
+import { fetchOrdersByRole, setError } from '../features/orders/orderSlice';
 
 const Orders: React.FC = () => {
   const dispatch = useDispatch<AppDispatch>();
   const { orders, loading, error } = useSelector((state: RootState) => state.orders || { orders: [], loading: false, error: null }, shallowEqual);
-  const [openPaymentDialog, setOpenPaymentDialog] = useState(false);
+  const [showPaystackDialog, setShowPaystackDialog] = useState(false);
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
-  const [phoneNumber, setPhoneNumber] = useState('');
-  const [paymentLoading, setPaymentLoading] = useState(false);
+  const [paymentProcessing, setPaymentProcessing] = useState(false);
   const navigate = useNavigate();
 
   useEffect(() => {
-    dispatch(fetchOrders('customer'));
+    dispatch(fetchOrdersByRole('customer'));
   }, [dispatch]);
 
   const handlePayNow = (order: Order) => {
     setSelectedOrder(order);
-    setPhoneNumber(order.payment.paymentDetails.phoneNumber || '');
-    setOpenPaymentDialog(true);
+    setShowPaystackDialog(true);
   };
 
-  const handlePaymentSubmit = async () => {
-    if (!selectedOrder) return;
+  // Handle successful payment
+  const handlePaymentSuccess = async (reference: string) => {
+    setPaymentProcessing(false);
+    setShowPaystackDialog(false);
+    
+    // Refresh orders to show updated payment status
+    dispatch(fetchOrdersByRole('customer'));
+    
+    alert('Payment completed successfully! Your order is now confirmed.');
+  };
 
-    try {
-      setPaymentLoading(true);
-      const token = localStorage.getItem('token');
-      const response = await axios.post(
-        `http://localhost:5000/api/payments/momo`,
-        {
-          orderId: selectedOrder._id,
-          phoneNumber,
-          amount: selectedOrder.totalAmount,
-        },
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
+  // Handle payment error
+  const handlePaymentError = (error: string) => {
+    setPaymentProcessing(false);
+    console.error('Payment error:', error);
+    dispatch(setError(`Payment failed: ${error}`));
+  };
 
-      if (response.data.success) {
-        dispatch(fetchOrders('customer'));
-        setOpenPaymentDialog(false);
-      } else {
-        dispatch(setError('Failed to process payment'));
-      }
-    } catch (err: any) {
-      console.error('Payment error:', err);
-      dispatch(setError(err.response?.data?.error || 'Failed to process payment'));
-    } finally {
-      setPaymentLoading(false);
+  // Handle payment dialog close
+  const handlePaymentDialogClose = () => {
+    if (!paymentProcessing) {
+      setShowPaystackDialog(false);
     }
   };
 
@@ -110,17 +85,31 @@ const Orders: React.FC = () => {
   };
 
   const getActionButtons = (order: Order) => {
-    if (order.payment.status === 'pending' && ['pending', 'confirmed', 'assigned', 'in_progress', 'ready_for_pickup'].includes(order.status)) {
+    const paymentStatus = (order.payment?.status || 'pending').toLowerCase();
+    const orderStatus = (order.status || '').toLowerCase();
+    const paymentMethod = (order.payment?.paymentMethod || 'cash') as string;
+
+    // Show Pay Now if order is active and payment not completed
+    // Only for electronic payment methods (not cash)
+    const canPay = !['cancelled', 'completed'].includes(orderStatus)
+      && !['completed'].includes(paymentStatus)
+      && paymentMethod !== 'cash'
+      && ['momo', 'mobile_money', 'credit_card', 'debit_card'].includes(paymentMethod);
+
+    if (canPay) {
+      const buttonText = paymentStatus === 'failed' ? 'Retry Payment' : 'Pay Now';
+      const buttonColor = paymentStatus === 'failed' ? 'warning' : 'primary';
+      
       return (
         <Button
           size="small"
           variant="contained"
-          color="primary"
+          color={buttonColor}
           onClick={() => handlePayNow(order)}
           startIcon={<CheckCircleIcon />}
           sx={{ mb: 1 }}
         >
-          Pay Now
+          {buttonText}
         </Button>
       );
     }
@@ -141,7 +130,7 @@ const Orders: React.FC = () => {
         <Alert severity="error" sx={{ mb: 2 }}>
           {error}
           <Button
-            onClick={() => dispatch(fetchOrders('customer'))}
+            onClick={() => dispatch(fetchOrdersByRole('customer'))}
             sx={{ ml: 2 }}
             variant="outlined"
             size="small"
@@ -165,7 +154,7 @@ const Orders: React.FC = () => {
             No orders available
           </Typography>
           <Button
-            onClick={() => dispatch(fetchOrders('customer'))}
+            onClick={() => dispatch(fetchOrdersByRole('customer'))}
             sx={{ mt: 2 }}
             variant="outlined"
             color="primary"
@@ -223,8 +212,31 @@ const Orders: React.FC = () => {
                       : 'Provider: Not assigned'}
                   </Typography>
 
-                  <Typography variant="body2" color="text.secondary" gutterBottom>
-                    Items: {order.items.map((item) => `${item.serviceName} (${item.quantity})`).join(', ')}
+                  <Typography component="div" variant="body2" color="text.secondary" gutterBottom>
+                    {/* Show individual items if available, otherwise show service summary */}
+                    {order.items.some(item => item.clothingItems && item.clothingItems.length > 0) ? (
+                      <Box>
+                        <Typography variant="subtitle2" sx={{ fontWeight: 'bold', mb: 1 }}>
+                          Individual Items:
+                        </Typography>
+                        {order.items.map((item) => 
+                          item.clothingItems?.map((clothingItem) => (
+                            <Box key={clothingItem.itemId} sx={{ ml: 1, mb: 0.5 }}>
+                              <Typography variant="body2" component="span">• </Typography>
+                              <Typography variant="body2" component="span"><strong>{clothingItem.itemId}</strong>: {clothingItem.description} </Typography>
+                              <Typography variant="body2" component="span">({clothingItem.serviceName}) - ¢{clothingItem.unitPrice.toFixed(2)}</Typography>
+                            </Box>
+                          ))
+                        )}
+                      </Box>
+                    ) : (
+                      <Box>
+                        <Typography variant="body2" component="span">Services: </Typography>
+                        <Typography variant="body2" component="span">
+                          {order.items.map((item) => `${item.serviceName} (${item.quantity})`).join(', ')}
+                        </Typography>
+                      </Box>
+                    )}
                   </Typography>
 
                   <Typography variant="h6" color="primary" gutterBottom>
@@ -250,34 +262,19 @@ const Orders: React.FC = () => {
         </Box>
       )}
 
-      <Dialog open={openPaymentDialog} onClose={() => setOpenPaymentDialog(false)}>
-        <DialogTitle>Pay for Order #{selectedOrder?.orderNumber}</DialogTitle>
-        <DialogContent>
-          <TextField
-            autoFocus
-            margin="dense"
-            label="Phone Number (MoMo)"
-            fullWidth
-            value={phoneNumber}
-            onChange={(e) => setPhoneNumber(e.target.value)}
-            disabled={paymentLoading}
-          />
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setOpenPaymentDialog(false)} disabled={paymentLoading} color="primary">
-            Cancel
-          </Button>
-          <Button
-            onClick={handlePaymentSubmit}
-            variant="contained"
-            color="primary"
-            disabled={paymentLoading}
-            startIcon={paymentLoading ? <CircularProgress size={16} /> : null}
-          >
-            {paymentLoading ? 'Processing...' : 'Pay Now'}
-          </Button>
-        </DialogActions>
-      </Dialog>
+      {/* Paystack Payment Dialog */}
+      {showPaystackDialog && selectedOrder && (
+        <PaystackPayment
+          open={showPaystackDialog}
+          onClose={handlePaymentDialogClose}
+          orderId={selectedOrder._id}
+          amount={selectedOrder.totalAmount}
+          customerEmail={JSON.parse(localStorage.getItem('user') || '{}').email || ''}
+          customerName={`${JSON.parse(localStorage.getItem('user') || '{}').firstName || ''} ${JSON.parse(localStorage.getItem('user') || '{}').lastName || ''}`.trim()}
+          onPaymentSuccess={handlePaymentSuccess}
+          onPaymentError={handlePaymentError}
+        />
+      )}
     </Box>
   );
 };

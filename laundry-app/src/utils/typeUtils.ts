@@ -114,7 +114,7 @@ export const formatOrderForDisplay = (order: any): Order => {
       admin: '',
     },
     orderNumber: order.orderNumber || `ORD-${(order._id || '').slice(-6).toUpperCase()}`,
-    formattedTotal: order.formattedTotal || `$${(order.totalAmount || 0).toFixed(2)}`,
+    formattedTotal: order.formattedTotal || `¢${(order.totalAmount || 0).toFixed(2)}`,
     statusHistory: order.statusHistory || [],
   };
 };

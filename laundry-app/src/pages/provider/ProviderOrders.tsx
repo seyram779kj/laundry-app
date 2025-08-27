@@ -6,11 +6,6 @@ import {
   Paper,
   Chip,
   Button,
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
-  TextField,
   Alert,
   CircularProgress,
   Stack,
@@ -18,19 +13,16 @@ import {
   CardContent,
 } from '@mui/material';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
+import ChatIcon from '@mui/icons-material/Chat';
 import { format } from 'date-fns';
 import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
 import { RootState, AppDispatch } from '../../app/store';
 import { shallowEqual } from 'react-redux';
-import { createAsyncThunk } from '@reduxjs/toolkit';
 
 // Import the centralized types
-import {
-  Order,
-  OrdersState,
-} from '../../types';
+import { Order, OrderStatus } from '../../types/order';
 import {
   statusColors,
   paymentStatusColors,
@@ -39,54 +31,72 @@ import {
 } from '../../types/order';
 import { formatOrderForDisplay } from '../../utils/typeUtils';
 
-// Redux actions
-export const fetchOrders = createAsyncThunk(
-  'orders/fetchOrders',
-  async ({ role, includeAvailable = false }: { role: string; includeAvailable?: boolean }) => {
-    const token = localStorage.getItem('token');
-    const endpoint = role === 'service_provider' ? `/api/orders/provider/assigned?include_available=${includeAvailable}` : `/api/orders?role=${role}`;
-    const response = await axios.get(`http://localhost:5000${endpoint}`, {
-      headers: { Authorization: `Bearer ${token}` },
-    });
-    return role === 'service_provider' ? response.data.data : response.data.data.docs;
-  }
-);
+// Slice thunks
+import { fetchProviderOrders, setError, updateOrderStatus } from '../../features/orders/orderSlice';
 
-export const setError = (error: string) => ({
-  type: 'orders/setError',
-  payload: error,
-});
+import { API_BASE_URL } from '../../services/api';
+
+const statusFlow: OrderStatus[] = [
+  'pending',
+  'confirmed',
+  'assigned',
+  'in_progress',
+  'ready_for_pickup',
+  'picked_up',
+  'ready_for_delivery',
+  'completed',
+];
+
+const nextStatus = (current: OrderStatus | string): OrderStatus | null => {
+  const idx = statusFlow.indexOf(current as OrderStatus);
+  if (idx === -1) return null;
+  const next = statusFlow[idx + 1];
+  return next || null;
+};
+
+const nextStatusButtonLabel = (next: OrderStatus | null): string => {
+  if (!next) return '';
+  const map: Record<OrderStatus, string> = {
+    pending: 'Confirm',
+    confirmed: 'Assign',
+    assigned: 'Start Work',
+    in_progress: 'Ready for Pickup',
+    ready_for_pickup: 'Mark Picked Up',
+    picked_up: 'Ready for Delivery',
+    ready_for_delivery: 'Complete Order',
+    completed: 'Completed',
+    cancelled: 'Cancelled',
+  } as any;
+  return map[next] || 'Advance Status';
+};
 
 const ProviderOrders: React.FC = () => {
   const dispatch = useDispatch<AppDispatch>();
   const { orders, loading, error } = useSelector((state: RootState) => state.orders || { orders: [], loading: false, error: null }, shallowEqual);
-  const [openPaymentDialog, setOpenPaymentDialog] = useState(false);
-  const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
-  const [phoneNumber, setPhoneNumber] = useState('');
-  const [paymentLoading, setPaymentLoading] = useState(false);
   const navigate = useNavigate();
+  const [confirming, setConfirming] = useState<string | null>(null);
+  const [advancing, setAdvancing] = useState<string | null>(null);
+  const [confirmingItem, setConfirmingItem] = useState<string | null>(null);
 
   useEffect(() => {
-    dispatch(fetchOrders({ role: 'service_provider', includeAvailable: true }));
+    dispatch(fetchProviderOrders({ includeAvailable: true }));
   }, [dispatch]);
 
-  const handlePayNow = (order: Order) => {
-    setSelectedOrder(order);
-    setPhoneNumber(order.payment.paymentDetails.phoneNumber || '');
-    setOpenPaymentDialog(true);
+  const authHeader = () => {
+    const token = localStorage.getItem('token');
+    return { Authorization: `Bearer ${token}` };
   };
 
   const handleSelfAssign = async (order: Order) => {
     try {
-      const token = localStorage.getItem('token');
       const response = await axios.put(
-        `http://localhost:5000/api/orders/${order._id}/assign-self`,
+        `${API_BASE_URL}/orders/${order._id}/assign-self`,
         {},
-        { headers: { Authorization: `Bearer ${token}` } }
+        { headers: authHeader() }
       );
 
       if (response.data.success) {
-        dispatch(fetchOrders({ role: 'service_provider', includeAvailable: true }));
+        dispatch(fetchProviderOrders({ includeAvailable: true }));
       } else {
         dispatch(setError('Failed to assign order'));
       }
@@ -96,57 +106,125 @@ const ProviderOrders: React.FC = () => {
     }
   };
 
-  const handlePaymentSubmit = async () => {
-    if (!selectedOrder) return;
-
+  const handleConfirmPayment = async (order: Order) => {
+    if (!order.payment || order.payment.status === 'completed') return;
     try {
-      setPaymentLoading(true);
+      setConfirming(order._id);
+      const paymentId = (order.payment as any)?._id || (order.payment as any)?.id;
+      if (paymentId) {
+        await axios.put(
+          `${API_BASE_URL}/payments/${paymentId}/status`,
+          { status: 'completed' },
+          { headers: { ...authHeader(), 'Content-Type': 'application/json' } }
+        );
+      } else {
+        // Fallback: some backends expose an order-based payment status update
+        await axios.put(
+          `${API_BASE_URL}/orders/${order._id}/payment-status`,
+          { status: 'completed' },
+          { headers: { ...authHeader(), 'Content-Type': 'application/json' } }
+        );
+      }
+      dispatch(fetchProviderOrders({ includeAvailable: true }));
+    } catch (err: any) {
+      console.error('Confirm payment error:', err);
+      dispatch(setError(err.response?.data?.error || 'Failed to confirm payment'));
+    } finally {
+      setConfirming(null);
+    }
+  };
+
+  const handleViewChat = async (order: Order) => {
+    try {
       const token = localStorage.getItem('token');
-      const response = await axios.post(
-        `http://localhost:5000/api/payments/momo`,
-        {
-          orderId: selectedOrder._id,
-          phoneNumber,
-          amount: selectedOrder.totalAmount,
-        },
+      const res = await axios.post(
+        `${API_BASE_URL}/chats/room`,
+        { customerId: (order as any).customer?._id || (order as any).customer },
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      const chatRoomId = res.data._id;
+      navigate(`/chat/supplier/${chatRoomId}`);
+    } catch (err) {
+      dispatch(setError('Failed to open chat'));
+    }
+  };
+
+  const handleAdvanceStatus = async (order: Order) => {
+    const target = nextStatus(order.status);
+    if (!target) return;
+    try {
+      setAdvancing(order._id);
+      await dispatch(updateOrderStatus({ orderId: order._id, status: target })).unwrap();
+    } catch (err: any) {
+      console.error('Advance status error:', err);
+      dispatch(setError(err?.message || 'Failed to update order status'));
+    } finally {
+      setAdvancing(null);
+    }
+  };
+
+  const handleConfirmItem = async (orderId: string, itemId: string) => {
+    try {
+      setConfirmingItem(itemId);
+      const token = localStorage.getItem('token');
+      const response = await axios.patch(
+        `${API_BASE_URL}/orders/${orderId}/clothing-items/${itemId}/confirm`,
+        { confirmed: true },
         { headers: { Authorization: `Bearer ${token}` } }
       );
 
       if (response.data.success) {
-        dispatch(fetchOrders({ role: 'service_provider', includeAvailable: true }));
-        setOpenPaymentDialog(false);
+        dispatch(fetchProviderOrders({ includeAvailable: true }));
       } else {
-        dispatch(setError('Failed to process payment'));
+        dispatch(setError('Failed to confirm clothing item'));
       }
     } catch (err: any) {
-      console.error('Payment error:', err);
-      dispatch(setError(err.response?.data?.error || 'Failed to process payment'));
+      console.error('Confirm clothing item error:', err);
+      dispatch(setError(err.response?.data?.error || 'Failed to confirm clothing item'));
     } finally {
-      setPaymentLoading(false);
+      setConfirmingItem(null);
     }
   };
 
-  const formatDate = (dateString: string) => {
-    return format(new Date(dateString), 'MMM dd, yyyy hh:mm a');
-  };
+
+  const formatDate = (dateString: string) => format(new Date(dateString), 'MMM dd, yyyy hh:mm a');
 
   const getActionButtons = (order: Order) => {
-    const buttons = [];
-    if (order.payment.status === 'pending' && ['pending', 'confirmed', 'assigned', 'in_progress', 'ready_for_pickup'].includes(order.status)) {
-      buttons.push(
-        <Button
-          key="pay-now"
-          size="small"
-          variant="contained"
-          color="primary"
-          onClick={() => handlePayNow(order)}
-          startIcon={<CheckCircleIcon />}
-          sx={{ mb: 1 }}
-        >
-          Pay Now
-        </Button>
-      );
-    }
+    const buttons: React.ReactNode[] = [];
+
+    // Chat
+    buttons.push(
+      <Button
+        key="chat"
+        size="small"
+        variant="outlined"
+        onClick={() => handleViewChat(order)}
+        startIcon={<ChatIcon />}
+        sx={{ mb: 1 }}
+      >
+        Chat
+      </Button>
+    );
+
+    // Removed Confirm Payment button - payments now auto-sync via Paystack
+    // if (order.payment?.status === 'pending') {
+    //   buttons.push(
+    //     <Button
+    //       key="confirm-payment"
+    //       size="small"
+    //       variant="contained"
+    //       color="primary"
+    //       onClick={() => handleConfirmPayment(order)}
+    //       startIcon={<CheckCircleIcon />}
+    //       disabled={confirming === order._id}
+    //       sx={{ mb: 1 }}
+    //     >
+    //       {confirming === order._id ? 'Confirming...' : 'Confirm Payment'}
+    //     </Button>
+    //   );
+    // }
+
+    // Self-assign if not assigned yet
     if (!order.serviceProvider && ['pending', 'confirmed'].includes(order.status)) {
       buttons.push(
         <Button
@@ -161,6 +239,23 @@ const ProviderOrders: React.FC = () => {
         </Button>
       );
     }
+
+    // Advance Status
+    const next = nextStatus(order.status);
+    if (next) {
+      buttons.push(
+        <Button
+          key="advance-status"
+          size="small"
+          variant="outlined"
+          onClick={() => handleAdvanceStatus(order)}
+          disabled={advancing === order._id}
+        >
+          {advancing === order._id ? 'Updating...' : nextStatusButtonLabel(next)}
+        </Button>
+      );
+    }
+
     return buttons.length > 0 ? buttons : null;
   };
 
@@ -178,7 +273,7 @@ const ProviderOrders: React.FC = () => {
         <Alert severity="error" sx={{ mb: 2 }}>
           {error}
           <Button
-            onClick={() => dispatch(fetchOrders({ role: 'service_provider', includeAvailable: true }))}
+            onClick={() => dispatch(fetchProviderOrders({ includeAvailable: true }))}
             sx={{ ml: 2 }}
             variant="outlined"
             size="small"
@@ -192,9 +287,11 @@ const ProviderOrders: React.FC = () => {
 
   return (
     <Box sx={{ p: 3 }}>
-      <Typography variant="h4" gutterBottom color="primary">
-        My Orders
-      </Typography>
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+        <Typography variant="h4" gutterBottom color="primary" sx={{ mb: 0 }}>
+          My Orders
+        </Typography>
+              </Box>
 
       {orders.length === 0 ? (
         <Paper sx={{ p: 3, textAlign: 'center', bgcolor: 'background.paper', borderRadius: 2, boxShadow: 1 }}>
@@ -202,7 +299,7 @@ const ProviderOrders: React.FC = () => {
             No orders available
           </Typography>
           <Button
-            onClick={() => dispatch(fetchOrders({ role: 'service_provider', includeAvailable: true }))}
+            onClick={() => dispatch(fetchProviderOrders({ includeAvailable: true }))}
             sx={{ mt: 2 }}
             variant="outlined"
             color="primary"
@@ -265,7 +362,57 @@ const ProviderOrders: React.FC = () => {
                   </Typography>
 
                   <Typography variant="body2" color="text.secondary" gutterBottom>
-                    Items: {order.items.map((item) => `${item.serviceName} (${item.quantity})`).join(', ')}
+                    <Box>
+                      <Typography variant="subtitle2" sx={{ fontWeight: 'bold', mb: 1 }}>
+                        Customer's Items:
+                      </Typography>
+                      {order.items.map((item, itemIndex) => (
+                        <Box key={`${order._id}-${itemIndex}`} sx={{ mb: 1 }}>
+                          <Typography variant="subtitle2" sx={{ mb: 0.5 }}>
+                            {item.serviceName}
+                          </Typography>
+                          {(item.clothingItems && item.clothingItems.length > 0) ? (
+                            item.clothingItems.map((clothingItem, itemIndex) => (
+                              <Box key={clothingItem.itemId} sx={{ ml: 1, mb: 1, p: 2, bgcolor: 'background.paper', borderRadius: 1, border: 1, borderColor: 'divider' }}>
+                                <Typography variant="body2" sx={{ mb: 0.5, fontWeight: 'medium' }}>
+                                  <span style={{ color: '#1976d2', fontWeight: 'bold' }}>Item #{itemIndex + 1}</span> - {clothingItem.description}
+                                </Typography>
+                                <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 0.5 }}>
+                                  <strong>Customer ID:</strong> {clothingItem.itemId}
+                                </Typography>
+                                <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 1 }}>
+                                  Service: {clothingItem.serviceName} - ¢{clothingItem.unitPrice.toFixed(2)}
+                                </Typography>
+                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                  <Chip
+                                    label={clothingItem.isConfirmed ? 'Received ✓' : 'Pending Receipt'}
+                                    size="small"
+                                    color={clothingItem.isConfirmed ? 'success' : 'warning'}
+                                    variant={clothingItem.isConfirmed ? 'filled' : 'outlined'}
+                                  />
+                                  {order.serviceProvider && !clothingItem.isConfirmed && (
+                                    <Button
+                                      size="small"
+                                      variant="contained"
+                                      color="primary"
+                                      onClick={() => handleConfirmItem(order._id, clothingItem.itemId)}
+                                      disabled={confirmingItem === clothingItem.itemId}
+                                      sx={{ fontSize: '0.7rem', py: 0.3, px: 1.5 }}
+                                    >
+                                      {confirmingItem === clothingItem.itemId ? 'Confirming...' : 'Confirm Received'}
+                                    </Button>
+                                  )}
+                                </Box>
+                              </Box>
+                            ))
+                          ) : (
+                            <Typography variant="caption" color="text.secondary" sx={{ ml: 1, display: 'block' }}>
+                              No items listed by customer.
+                            </Typography>
+                          )}
+                        </Box>
+                      ))}
+                    </Box>
                   </Typography>
 
                   <Typography variant="h6" color="primary" gutterBottom>
@@ -280,9 +427,7 @@ const ProviderOrders: React.FC = () => {
                     Delivery: {formatDate(order.deliveryDate)}
                   </Typography>
 
-                  <Stack spacing={1}>
-                    {getActionButtons(order)}
-                  </Stack>
+                  <Stack spacing={1}>{getActionButtons(order)}</Stack>
                 </CardContent>
               </Card>
             </Box>
@@ -290,35 +435,6 @@ const ProviderOrders: React.FC = () => {
           })}
         </Box>
       )}
-
-      <Dialog open={openPaymentDialog} onClose={() => setOpenPaymentDialog(false)}>
-        <DialogTitle>Pay for Order #{selectedOrder?.orderNumber}</DialogTitle>
-        <DialogContent>
-          <TextField
-            autoFocus
-            margin="dense"
-            label="Phone Number (MoMo)"
-            fullWidth
-            value={phoneNumber}
-            onChange={(e) => setPhoneNumber(e.target.value)}
-            disabled={paymentLoading}
-          />
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setOpenPaymentDialog(false)} disabled={paymentLoading} color="primary">
-            Cancel
-          </Button>
-          <Button
-            onClick={handlePaymentSubmit}
-            variant="contained"
-            color="primary"
-            disabled={paymentLoading}
-            startIcon={paymentLoading ? <CircularProgress size={16} /> : null}
-          >
-            {paymentLoading ? 'Processing...' : 'Pay Now'}
-          </Button>
-        </DialogActions>
-      </Dialog>
     </Box>
   );
 };

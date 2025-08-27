@@ -8,6 +8,8 @@ const { Server } = require('socket.io');
 const Message = require('./models/Message');
 const ChatRoom = require('./models/ChatRoom');
 
+
+
 const app = express();
 const server = http.createServer(app);
 const io = new Server(server, {
@@ -19,11 +21,10 @@ const io = new Server(server, {
 
 // Hardcoded configuration (no env files)
 const PORT = 5000;
-const MONGODB_URI = 'mongodb://localhost:27017/laundry-app';
+const MONGODB_URI = 'mongodb+srv://ohenebasayram:KinG123%40%26@cluster0.m3p1erd.mongodb.net/';
 const JWT_SECRET = 'your-super-secret-jwt-key-change-this-in-production';
 const JWT_EXPIRE = '7d';
 const NODE_ENV = 'development';
-
 // Middleware
 app.use(cors());
 app.use(express.json());
@@ -58,6 +59,7 @@ const userRoutes = require('./routes/users');
 const orderRoutes = require('./routes/orders');
 const serviceRoutes = require('./routes/services');
 const paymentRoutes = require('./routes/payments');
+const paystackRoutes = require('./routes/paystack');
 const reviewRoutes = require('./routes/reviews');
 const analyticsRoutes = require('./routes/analytics');
 const chatRoutes = require('./routes/chats');
@@ -73,6 +75,7 @@ app.use('/api/users', userRoutes);
 app.use('/api/orders', orderRoutes);
 app.use('/api/services', cacheMiddleware(300), serviceRoutes);
 app.use('/api/payments', paymentRoutes);
+app.use('/api/paystack', paystackRoutes);
 app.use('/api/reviews', reviewRoutes);
 app.use('/api/analytics', cacheMiddleware(600), analyticsRoutes);
 app.use('/api/chats', chatRoutes);
@@ -148,6 +151,11 @@ server.listen(PORT, '0.0.0.0', () => {
   console.log(`MongoDB URI: ${MONGODB_URI}`);
 });
 
+app.use(express.static(path.join(__dirname, "../frontend/build")));
+app.get("*", (req, res) => {
+  res.sendFile(path.join(__dirname, "../frontend/build/index.html"));
+});
+
 // Graceful shutdown
 process.on('SIGINT', async () => {
   console.log('Received SIGINT, shutting down gracefully...');
@@ -172,5 +180,4 @@ process.on('SIGTERM', async () => {
   }
   process.exit(0);
 });
-
 module.exports = app; 

@@ -1,5 +1,5 @@
 import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
-import { AuthState, User, AdminUser, CustomerUser, ServiceProviderUser, Address, UserRole } from '../../types/auth';
+import { User, AdminUser, CustomerUser, ServiceProviderUser, Address, UserRole } from '../../types/auth';
 import { authApi, UserResponse, RegisterResponse } from '../../services/api';
 
 export interface AuthState {
@@ -81,13 +81,26 @@ export const login = createAsyncThunk(
   'auth/login',
   async (credentials: { email: string; password: string }, { rejectWithValue }) => {
     try {
+      console.log('🔍 Login thunk called with:', { email: credentials.email });
       const response = await authApi.login(credentials);
+      console.log('🔍 Login API response:', response);
+
       if (response.error) {
+        console.log('❌ Login API error:', response.error);
         return rejectWithValue(response.error);
       }
-      return transformUserResponse(response.data!);
+
+      if (!response.data) {
+        console.log('❌ Login API returned no data');
+        return rejectWithValue('Login failed: No user data received');
+      }
+
+      console.log('✅ Login successful, transforming user data');
+      return transformUserResponse(response.data);
     } catch (error) {
-      return rejectWithValue('Login failed');
+      console.error('❌ Login thunk error:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Login failed';
+      return rejectWithValue(errorMessage);
     }
   }
 );
@@ -184,7 +197,8 @@ export const verifyEmail = createAsyncThunk(
   'auth/verifyEmail',
   async (verificationData: { email: string; code: string }, { rejectWithValue }) => {
     try {
-      const response = await fetch('http://localhost:5000/api/auth/verify-email', {
+      const { API_BASE_URL } = await import('../../services/api');
+      const response = await fetch(`${API_BASE_URL}/auth/verify-email`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -227,6 +241,7 @@ const initialState: AuthState = {
   isAuthenticated: false,
   loading: false,
   error: null,
+  token: localStorage.getItem('token'),
 };
 
 const authSlice = createSlice({
@@ -353,10 +368,11 @@ const authSlice = createSlice({
       .addCase(logout.fulfilled, (state) => {
         state.user = null;
         state.isAuthenticated = false;
+        state.token = null;
       });
   },
 
 });
 
 export const { clearError, updateUser } = authSlice.actions;
-export default authSlice.reducer; 
+export default authSlice.reducer;

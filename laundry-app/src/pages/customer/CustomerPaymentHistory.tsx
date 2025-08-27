@@ -13,7 +13,7 @@ import PaymentList from '../../components/payment/PaymentList'; // Import Paymen
 import api from '../../services/api'; // Adjust the import path if necessary
 
 const CustomerPaymentHistory: React.FC = () => {
-  const { user, token } = useSelector((state: RootState) => state.auth);
+  const { user, token } = useSelector((state: RootState) => state.auth as any);
   const [payments, setPayments] = useState<Payment[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -29,14 +29,14 @@ const CustomerPaymentHistory: React.FC = () => {
       try {
         setLoading(true);
         setError(null);
-        const response = await api.get(`/payments?userId=${user.id}`); // Assuming API service has a get method
+        const response = await api.get<{ data: { data: any } }>(`/payments?userId=${user.id}`); // Assuming API service has a get method
 
-        if (response.data && Array.isArray(response.data.data.docs)) {
-          setPayments(response.data.data.docs);
-        } else if (response.data && Array.isArray(response.data.data)) {
-           setPayments(response.data.data);
-        }
-         else {
+        const resp: any = response.data;
+        if (resp && Array.isArray(resp.data?.docs)) {
+          setPayments(resp.data.docs);
+        } else if (resp && Array.isArray(resp.data)) {
+          setPayments(resp.data);
+        } else {
           setPayments([]);
         }
       } catch (err: any) {
