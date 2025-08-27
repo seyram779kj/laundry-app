@@ -278,10 +278,20 @@ const PaystackPayment: React.FC<PaystackPaymentProps> = ({
         setError('Please enter your mobile money phone number');
         return false;
       }
-      
+
       const cleaned = cleanPhoneNumber(momoPhone);
-      if (cleaned.length < 12 || cleaned.length > 13) {
-        setError('Please enter a valid Ghana phone number');
+      console.log('🔍 Cleaned phone number:', cleaned);
+
+      // More flexible validation for Ghana numbers
+      if (cleaned.length < 10 || cleaned.length > 15) {
+        setError('Please enter a valid phone number (e.g., 0242000000)');
+        return false;
+      }
+
+      // Check if it's a valid Ghana number format
+      const ghanaPattern = /^233[0-9]{9}$|^0[0-9]{9}$/;
+      if (!ghanaPattern.test(cleaned) && !ghanaPattern.test(momoPhone.replace(/[\s-+()]/g, ''))) {
+        setError('Please enter a valid Ghana phone number (e.g., 0242000000 or 0552000000)');
         return false;
       }
     }
