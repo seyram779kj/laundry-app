@@ -142,16 +142,27 @@ const apiRequest = async <T>(
 export const authApi = {
   // Login
   login: async (credentials: LoginRequest): Promise<ApiResponse<UserResponse>> => {
-    const response = await apiRequest<UserResponse>('/auth/login', {
-      method: 'POST',
-      body: JSON.stringify(credentials),
-    });
+    try {
+      console.log('🔍 Auth API login called');
+      const response = await apiRequest<UserResponse>('/auth/login', {
+        method: 'POST',
+        body: JSON.stringify(credentials),
+      });
 
-    if (response.data?.token) {
-      setAuthToken(response.data.token);
+      console.log('🔍 Auth API login response:', response);
+
+      if (response.data?.token) {
+        console.log('🔍 Setting auth token');
+        setAuthToken(response.data.token);
+      } else if (response.error) {
+        console.log('❌ Auth API login error:', response.error);
+      }
+
+      return response;
+    } catch (error) {
+      console.error('❌ Auth API login exception:', error);
+      return { error: error instanceof Error ? error.message : 'Login failed' };
     }
-
-    return response;
   },
 
   // Register
