@@ -66,7 +66,7 @@ const apiRequest = async <T>(
   endpoint: string,
   options: RequestInit = {}
 ): Promise<ApiResponse<T>> => {
-  let response: Response;
+  let response: Response | undefined;
 
   try {
     console.log(`🔍 API request to: ${API_BASE_URL}${endpoint}`);
@@ -123,11 +123,11 @@ const apiRequest = async <T>(
   } catch (error) {
     console.error('❌ API request error:', error);
 
-    // If we have a response, try to get more error details
+    // If we have a response and it's not ok, try to get more error details
     if (response && !response.ok) {
       try {
         const errorData = await response.clone().json();
-        return { error: errorData?.error || errorData?.message || error instanceof Error ? error.message : 'Unknown error' };
+        return { error: errorData?.error || errorData?.message || (error instanceof Error ? error.message : 'Unknown error') };
       } catch {
         // If we can't parse error response, return the original error
         return { error: error instanceof Error ? error.message : 'Unknown error' };
