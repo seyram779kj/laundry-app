@@ -81,13 +81,26 @@ export const login = createAsyncThunk(
   'auth/login',
   async (credentials: { email: string; password: string }, { rejectWithValue }) => {
     try {
+      console.log('🔍 Login thunk called with:', { email: credentials.email });
       const response = await authApi.login(credentials);
+      console.log('🔍 Login API response:', response);
+
       if (response.error) {
+        console.log('❌ Login API error:', response.error);
         return rejectWithValue(response.error);
       }
-      return transformUserResponse(response.data!);
+
+      if (!response.data) {
+        console.log('❌ Login API returned no data');
+        return rejectWithValue('Login failed: No user data received');
+      }
+
+      console.log('✅ Login successful, transforming user data');
+      return transformUserResponse(response.data);
     } catch (error) {
-      return rejectWithValue('Login failed');
+      console.error('❌ Login thunk error:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Login failed';
+      return rejectWithValue(errorMessage);
     }
   }
 );
@@ -362,4 +375,4 @@ const authSlice = createSlice({
 });
 
 export const { clearError, updateUser } = authSlice.actions;
-export default authSlice.reducer; 
+export default authSlice.reducer;
