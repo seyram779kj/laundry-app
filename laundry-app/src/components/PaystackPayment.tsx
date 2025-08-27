@@ -113,26 +113,64 @@ const PaystackPayment: React.FC<PaystackPaymentProps> = ({
 
   // Initialize payment with backend
   const initializePayment = async () => {
-    if (!config) return;
+    if (!config) {
+      setError('Payment configuration not loaded');
+      return;
+    }
+
+    if (!orderId) {
+      setError('Order ID is required');
+      return;
+    }
+
+    if (!customerEmail) {
+      setError('Customer email is required');
+      return;
+    }
+
+    if (amount <= 0) {
+      setError('Invalid payment amount');
+      return;
+    }
 
     setIsInitializing(true);
     setError(null);
 
     try {
       const token = localStorage.getItem('token');
+      if (!token) {
+        setError('Authentication required. Please log in again.');
+        return;
+      }
+
       const paymentPayload = {
         paymentMethod: paymentMethod,
+        amount: amount,
+        customerEmail: customerEmail,
+        customerName: customerName,
         ...(paymentMethod === 'mobile_money' && {
           momoPhone: cleanPhoneNumber(momoPhone),
           momoProvider: momoProvider
         })
       };
 
+      console.log('🔍 Payment initialization payload:', paymentPayload);
+      console.log('🔍 Order ID:', orderId);
+      console.log('🔍 API URL:', `${API_BASE_URL}/paystack/initialize/${orderId}`);
+
       const response = await axios.post(
         `${API_BASE_URL}/paystack/initialize/${orderId}`,
         paymentPayload,
-        { headers: { Authorization: `Bearer ${token}` } }
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          },
+          timeout: 30000 // 30 second timeout
+        }
       );
+
+      console.log('🔍 Payment initialization response:', response.data);
 
       if (response.data.success) {
         setPaymentData(response.data.data.paystack);
@@ -141,7 +179,34 @@ const PaystackPayment: React.FC<PaystackPaymentProps> = ({
       }
     } catch (err: any) {
       console.error('Payment initialization error:', err);
-      setError(toMessage(err, 'Failed to initialize payment'));
+
+      // More specific error handling
+      if (err.response) {
+        // Server responded with error status
+        const status = err.response.status;
+        const errorData = err.response.data;
+
+        console.log('🔍 Error response status:', status);
+        console.log('🔍 Error response data:', errorData);
+
+        if (status === 400) {
+          setError(toMessage(errorData?.error, 'Invalid payment data. Please check your inputs.'));
+        } else if (status === 401) {
+          setError('Authentication failed. Please log in again.');
+        } else if (status === 404) {
+          setError('Order not found. Please refresh and try again.');
+        } else if (status === 500) {
+          setError('Server error. Please try again later.');
+        } else {
+          setError(toMessage(errorData?.error, `Payment initialization failed (${status})`));
+        }
+      } else if (err.request) {
+        // Network error
+        setError('Network error. Please check your connection and try again.');
+      } else {
+        // Other error
+        setError(toMessage(err, 'Failed to initialize payment'));
+      }
     } finally {
       setIsInitializing(false);
     }
