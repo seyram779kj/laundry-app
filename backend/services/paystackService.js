@@ -6,11 +6,11 @@ class PaystackService {
     this.baseURL = 'https://api.paystack.co';
     this.isTest = process.env.PAYSTACK_ENV === 'test';
     this.secretKey = this.isTest 
-      ? process.env.PAYSTACK_SECRET_KEY_TEST || 'sk_test_66e05ad5e80d4ee2642669bb32c7044c02255c61' 
+      ? process.env.PAYSTACK_SECRET_KEY_TEST  
       : process.env.PAYSTACK_SECRET_KEY_LIVE;
     this.publicKey = this.isTest 
-      ? process.env.PAYSTACK_PUBLIC_KEY_TEST || 'pk_test_3a050313d88f4628d93c5594aa78e62ffd154cd8'
-      : process.env.PAYSTACK_PUBLIC_KEY_LIVE;
+      ? process.env.PAYSTACK_PUBLIC_KEY_TEST 
+      : process.env.PAYSTACK_PUBLIC_KEY_LIVE ;
   }
 
   /**
