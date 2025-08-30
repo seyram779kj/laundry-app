@@ -37,6 +37,7 @@ import PaystackPayment from '../components/PaystackPayment';
 
 // Use thunks from the central slice instead of local ones
 import { fetchOrdersByRole, setError } from '../features/orders/orderSlice';
+ 
 
 const Orders: React.FC = () => {
   const dispatch = useDispatch<AppDispatch>();
@@ -45,6 +46,19 @@ const Orders: React.FC = () => {
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
   const [paymentProcessing, setPaymentProcessing] = useState(false);
   const navigate = useNavigate();
+
+  // Prefer Redux auth user; safely fallback to localStorage
+  const authUser = useSelector((state: RootState) => (state as any)?.auth?.user);
+  const safeLocalUser = React.useMemo(() => {
+    try {
+      const raw = localStorage.getItem('user');
+      return raw ? JSON.parse(raw) : {};
+    } catch {
+      return {} as any;
+    }
+  }, []);
+  const customerEmail = authUser?.email || safeLocalUser?.email || '';
+  const customerName = `${authUser?.firstName || safeLocalUser?.firstName || ''} ${authUser?.lastName || safeLocalUser?.lastName || ''}`.trim();
 
   useEffect(() => {
     dispatch(fetchOrdersByRole('customer'));
@@ -269,8 +283,8 @@ const Orders: React.FC = () => {
           onClose={handlePaymentDialogClose}
           orderId={selectedOrder._id}
           amount={selectedOrder.totalAmount}
-          customerEmail={JSON.parse(localStorage.getItem('user') || '{}').email || ''}
-          customerName={`${JSON.parse(localStorage.getItem('user') || '{}').firstName || ''} ${JSON.parse(localStorage.getItem('user') || '{}').lastName || ''}`.trim()}
+          customerEmail={customerEmail}
+          customerName={customerName}
           onPaymentSuccess={handlePaymentSuccess}
           onPaymentError={handlePaymentError}
         />
