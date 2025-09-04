@@ -206,23 +206,23 @@ const ProviderOrders: React.FC = () => {
       </Button>
     );
 
-    // Removed Confirm Payment button - payments now auto-sync via Paystack
-    // if (order.payment?.status === 'pending') {
-    //   buttons.push(
-    //     <Button
-    //       key="confirm-payment"
-    //       size="small"
-    //       variant="contained"
-    //       color="primary"
-    //       onClick={() => handleConfirmPayment(order)}
-    //       startIcon={<CheckCircleIcon />}
-    //       disabled={confirming === order._id}
-    //       sx={{ mb: 1 }}
-    //     >
-    //       {confirming === order._id ? 'Confirming...' : 'Confirm Payment'}
-    //     </Button>
-    //   );
-    // }
+    // Cash payment confirmation button for providers
+    if (order.payment?.status === 'pending' && order.payment?.paymentMethod === 'cash') {
+      buttons.push(
+        <Button
+          key="confirm-payment"
+          size="small"
+          variant="contained"
+          color="primary"
+          onClick={() => handleConfirmPayment(order)}
+          startIcon={<CheckCircleIcon />}
+          disabled={confirming === order._id}
+          sx={{ mb: 1 }}
+        >
+          {confirming === order._id ? 'Confirming...' : 'Payment Made'}
+        </Button>
+      );
+    }
 
     // Self-assign if not assigned yet
     if (!order.serviceProvider && ['pending', 'confirmed'].includes(order.status)) {
@@ -252,6 +252,22 @@ const ProviderOrders: React.FC = () => {
           disabled={advancing === order._id}
         >
           {advancing === order._id ? 'Updating...' : nextStatusButtonLabel(next)}
+        </Button>
+      );
+    }
+
+    // Cancel Order (provider side) - only when order is not completed/cancelled
+    if (!['completed', 'cancelled'].includes(order.status)) {
+      buttons.push(
+        <Button
+          key="cancel-order"
+          size="small"
+          variant="outlined"
+          color="error"
+          onClick={() => dispatch(updateOrderStatus({ orderId: order._id, status: 'cancelled' }) as any)}
+          sx={{ mb: 1 }}
+        >
+          Cancel Order
         </Button>
       );
     }

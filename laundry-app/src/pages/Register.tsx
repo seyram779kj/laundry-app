@@ -552,57 +552,37 @@ const Register: React.FC = () => {
           ))}
         </Stepper>
 
-        {/* Social Login Options - Only show on first step */}
+        {/* Animated decorative element on first step (replaces social login) */}
         {activeStep === 0 && (
-          <>
-            <Stack spacing={2} sx={{ mb: 3 }}>
-              <Button
-                variant="outlined"
-                fullWidth
-                startIcon={<GoogleIcon />}
-                onClick={() => handleSocialLogin('Google')}
-                sx={{ 
-                  borderColor: '#4285f4', 
-                  color: '#4285f4',
-                  '&:hover': { borderColor: '#3367d6', backgroundColor: 'rgba(66, 133, 244, 0.04)' }
-                }}
-              >
-                Continue with Google
-              </Button>
-              <Button
-                variant="outlined"
-                fullWidth
-                startIcon={<FacebookIcon />}
-                onClick={() => handleSocialLogin('Facebook')}
-                sx={{ 
-                  borderColor: '#1877f2', 
-                  color: '#1877f2',
-                  '&:hover': { borderColor: '#166fe5', backgroundColor: 'rgba(24, 119, 242, 0.04)' }
-                }}
-              >
-                Continue with Facebook
-              </Button>
-              <Button
-                variant="outlined"
-                fullWidth
-                startIcon={<AppleIcon />}
-                onClick={() => handleSocialLogin('Apple')}
-                sx={{ 
-                  borderColor: '#000000', 
-                  color: '#000000',
-                  '&:hover': { borderColor: '#333333', backgroundColor: 'rgba(0, 0, 0, 0.04)' }
-                }}
-              >
-                Continue with Apple
-              </Button>
-            </Stack>
-
-            <Divider sx={{ my: 3 }}>
-              <Typography variant="body2" color="textSecondary">
-                OR
-              </Typography>
-            </Divider>
-          </>
+          <Box sx={{ mb: 3, display: 'flex', justifyContent: 'center' }}>
+            {/* Simple animated dot that moves horizontally */}
+            <Box
+              sx={{
+                width: 200,
+                height: 8,
+                bgcolor: 'grey.200',
+                borderRadius: 4,
+                position: 'relative',
+                overflow: 'hidden',
+                '::before': {
+                  content: '""',
+                  position: 'absolute',
+                  top: -6,
+                  left: 0,
+                  width: 20,
+                  height: 20,
+                  borderRadius: '50%',
+                  bgcolor: 'primary.main',
+                  animation: 'moveDot 1.6s ease-in-out infinite',
+                },
+                '@keyframes moveDot': {
+                  '0%': { transform: 'translateX(0)' },
+                  '50%': { transform: 'translateX(180px)' },
+                  '100%': { transform: 'translateX(0)' },
+                },
+              }}
+            />
+          </Box>
         )}
 
         {renderStepContent(activeStep)}

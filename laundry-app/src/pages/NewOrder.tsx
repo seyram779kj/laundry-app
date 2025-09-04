@@ -1099,8 +1099,6 @@ const NewOrderPage = () => {
         >
           {[
             { value: 'momo', label: 'Mobile Money (MoMo)', sublabel: 'Pay securely with MTN MoMo or AirtelTigo Money', icon: <Smartphone />, color: '#FFC107' },
-            { value: 'credit_card', label: 'Credit/Debit Card', sublabel: 'Visa, Mastercard, American Express', icon: <CreditCard />, color: 'primary.main' },
-            { value: 'bank_transfer', label: 'Bank Transfer', sublabel: 'Direct bank account transfer', icon: <AccountBalance />, color: 'success.main' },
             { value: 'cash', label: 'Cash Payment', sublabel: 'Pay with cash upon pickup or delivery', icon: <AttachMoney />, color: '#F57C00' },
           ].map((method) => (
             <FormControlLabel

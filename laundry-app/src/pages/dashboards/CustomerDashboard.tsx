@@ -71,7 +71,7 @@ const CustomerDashboard: React.FC = () => {
       setOrdersError(null);
       try {
         const token = localStorage.getItem('token');
-        const res = await fetch(`${API_BASE_URL}/orders?status=pending`, {
+        const res = await fetch(`${API_BASE_URL}/orders?role=customer&status=pending`, {
           headers: {
             'Authorization': `Bearer ${token}`,
             'Content-Type': 'application/json',
