@@ -173,7 +173,7 @@ const CustomerDashboard: React.FC = () => {
   return (
     <Box sx={{ p: 3 }}>
       <Typography variant="h4" gutterBottom>
-        Welcome, {user?.firstName}!
+        Welcome, {user?.firstName}
       </Typography>
       {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
       <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 3 }}>
