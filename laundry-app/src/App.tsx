@@ -236,7 +236,6 @@ const App: React.FC = () => {
                         <Route path="orders" element={<OrdersManagement />} />
                         <Route path="services" element={<ServicesManagement />} />
                         <Route path="analytics" element={<Analytics />} />
-                        <Route path="payments" element={<PaymentsManagement />} />
                         <Route path="payment-history" element={<PaymentHistory />} />
                         <Route path="reviews" element={<ReviewsManagement />} />
                       </Routes>

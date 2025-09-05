@@ -110,21 +110,24 @@ const ProviderOrders: React.FC = () => {
     if (!order.payment || order.payment.status === 'completed') return;
     try {
       setConfirming(order._id);
-      const paymentId = (order.payment as any)?._id || (order.payment as any)?.id;
-      if (paymentId) {
-        await axios.put(
-          `${API_BASE_URL}/payments/${paymentId}/status`,
-          { status: 'completed' },
-          { headers: { ...authHeader(), 'Content-Type': 'application/json' } }
-        );
-      } else {
-        // Fallback: some backends expose an order-based payment status update
-        await axios.put(
-          `${API_BASE_URL}/orders/${order._id}/payment-status`,
-          { status: 'completed' },
-          { headers: { ...authHeader(), 'Content-Type': 'application/json' } }
-        );
-      }
+
+      // Use the order-based helper that enforces valid transitions
+      const headers = { ...authHeader(), 'Content-Type': 'application/json' };
+
+      // Transition: pending -> processing
+      await axios.put(
+        `${API_BASE_URL}/orders/${order._id}/payment-status`,
+        { status: 'processing' },
+        { headers }
+      );
+
+      // Immediately transition: processing -> completed
+      await axios.put(
+        `${API_BASE_URL}/orders/${order._id}/payment-status`,
+        { status: 'completed' },
+        { headers }
+      );
+
       dispatch(fetchProviderOrders({ includeAvailable: true }));
     } catch (err: any) {
       console.error('Confirm payment error:', err);
@@ -243,17 +246,21 @@ const ProviderOrders: React.FC = () => {
     // Advance Status
     const next = nextStatus(order.status);
     if (next) {
-      buttons.push(
-        <Button
-          key="advance-status"
-          size="small"
-          variant="outlined"
-          onClick={() => handleAdvanceStatus(order)}
-          disabled={advancing === order._id}
-        >
-          {advancing === order._id ? 'Updating...' : nextStatusButtonLabel(next)}
-        </Button>
-      );
+      const label = nextStatusButtonLabel(next);
+      // Hide the generic "Assign" advance button. Keep self-assign button above.
+      if (!(order.status === 'confirmed' && label === 'Assign')) {
+        buttons.push(
+          <Button
+            key="advance-status"
+            size="small"
+            variant="outlined"
+            onClick={() => handleAdvanceStatus(order)}
+            disabled={advancing === order._id}
+          >
+            {advancing === order._id ? 'Updating...' : label}
+          </Button>
+        );
+      }
     }
 
     // Cancel Order (provider side) - only when order is not completed/cancelled
