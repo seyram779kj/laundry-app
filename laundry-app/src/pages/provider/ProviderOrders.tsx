@@ -74,6 +74,7 @@ const ProviderOrders: React.FC = () => {
   const dispatch = useDispatch<AppDispatch>();
   const { orders, loading, error } = useSelector((state: RootState) => state.orders || { orders: [], loading: false, error: null }, shallowEqual);
   const navigate = useNavigate();
+  const authUser = useSelector((state: RootState) => state.auth.user);
   const [confirming, setConfirming] = useState<string | null>(null);
   const [advancing, setAdvancing] = useState<string | null>(null);
   const [confirmingItem, setConfirmingItem] = useState<string | null>(null);
@@ -264,7 +265,9 @@ const ProviderOrders: React.FC = () => {
     }
 
     // Cancel Order (provider side) - only when order is not completed/cancelled
-    if (!['completed', 'cancelled'].includes(order.status)) {
+    // Require that the order is assigned to the current provider to enable cancel
+    const isAssignedToMe = order.serviceProvider && (order.serviceProvider as any)._id === authUser?.id;
+    if (!['completed', 'cancelled'].includes(order.status) && isAssignedToMe) {
       buttons.push(
         <Button
           key="cancel-order"

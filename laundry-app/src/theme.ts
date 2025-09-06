@@ -60,21 +60,34 @@ const theme = createTheme({
       styleOverrides: {
         root: {
           textTransform: 'none',
-          borderRadius: 8,
+          borderRadius: 10,
+          backgroundImage: 'linear-gradient(135deg, rgba(25,118,210,0.12), rgba(156,39,176,0.12))',
+        },
+        containedPrimary: {
+          backgroundImage: 'linear-gradient(135deg, #1976d2, #9c27b0)',
+          color: '#fff',
+        },
+        containedSecondary: {
+          backgroundImage: 'linear-gradient(135deg, #9c27b0, #1976d2)',
+          color: '#fff',
         },
       },
     },
     MuiPaper: {
       styleOverrides: {
         root: {
-          borderRadius: 8,
+          borderRadius: 12,
+          backgroundImage: 'linear-gradient(180deg, rgba(255,255,255,0.9), rgba(255,255,255,0.85))',
+          backdropFilter: 'blur(4px)'
         },
       },
     },
     MuiCard: {
       styleOverrides: {
         root: {
-          borderRadius: 8,
+          borderRadius: 14,
+          backgroundImage: 'linear-gradient(180deg, rgba(255,255,255,0.92), rgba(255,255,255,0.86))',
+          backdropFilter: 'blur(6px)'
         },
       },
     },
@@ -82,7 +95,7 @@ const theme = createTheme({
       styleOverrides: {
         root: {
           '& .MuiOutlinedInput-root': {
-            borderRadius: 8,
+            borderRadius: 10,
           },
         },
       },

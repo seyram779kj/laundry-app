@@ -536,7 +536,7 @@ router.put('/:id/assign-self', protect, serviceProvider, async (req, res) => {
     // Add formatted total for frontend
     const orderWithFormatted = {
       ...order.toObject(),
-      formattedTotal: `$${order.totalAmount.toFixed(2)}`
+      formattedTotal: `¢${order.totalAmount.toFixed(2)}`
     };
 
     console.log(`Order ${order._id} successfully assigned to service provider ${req.user.id}`);
@@ -703,7 +703,7 @@ router.get('/provider/assigned', protect, serviceProvider, async (req, res) => {
       const orderObj = order.toObject();
       return {
         ...orderObj,
-        formattedTotal: `$${order.totalAmount.toFixed(2)}`,
+        formattedTotal: `¢${order.totalAmount.toFixed(2)}`,
         orderNumber: orderObj.orderNumber || `ORD-${orderObj._id.toString().slice(-6).toUpperCase()}`,
         notes: orderObj.notes || { customer: '', serviceProvider: '', admin: '' }
       };

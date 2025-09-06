@@ -192,11 +192,19 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children, title }) => {
       </Box>
       <Box
         component="main"
+        className="animate-page"
         sx={{
           flexGrow: 1,
           p: 3,
           width: { sm: `calc(100% - ${drawerWidth}px)` },
           mt: '64px',
+          /* Add a light translucent panel effect on top of gradient */
+          '& .page-section': {
+            backgroundColor: 'rgba(255,255,255,0.65)',
+            backdropFilter: 'blur(6px)',
+            borderRadius: 2,
+            boxShadow: '0 6px 20px rgba(0,0,0,0.06)'
+          },
         }}
       >
         {children}
