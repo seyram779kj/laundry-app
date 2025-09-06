@@ -5,39 +5,9 @@ body {
     sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  /* Soft diagonal gradient background */
-  background: linear-gradient(135deg, #f0f7ff 0%, #e6f3ff 30%, #f7ecff 70%, #fff0f5 100%);
-  background-attachment: fixed;
-  min-height: 100vh;
 }
 
 code {
   font-family: source-code-pro, Menlo, Monaco, Consolas, 'Courier New',
     monospace;
-}
-
-/* Simple, smooth page entrance */
-@keyframes fadeSlideIn {
-  0% {
-    opacity: 0;
-    transform: translateY(8px);
-  }
-  100% {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-.animate-page {
-  animation: fadeSlideIn 600ms ease both;
-}
-
-/* Card subtle entrance and hover lift */
-.MuiCard-root {
-  animation: fadeSlideIn 400ms ease both;
-  transition: transform 200ms ease, box-shadow 200ms ease;
-}
-.MuiCard-root:hover {
-  transform: translateY(-3px);
-  box-shadow: 0 10px 24px rgba(0,0,0,0.08);
 }
