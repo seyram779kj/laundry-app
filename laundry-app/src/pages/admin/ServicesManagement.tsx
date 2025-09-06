@@ -183,7 +183,7 @@ const ServicesManagement: React.FC = () => {
                 Average Price
               </Typography>
               <Typography variant="h4" color="primary.main">
-                ${servicesArray.length > 0 ? (servicesArray.reduce((sum, s) => sum + s.basePrice, 0) / servicesArray.length).toFixed(2) : '0.00'}
+                ¢{servicesArray.length > 0 ? (servicesArray.reduce((sum, s) => sum + s.basePrice, 0) / servicesArray.length).toFixed(2) : '0.00'}
               </Typography>
             </CardContent>
           </Card>
@@ -226,7 +226,7 @@ const ServicesManagement: React.FC = () => {
                     sx={{ mr: 1 }}
                   />
                   <Typography variant="h6" color="primary">
-                    ${typeof service.basePrice === 'number' ? service.basePrice.toFixed(2) : '0.00'}
+                    ¢{typeof service.basePrice === 'number' ? service.basePrice.toFixed(2) : '0.00'}
                   </Typography>
                 </Box>
                 

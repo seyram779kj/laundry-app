@@ -239,7 +239,7 @@ const ServiceSelection: React.FC<ServiceSelectionProps> = ({ onServiceSelect, on
                   {service.description}
                 </Typography>
                 <Typography variant="h6" color="primary">
-                  Starting at ${service.basePrice}
+                  Starting at ¢{service.basePrice}
                 </Typography>
               </CardContent>
             </Card>
@@ -296,7 +296,7 @@ const ServiceSelection: React.FC<ServiceSelectionProps> = ({ onServiceSelect, on
                     Pricing
                   </Typography>
                   <Typography variant="body1" color="primary" gutterBottom>
-                    Starting at ${selectedService.basePrice}
+                    Starting at ¢{selectedService.basePrice}
                   </Typography>
                   <Button 
                     variant="contained" 

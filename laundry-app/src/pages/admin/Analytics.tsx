@@ -180,7 +180,7 @@ const Analytics: React.FC = () => {
                 </Typography>
               </Box>
               <Typography variant="h4" color="primary">
-                ${analyticsData.totalRevenue.toLocaleString()}
+                ¢{analyticsData.totalRevenue.toLocaleString()}
               </Typography>
               <Typography variant="body2" color="success.main" sx={{ display: 'flex', alignItems: 'center' }}>
                 <TrendingUp sx={{ fontSize: 16, mr: 0.5 }} />
@@ -265,7 +265,7 @@ const Analytics: React.FC = () => {
                     Average Order Value
                   </Typography>
                   <Typography variant="h6">
-                    ${analyticsData.averageOrderValue.toFixed(2)}
+                    ¢{analyticsData.averageOrderValue.toFixed(2)}
                   </Typography>
                 </Box>
                 <Box sx={{ width: 'calc(50% - 8px)' }}>
@@ -317,7 +317,7 @@ const Analytics: React.FC = () => {
                       <TableRow key={service.name}>
                         <TableCell>{service.name}</TableCell>
                         <TableCell align="right">{service.orders}</TableCell>
-                        <TableCell align="right">${service.revenue.toFixed(2)}</TableCell>
+                        <TableCell align="right">¢{service.revenue.toFixed(2)}</TableCell>
                       </TableRow>
                     ))}
                   </TableBody>
@@ -350,7 +350,7 @@ const Analytics: React.FC = () => {
                   <TableRow key={order.id}>
                     <TableCell>#{order.id}</TableCell>
                     <TableCell>{order.customerName}</TableCell>
-                    <TableCell>${order.amount.toFixed(2)}</TableCell>
+                    <TableCell>¢{order.amount.toFixed(2)}</TableCell>
                     <TableCell>
                       <Typography
                         variant="body2"

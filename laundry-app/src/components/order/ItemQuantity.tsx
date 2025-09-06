@@ -322,7 +322,7 @@ const ItemQuantity: React.FC<ItemQuantityProps> = ({ selectedServiceId, onItemsC
               </Typography>
             </Box>
                 <Typography color="text.secondary" gutterBottom>
-                  ${item.price.toFixed(2)} per item
+                  ¢{item.price.toFixed(2)} per item
                 </Typography>
                 <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mt: 2 }}>
               <IconButton
@@ -361,7 +361,7 @@ const ItemQuantity: React.FC<ItemQuantityProps> = ({ selectedServiceId, onItemsC
         <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 2 }}>
           <Typography variant="h6">Total Price:</Typography>
           <Typography variant="h6" color="primary">
-            ${totalPrice.toFixed(2)}
+            ¢{totalPrice.toFixed(2)}
           </Typography>
         </Box>
       </Paper>

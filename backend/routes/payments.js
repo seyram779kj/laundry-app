@@ -660,7 +660,7 @@ router.get('/history', protect, async (req, res) => {
       ...payments,
       docs: payments.docs.map(payment => ({
         ...payment.toObject(),
-        formattedAmount: `$${payment.amount.toFixed(2)}`,
+        formattedAmount: `¢${payment.amount.toFixed(2)}`,
         formattedDate: payment.createdAt,
         orderInfo: payment.order ? {
           orderNumber: payment.order.orderNumber || `ORD-${payment.order._id.toString().slice(-6).toUpperCase()}`,
@@ -726,7 +726,7 @@ router.get('/history/export', protect, async (req, res) => {
         const orderNumber = payment.order ? (payment.order.orderNumber || `ORD-${payment.order._id.toString().slice(-6).toUpperCase()}`) : 'N/A';
         const transactionRef = payment.paymentDetails?.transactionRef || payment.transactionId || 'N/A';
 
-        return `"${payment._id}","${orderNumber}","${customerName}","$${payment.amount.toFixed(2)}","${payment.paymentMethod}","${payment.status}","${payment.createdAt.toISOString()}","${transactionRef}"`;
+        return `"${payment._id}","${orderNumber}","${customerName}","¢${payment.amount.toFixed(2)}","${payment.paymentMethod}","${payment.status}","${payment.createdAt.toISOString()}","${transactionRef}"`;
       }).join('\n');
 
       const csvContent = csvHeader + csvRows;
@@ -780,7 +780,7 @@ router.get('/:id/receipt', protect, async (req, res) => {
         id: payment._id,
         transactionId: payment.transactionId || payment.paymentDetails?.transactionRef || 'N/A',
         amount: payment.amount,
-        formattedAmount: `$${payment.amount.toFixed(2)}`,
+        formattedAmount: `¢${payment.amount.toFixed(2)}`,
         paymentMethod: payment.paymentMethod,
         status: payment.status,
         createdAt: payment.createdAt,

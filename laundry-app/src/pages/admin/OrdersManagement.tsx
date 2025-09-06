@@ -596,7 +596,7 @@ const OrdersManagement: React.FC = () => {
               {selectedOrder.items.map((item, index) => (
                 <Box key={index} sx={{ mb: 1 }}>
                   <Typography>
-                    {item.serviceName} x {item.quantity} - ${item.unitPrice.toFixed(2)} (Total: ${item.totalPrice.toFixed(2)})
+                    {item.serviceName} x {item.quantity} - ¢{item.unitPrice.toFixed(2)} (Total: ¢{item.totalPrice.toFixed(2)})
                   </Typography>
                   {item.specialInstructions && (
                     <Typography variant="body2" color="text.secondary">
@@ -635,9 +635,9 @@ const OrdersManagement: React.FC = () => {
               <Typography variant="h6" gutterBottom sx={{ mt: 2 }}>
                 Financials
               </Typography>
-              <Typography>Subtotal: ${selectedOrder.subtotal.toFixed(2)}</Typography>
-              <Typography>Tax: ${selectedOrder.tax.toFixed(2)}</Typography>
-              <Typography>Delivery Fee: ${selectedOrder.deliveryFee.toFixed(2)}</Typography>
+              <Typography>Subtotal: ¢{selectedOrder.subtotal.toFixed(2)}</Typography>
+              <Typography>Tax: ¢{selectedOrder.tax.toFixed(2)}</Typography>
+              <Typography>Delivery Fee: ¢{selectedOrder.deliveryFee.toFixed(2)}</Typography>
               <Typography variant="h5" color="primary">
                 Total: {selectedOrder.formattedTotal}
               </Typography>
