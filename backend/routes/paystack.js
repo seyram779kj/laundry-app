@@ -105,7 +105,7 @@ router.post('/initialize/:orderId', protect, async (req, res) => {
       amount: order.totalAmount,
       reference: reference,
       currency: 'GHS',
-      callback_url: `${process.env.APP_URL}/orders/${orderId}/payment-success`,
+      callback_url: `${process.env.APP_URL}/payment/callback`,
       channels: channels,
       mobile_money: mobileMoneyData,
       metadata: {

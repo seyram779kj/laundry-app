@@ -44,31 +44,36 @@ import ReviewsManagement from './pages/admin/ReviewsManagement';
 // Payment History
 import PaymentHistory from './pages/PaymentHistory';
 import TestPaymentAPI from './pages/TestPaymentAPI';
+import PaymentCallback from './pages/PaymentCallback';
 
 // Authentication Initialization Component
 const AuthInitializer: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const dispatch = useDispatch<AppDispatch>();
-  const { isAuthenticated, loading } = useSelector((state: RootState) => state.auth);
+  const { loading } = useSelector((state: RootState) => state.auth);
+  const [bootstrapped, setBootstrapped] = React.useState(false);
 
   useEffect(() => {
-    // Check if user is already authenticated (has token)
-    const token = localStorage.getItem('token');
-    console.log('🔍 AuthInitializer check:', { token: token ? 'exists' : 'null', isAuthenticated, loading });
+    let mounted = true;
+    const bootstrap = async () => {
+      const token = localStorage.getItem('token');
+      console.log('🔍 AuthInitializer bootstrap:', { token: token ? 'exists' : 'null' });
+      if (token) {
+        try {
+          await dispatch(getMe()).unwrap();
+        } catch (e) {
+          console.warn('getMe failed during bootstrap:', e);
+        }
+      }
+      if (mounted) setBootstrapped(true);
+    };
+    bootstrap();
+    return () => { mounted = false; };
+  }, [dispatch]);
 
-    if (token && !isAuthenticated) {
-      console.log('🔄 Calling getMe() to restore authentication...');
-      dispatch(getMe());
-    }
-  }, [dispatch, isAuthenticated]);
-
-  if (loading) {
+  // Block routing until initial auth check completes to avoid redirecting to landing on refresh
+  if (!bootstrapped || loading) {
     return (
-      <div style={{
-        display: 'flex',
-        justifyContent: 'center',
-        alignItems: 'center',
-        height: '100vh'
-      }}>
+      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}>
         <div>Loading...</div>
       </div>
     );
@@ -166,6 +171,9 @@ const App: React.FC = () => {
             <Routes>
               {/* Public Routes */}
               <Route path="/" element={<LandingPage />} />
+              {/* Paystack redirects here after payment. This page verifies then redirects to Orders */}
+              <Route path="/payment/callback/:orderId" element={<PaymentCallback />} />
+              <Route path="/payment/callback" element={<PaymentCallback />} />
               <Route path="/login" element={<Login />} />
               <Route path="/register" element={<Register />} />
               <Route path="/forgot-password" element={<ForgotPassword />} />

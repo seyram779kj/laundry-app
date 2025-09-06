@@ -248,8 +248,8 @@ const ProviderOrders: React.FC = () => {
     const next = nextStatus(order.status);
     if (next) {
       const label = nextStatusButtonLabel(next);
-      // Hide the generic "Assign" advance button. Keep self-assign button above.
-      if (!(order.status === 'confirmed' && label === 'Assign')) {
+      // Hide any generic "Assign" advance button; rely on "Assign to Me" only
+      if (label !== 'Assign') {
         buttons.push(
           <Button
             key="advance-status"

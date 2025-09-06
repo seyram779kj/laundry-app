@@ -241,6 +241,25 @@ setInterval(() => {
   }
 }, 10 * 60 * 1000);
 
+// @desc    Check if email is available (no side effects)
+// @route   POST /api/auth/email-available
+// @access  Public
+const checkEmailAvailability = async (req, res) => {
+  try {
+    const { email } = req.body;
+    if (!email || !email.trim()) {
+      return res.status(400).json({ error: 'Email is required' });
+    }
+
+    const normalized = email.trim().toLowerCase();
+    const userExists = await User.findOne({ email: normalized });
+    return res.json({ available: !userExists });
+  } catch (error) {
+    console.error('Check email availability error:', error);
+    return res.status(500).json({ error: 'Server error' });
+  }
+};
+
 // @desc    Authenticate user & get token
 // @route   POST /api/auth/login
 // @access  Public
@@ -438,6 +457,7 @@ router.post('/forgot-password', forgotPassword);
 router.post('/reset-password', resetPassword);
 router.post('/check-email', checkEmailAndSendVerification); // Added new route
 router.post('/verify-code', verifyCode); // Added new route
+router.post('/email-available', checkEmailAvailability); // New route for availability check
 
 
 module.exports = router; 

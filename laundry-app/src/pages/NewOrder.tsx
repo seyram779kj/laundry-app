@@ -1394,8 +1394,8 @@ const NewOrderPage = () => {
           onClose={handlePaymentDialogClose}
           orderId={createdOrderId}
           amount={calculateTotal()}
-          customerEmail={JSON.parse(localStorage.getItem('user') || '{}').email || ''}
-          customerName={`${JSON.parse(localStorage.getItem('user') || '{}').firstName || ''} ${JSON.parse(localStorage.getItem('user') || '{}').lastName || ''}`.trim()}
+          customerEmail={(JSON.parse(localStorage.getItem('user') || '{}').email || '').trim()}
+          customerName={`${(JSON.parse(localStorage.getItem('user') || '{}').firstName || '').trim()} ${(JSON.parse(localStorage.getItem('user') || '{}').lastName || '').trim()}`.trim()}
           onPaymentSuccess={handlePaymentSuccess}
           onPaymentError={handlePaymentError}
         />

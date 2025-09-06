@@ -93,7 +93,7 @@ const CustomerDashboard: React.FC = () => {
     fetchOrders();
   }, []);
 
-  // Fetch payment methods
+  // Fetch payment methods - restrict display to Mobile Money and Cash only
   useEffect(() => {
     const fetchPaymentMethods = async () => {
       setPaymentLoading(true);
@@ -102,9 +102,31 @@ const CustomerDashboard: React.FC = () => {
         const res = await fetch(`${API_BASE_URL}/payments/methods/list`);
         if (!res.ok) throw new Error('Failed to fetch payment methods');
         const data = await res.json();
-        setPaymentMethods(Array.isArray(data.data) ? data.data : []);
+
+        const raw: any[] = Array.isArray(data.data) ? data.data : [];
+        const normalized = raw.map((m: any) => ({
+          id: String(m.id || m._id || m.code || m.key || '').toLowerCase(),
+          name: String(m.name || m.title || m.label || m.method || '').trim(),
+        }));
+        const allowIds = ['mobile_money', 'momo', 'cash', 'cash_payment', 'cash-on-delivery', 'cash_on_delivery'];
+        const filtered = normalized.filter((m) => {
+          const id = (m.id || '').toLowerCase();
+          const name = (m.name || '').toLowerCase();
+          return allowIds.some((a) => id.includes(a)) || name.includes('mobile money') || name.includes('momo') || name === 'cash';
+        });
+
+        const display = filtered.length ? filtered : [
+          { id: 'mobile_money', name: 'Mobile Money' },
+          { id: 'cash', name: 'Cash' },
+        ];
+        setPaymentMethods(display);
       } catch (err: any) {
         setPaymentError(err.message || 'Failed to fetch payment methods');
+        // Fallback to the two supported methods on error as well
+        setPaymentMethods([
+          { id: 'mobile_money', name: 'Mobile Money' },
+          { id: 'cash', name: 'Cash' },
+        ]);
       } finally {
         setPaymentLoading(false);
       }
@@ -254,7 +276,7 @@ const CustomerDashboard: React.FC = () => {
                     <ListItem key={order._id || order.id}>
                       <ListItemText
                         primary={`Order #${order._id || order.id}`}
-                        secondary={`Status: ${order.status} | Total: $${order.totalAmount}`}
+                        secondary={`Status: ${order.status} | Total: ¢${Number(order.totalAmount || 0).toFixed(2)}`}
                       />
                       <ListItemSecondaryAction>
                         <Button

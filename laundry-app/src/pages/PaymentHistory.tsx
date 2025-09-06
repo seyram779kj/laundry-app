@@ -29,6 +29,8 @@ import {
   Stack,
   Tooltip,
   InputAdornment,
+  useTheme,
+  useMediaQuery,
 } from '@mui/material';
 import {
   Search as SearchIcon,
@@ -85,6 +87,9 @@ const PaymentHistory: React.FC = () => {
     paymentStats, 
     selectedPayment,
   } = useAppSelector((state) => state.payment);
+
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
 
   // Filter states
   const [page, setPage] = useState(0);
@@ -229,17 +234,17 @@ const PaymentHistory: React.FC = () => {
         <Typography variant="h4" component="h1" color="primary">
           Payment History
         </Typography>
-        <Stack direction="row" spacing={2}>
-          <Button variant="outlined" startIcon={<RefreshIcon />} onClick={loadPaymentHistory} disabled={paymentHistory.loading}>
+        <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} sx={{ width: { xs: '100%', sm: 'auto' }, flexWrap: 'wrap' }}>
+          <Button variant="outlined" startIcon={<RefreshIcon />} onClick={loadPaymentHistory} disabled={paymentHistory.loading} fullWidth={isMobile}>
             Refresh
           </Button>
-          <Button variant="outlined" startIcon={<SyncIcon />} onClick={syncPendingWithPaystack} disabled={paymentHistory.loading}>
+          <Button variant="outlined" startIcon={<SyncIcon />} onClick={syncPendingWithPaystack} disabled={paymentHistory.loading} fullWidth={isMobile}>
             Sync with Paystack
           </Button>
-          <Button variant="outlined" startIcon={<FilterIcon />} onClick={() => setFilterDialog(true)}>
+          <Button variant="outlined" startIcon={<FilterIcon />} onClick={() => setFilterDialog(true)} fullWidth={isMobile}>
             Filters
           </Button>
-          <Button variant="contained" startIcon={<DownloadIcon />} onClick={() => setExportDialog(true)}>
+          <Button variant="contained" startIcon={<DownloadIcon />} onClick={() => setExportDialog(true)} fullWidth={isMobile}>
             Export
           </Button>
         </Stack>
@@ -272,8 +277,8 @@ const PaymentHistory: React.FC = () => {
               }}
             />
           </Box>
-          <Box sx={{ flex: '1 1 240px', minWidth: 240, display: 'flex', justifyContent: 'flex-end' }}>
-            <Stack direction="row" spacing={1}>
+          <Box sx={{ flex: '1 1 240px', minWidth: 240, display: 'flex', justifyContent: { xs: 'flex-start', md: 'flex-end' }, flexWrap: 'wrap' }}>
+            <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap' }}>
               <Button size="small" onClick={() => applyQuickFilter(7)}>Last 7 days</Button>
               <Button size="small" onClick={() => applyQuickFilter(30)}>Last 30 days</Button>
               <Button size="small" onClick={() => applyQuickFilter(90)}>Last 90 days</Button>
@@ -295,8 +300,8 @@ const PaymentHistory: React.FC = () => {
           </Alert>
         ) : (
           <>
-            <TableContainer>
-              <Table>
+            <TableContainer sx={{ width: '100%', overflowX: 'auto' }}>
+              <Table size="small">
                 <TableHead>
                   <TableRow>
                     <TableCell>Transaction ID</TableCell>
@@ -304,9 +309,9 @@ const PaymentHistory: React.FC = () => {
                     <TableCell>Amount</TableCell>
                     <TableCell>Method</TableCell>
                     <TableCell>Status</TableCell>
-                    <TableCell>Channel</TableCell>
-                    <TableCell>Gateway Resp</TableCell>
-                    <TableCell>Ref</TableCell>
+                    <TableCell sx={{ display: { xs: 'none', md: 'table-cell' } }}>Channel</TableCell>
+                    <TableCell sx={{ display: { xs: 'none', lg: 'table-cell' } }}>Gateway Resp</TableCell>
+                    <TableCell sx={{ display: { xs: 'none', md: 'table-cell' } }}>Ref</TableCell>
                     <TableCell>Date</TableCell>
                     <TableCell>Actions</TableCell>
                   </TableRow>
@@ -342,15 +347,15 @@ const PaymentHistory: React.FC = () => {
                       <TableCell>
                         <Chip label={payment.status.toUpperCase()} color={getStatusColor(payment.status)} size="small" />
                       </TableCell>
-                      <TableCell>
+                      <TableCell sx={{ display: { xs: 'none', md: 'table-cell' } }}>
                         <Typography variant="body2">{payment.paystackData?.channel || '-'}</Typography>
                       </TableCell>
-                      <TableCell>
+                      <TableCell sx={{ display: { xs: 'none', lg: 'table-cell' } }}>
                         <Typography variant="body2" noWrap maxWidth={160} title={payment.paystackData?.gateway_response || ''}>
                           {payment.paystackData?.gateway_response || '-'}
                         </Typography>
                       </TableCell>
-                      <TableCell>
+                      <TableCell sx={{ display: { xs: 'none', md: 'table-cell' } }}>
                         <Typography variant="body2" fontFamily="monospace">{payment.reference || '-'}</Typography>
                       </TableCell>
                       <TableCell>
@@ -387,7 +392,7 @@ const PaymentHistory: React.FC = () => {
       </Paper>
 
       {/* Filter Dialog */}
-      <Dialog open={filterDialog} onClose={() => setFilterDialog(false)} maxWidth="md" fullWidth>
+      <Dialog open={filterDialog} onClose={() => setFilterDialog(false)} maxWidth="md" fullWidth fullScreen={isMobile}>
         <DialogTitle>Advanced Filters</DialogTitle>
         <DialogContent>
           <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' }, gap: 3, mt: 1 }}>
@@ -453,7 +458,7 @@ const PaymentHistory: React.FC = () => {
       </Dialog>
 
       {/* Export Dialog */}
-      <Dialog open={exportDialog} onClose={() => setExportDialog(false)}>
+      <Dialog open={exportDialog} onClose={() => setExportDialog(false)} fullScreen={isMobile}>
         <DialogTitle>Export Payment History</DialogTitle>
         <DialogContent>
           <Typography variant="body2" sx={{ mb: 2 }}>
@@ -474,7 +479,7 @@ const PaymentHistory: React.FC = () => {
       </Dialog>
 
       {/* Receipt Dialog */}
-      <Dialog open={receiptDialog} onClose={() => setReceiptDialog(false)} maxWidth="md" fullWidth>
+      <Dialog open={receiptDialog} onClose={() => setReceiptDialog(false)} maxWidth="md" fullWidth fullScreen={isMobile}>
         <DialogTitle>Payment Receipt</DialogTitle>
         <DialogContent>
           {selectedPayment && (

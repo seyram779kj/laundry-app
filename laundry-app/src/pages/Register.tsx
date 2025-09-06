@@ -37,6 +37,8 @@ const Register: React.FC = () => {
   const [email, setEmail] = useState('');
   const [verificationCode, setVerificationCode] = useState('');
   const [isEmailVerified, setIsEmailVerified] = useState(false);
+  const [emailAvailable, setEmailAvailable] = useState<boolean | null>(null);
+  const [emailCheckLoading, setEmailCheckLoading] = useState(false);
   const [formData, setFormData] = useState({
     firstName: '',
     lastName: '',
@@ -48,61 +50,39 @@ const Register: React.FC = () => {
 
   // Phone number validation functions
   const validatePhoneNumber = (phone: string): { isValid: boolean; message: string } => {
-    // Remove all non-digit characters
-    const cleanPhone = phone.replace(/\D/g, '');
-    
-    // Ghanaian phone number validation
-    // Valid formats: 0241234567, 0541234567, 0201234567, 0501234567, 0261234567, 0561234567
-    // Also supports: +233241234567, +233541234567, etc.
-    
-    if (!cleanPhone) {
+    const trimmed = phone.trim();
+    if (!trimmed) {
       return { isValid: false, message: 'Phone number is required' };
     }
-    
-    // Check if it starts with +233 (international format)
-    if (cleanPhone.startsWith('233')) {
-      const localNumber = cleanPhone.substring(3);
-      if (localNumber.length === 9) {
-        const prefix = localNumber.substring(0, 2);
-        if (['02', '03', '05', '06', '07', '08', '09'].includes(prefix)) {
-          return { isValid: true, message: '' };
-        }
-      }
+
+    // Allow common phone formats: digits, spaces, hyphens, parentheses, and a single leading +
+    const cleaned = trimmed.replace(/[^\d+()\-\s]/g, '');
+    const digitsOnly = cleaned.replace(/\D/g, '');
+
+    // E.164 max is 15 digits (excluding +). Accept a broad range 6–15 digits
+    if (digitsOnly.length < 6 || digitsOnly.length > 15) {
+      return { isValid: false, message: 'Enter a valid phone number (6–15 digits)' };
     }
-    
-    // Check local format (10 digits starting with 0)
-    if (cleanPhone.length === 10 && cleanPhone.startsWith('0')) {
-      const prefix = cleanPhone.substring(1, 3);
-      if (['24', '25', '26', '27', '28', '29', '30', '31', '32', '33', '34', '35', '36', '37', '38', '39', '40', '41', '42', '43', '44', '45', '46', '47', '48', '49', '50', '51', '52', '53', '54', '55', '56', '57', '58', '59', '60', '61', '62', '63', '64', '65', '66', '67', '68', '69', '70', '71', '72', '73', '74', '75', '76', '77', '78', '79', '80', '81', '82', '83', '84', '85', '86', '87', '88', '89', '90', '91', '92', '93', '94', '95', '96', '97', '98', '99'].includes(prefix)) {
-        return { isValid: true, message: '' };
-      }
+
+    // Ensure + appears at most once and only at the start if present
+    const plusCount = (cleaned.match(/\+/g) || []).length;
+    if (plusCount > 1 || (cleaned.includes('+') && cleaned[0] !== '+')) {
+      return { isValid: false, message: 'Plus sign is only allowed at the beginning' };
     }
-    
-    return { isValid: false, message: 'Please enter a valid Ghanaian phone number' };
+
+    return { isValid: true, message: '' };
   };
 
   const formatPhoneNumber = (value: string): string => {
-    // Remove all non-digit characters
-    const cleanValue = value.replace(/\D/g, '');
-    
-    // If it starts with +233, format as international
-    if (cleanValue.startsWith('233')) {
-      const localNumber = cleanValue.substring(3);
-      if (localNumber.length <= 9) {
-        return `+233 ${localNumber}`;
-      }
+    // Keep user's formatting but strip invalid characters; allow digits, spaces, hyphens, parentheses, and one leading +
+    const clean = value.replace(/[^\d+()\-\s]/g, '');
+    if (!clean) return '';
+
+    // Ensure only one plus and only at the beginning
+    if (clean[0] === '+') {
+      return '+' + clean.slice(1).replace(/\+/g, '');
     }
-    
-    // Format as local number
-    if (cleanValue.length <= 10) {
-      if (cleanValue.startsWith('0')) {
-        return cleanValue;
-      } else if (cleanValue.length > 0) {
-        return `0${cleanValue}`;
-      }
-    }
-    
-    return cleanValue;
+    return clean.replace(/\+/g, '');
   };
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -119,6 +99,43 @@ const Register: React.FC = () => {
         ...prev,
         [name]: value,
       }));
+    }
+  };
+
+  const checkEmailAvailability = async (): Promise<boolean> => {
+    const ema = email.trim().toLowerCase();
+    if (!ema) {
+      setError('Email is required');
+      return false;
+    }
+    setEmailCheckLoading(true);
+    setError(null);
+    try {
+      const { API_BASE_URL } = await import('../services/api');
+      const resp = await fetch(`${API_BASE_URL}/auth/email-available`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: ema }),
+      });
+      const data = await resp.json();
+      if (!resp.ok) {
+        setEmailAvailable(null);
+        setError(data.error || 'Failed to check email');
+        return false;
+      }
+      if (data.available === false) {
+        setEmailAvailable(false);
+        setError('Email already registered');
+        return false;
+      }
+      setEmailAvailable(true);
+      return true;
+    } catch (err) {
+      setEmailAvailable(null);
+      setError('Network error. Please try again.');
+      return false;
+    } finally {
+      setEmailCheckLoading(false);
     }
   };
 
@@ -164,6 +181,12 @@ const Register: React.FC = () => {
     if (emailError) {
       setError(emailError);
       return;
+    }
+
+    // First check availability without sending a code
+    const available = await checkEmailAvailability();
+    if (!available) {
+      return; // email is taken or check failed; don't proceed
     }
 
     setLoading(true);
@@ -331,16 +354,37 @@ const Register: React.FC = () => {
               label="Email Address"
               type="email"
               value={email}
-              onChange={(e) => setEmail(e.target.value)}
+              onChange={(e) => {
+                setEmail(e.target.value);
+                setEmailAvailable(null);
+                setSuccess(null);
+                if (error && error.toLowerCase().includes('email')) setError(null);
+              }}
+              onBlur={checkEmailAvailability}
               required
               sx={{ mb: 3 }}
+              error={emailAvailable === false}
+              helperText={emailAvailable === false ? 'Email already registered' : ''}
+              InputProps={{
+                endAdornment: (
+                  emailCheckLoading ? (
+                    <CircularProgress size={18} />
+                  ) : email && emailAvailable !== null ? (
+                    emailAvailable ? (
+                      <CheckCircleIcon color="success" fontSize="small" />
+                    ) : (
+                      <ErrorIcon color="error" fontSize="small" />
+                    )
+                  ) : null
+                )
+              }}
             />
 
             <Button
               variant="contained"
               fullWidth
               onClick={handleCheckEmail}
-              disabled={loading || !email.trim()}
+              disabled={loading || !email.trim() || emailAvailable === false || emailCheckLoading}
             >
               {loading ? <CircularProgress size={24} /> : 'Send Verification Code'}
             </Button>
@@ -437,9 +481,9 @@ const Register: React.FC = () => {
                   value={formData.phoneNumber}
                   onChange={handleInputChange}
                   required
-                  placeholder="0241234567 or +233241234567"
+                  placeholder="e.g., +1 415 555 2671 or 024 123 4567"
                   error={formData.phoneNumber.length > 0 && !phoneValidation.isValid}
-                  helperText={formData.phoneNumber.length > 0 ? phoneValidation.message : 'Enter your Ghanaian phone number'}
+                  helperText={formData.phoneNumber.length > 0 ? phoneValidation.message : 'Enter your phone number'}
                   InputProps={{
                     endAdornment: formData.phoneNumber.length > 0 && (
                       <Box sx={{ display: 'flex', alignItems: 'center' }}>

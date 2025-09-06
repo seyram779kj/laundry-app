@@ -100,14 +100,14 @@ const LandingPage: React.FC = () => {
                     color: 'white',
                     py: { xs: 10, md: 20 },
                     textAlign: 'center',
-                    clipPath: 'polygon(0 0, 100% 0, 100% 85%, 0% 100%)',
+                    clipPath: { xs: 'none', md: 'polygon(0 0, 100% 0, 100% 85%, 0% 100%)' },
                 }}
             >
                 <Container>
-                    <Typography variant="h2" component="h1" fontWeight="bold" gutterBottom sx={{ animation: `${fadeIn} 1s ease-in-out` }}>
+                    <Typography variant="h2" component="h1" fontWeight="bold" gutterBottom sx={{ animation: `${fadeIn} 1s ease-in-out`, fontSize: { xs: '2rem', md: '3.5rem' }, lineHeight: { xs: 1.2, md: 1.3 } }}>
                         Effortless Laundry, Delivered.
                     </Typography>
-                    <Typography variant="h5" component="p" sx={{ mb: 4, animation: `${fadeIn} 1s ease-in-out 0.2s`, opacity: 0.9 }}>
+                    <Typography variant="h5" component="p" sx={{ mb: 4, animation: `${fadeIn} 1s ease-in-out 0.2s`, opacity: 0.9, fontSize: { xs: '1rem', md: '1.25rem' }, maxWidth: 700, mx: 'auto' }}>
                         Pristine clean clothes, without the hassle. We pick up, clean, and deliver right to your door.
                     </Typography>
                     <Button
@@ -176,24 +176,30 @@ const LandingPage: React.FC = () => {
                         Getting your laundry done has never been easier. Just a few simple steps.
                     </Typography>
                     <Box sx={{ display: 'flex', gap: 4, flexWrap: 'wrap', justifyContent: 'center' }}>
-                        <HowItWorksStep
-                            icon={<Schedule />}
-                            title="1. Schedule Pickup"
-                            description="Choose a convenient time and place for us to pick up your laundry."
-                            delay={0.1}
-                        />
-                        <HowItWorksStep
-                            icon={<LocalLaundryService />}
-                            title="2. We Clean"
-                            description="Our experts clean your clothes with the best products and techniques."
-                            delay={0.3}
-                        />
-                        <HowItWorksStep
-                            icon={<Speed />}
-                            title="3. We Deliver"
-                            description="Get your fresh, clean laundry delivered back to your door, ready to wear."
-                            delay={0.5}
-                        />
+                        <Box sx={{ width: { xs: '100%', md: '300px' } }}>
+                            <HowItWorksStep
+                                icon={<Schedule />}
+                                title="1. Schedule Pickup"
+                                description="Choose a convenient time and place for us to pick up your laundry."
+                                delay={0.1}
+                            />
+                        </Box>
+                        <Box sx={{ width: { xs: '100%', md: '300px' } }}>
+                            <HowItWorksStep
+                                icon={<LocalLaundryService />}
+                                title="2. We Clean"
+                                description="Our experts clean your clothes with the best products and techniques."
+                                delay={0.3}
+                            />
+                        </Box>
+                        <Box sx={{ width: { xs: '100%', md: '300px' } }}>
+                            <HowItWorksStep
+                                icon={<Speed />}
+                                title="3. We Deliver"
+                                description="Get your fresh, clean laundry delivered back to your door, ready to wear."
+                                delay={0.5}
+                            />
+                        </Box>
                     </Box>
                 </Container>
             </Box>
@@ -238,27 +244,27 @@ const LandingPage: React.FC = () => {
                         <AnimatedBox delay={0.2}>
                             <Box sx={{ width: { xs: '100%', md: '300px' } }}>
                                 <TestimonialCard
-                                    avatar="https://randomuser.me/api/portraits/women/44.jpg"
-                                    name="Sarah J."
-                                    testimonial="Absolutely seamless experience. My laundry came back perfectly folded and smelling fresh. Highly recommend!"
+                                    avatar="https://source.unsplash.com/featured/300x300/?ghanaian,portrait,woman"
+                                    name="Ama Mensah"
+                                    testimonial="Seamless service here in Accra. Clothes came back crisp and fresh — highly recommended!"
                                 />
                             </Box>
                         </AnimatedBox>
                         <AnimatedBox delay={0.4}>
                             <Box sx={{ width: { xs: '100%', md: '300px' } }}>
                                 <TestimonialCard
-                                    avatar="https://randomuser.me/api/portraits/men/32.jpg"
-                                    name="Mike R."
-                                    testimonial="The best laundry service I've used. They are professional, on-time, and my clothes have never looked better."
+                                    avatar="https://source.unsplash.com/featured/300x300/?ghanaian,portrait,man"
+                                    name="Kwame Boateng"
+                                    testimonial="Best laundry service I’ve used in Ghana. Professional, on time, and my clothes have never looked better."
                                 />
                             </Box>
                         </AnimatedBox>
                         <AnimatedBox delay={0.6}>
                             <Box sx={{ width: { xs: '100%', md: '300px' } }}>
                                 <TestimonialCard
-                                    avatar="https://randomuser.me/api/portraits/women/65.jpg"
-                                    name="Emily K."
-                                    testimonial="I love how easy it is to schedule a pickup. It saves me so much time and the quality is consistently great."
+                                    avatar="https://source.unsplash.com/featured/300x300/?ghana,portrait"
+                                    name="Akosua Nkrumah"
+                                    testimonial="Scheduling pickup is so easy and saves me time. Quality has been consistently great."
                                 />
                             </Box>
                         </AnimatedBox>

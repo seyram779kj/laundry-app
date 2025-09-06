@@ -267,7 +267,7 @@ const PaymentsManagement: React.FC = () => {
                 Total Revenue
               </Typography>
               <Typography variant="h4" color="success.main">
-                ${totalRevenue.toFixed(2)}
+                ¢{totalRevenue.toFixed(2)}
               </Typography>
             </CardContent>
           </Card>
@@ -279,7 +279,7 @@ const PaymentsManagement: React.FC = () => {
                 Pending Amount
               </Typography>
               <Typography variant="h4" color="warning.main">
-                ${pendingAmount.toFixed(2)}
+                ¢{pendingAmount.toFixed(2)}
               </Typography>
             </CardContent>
           </Card>
@@ -367,7 +367,7 @@ const PaymentsManagement: React.FC = () => {
                 </Typography>
                 
                 <Typography variant="h6" color="primary" gutterBottom>
-                  ${payment.amount.toFixed(2)}
+                  ¢{payment.amount.toFixed(2)}
                 </Typography>
                 
                 <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
@@ -463,7 +463,7 @@ const PaymentsManagement: React.FC = () => {
               </Typography>
               <Typography>Order ID: #{selectedPayment.orderId}</Typography>
               <Typography>Customer: {selectedPayment.customerName}</Typography>
-              <Typography>Amount: ${selectedPayment.amount.toFixed(2)}</Typography>
+              <Typography>Amount: ¢{selectedPayment.amount.toFixed(2)}</Typography>
               <Typography>Method: {selectedPayment.method.toUpperCase()}</Typography>
               <Typography>Status: {selectedPayment.status}</Typography>
               {selectedPayment.transactionId && (

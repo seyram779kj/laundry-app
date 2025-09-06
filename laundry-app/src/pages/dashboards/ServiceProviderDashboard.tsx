@@ -149,7 +149,7 @@ const ServiceProviderDashboard: React.FC = () => {
                 Today's Earnings
               </Typography>
               <Typography variant="h3">
-                {loading ? <CircularProgress size={32} color="inherit" /> : `$${stats.todaysEarnings.toFixed(2)}`}
+                {loading ? <CircularProgress size={32} color="inherit" /> : `¢${stats.todaysEarnings.toFixed(2)}`}
               </Typography>
             </CardContent>
           </Card>

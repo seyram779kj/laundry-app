@@ -21,6 +21,7 @@ import {
 import { PaystackButton } from 'react-paystack';
 import axios from 'axios';
 import { API_BASE_URL } from '../services/api';
+import { useAppSelector } from '../app/hooks';
 
 interface PaystackPaymentProps {
   open: boolean;
@@ -57,11 +58,15 @@ const PaystackPayment: React.FC<PaystackPaymentProps> = ({
   const [config, setConfig] = useState<PaystackConfig | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [paymentMethod, setPaymentMethod] = useState<'card' | 'mobile_money'>('mobile_money');
+  const [paymentMethod] = useState<'card' | 'mobile_money'>('mobile_money'); // locked to MoMo
   const [momoPhone, setMomoPhone] = useState('');
   const [momoProvider, setMomoProvider] = useState<'mtn' | 'vodafone' | 'airteltigo'>('mtn');
   const [paymentData, setPaymentData] = useState<PaymentData | null>(null);
   const [isInitializing, setIsInitializing] = useState(false);
+
+  // Pull email from auth as a fallback if prop not provided
+  const authUser = useAppSelector((s) => (s as any).auth?.user);
+  const authEmail = (authUser?.email || '').trim();
 
   const toMessage = (e: any, fallback: string) => {
     if (!e) return fallback;
@@ -123,7 +128,8 @@ const PaystackPayment: React.FC<PaystackPaymentProps> = ({
       return;
     }
 
-    if (!customerEmail) {
+    const email = (customerEmail || authEmail || '').trim();
+    if (!email) {
       setError('Customer email is required');
       return;
     }
@@ -144,14 +150,12 @@ const PaystackPayment: React.FC<PaystackPaymentProps> = ({
       }
 
       const paymentPayload = {
-        paymentMethod: paymentMethod,
+        paymentMethod: 'mobile_money',
         amount: amount,
-        customerEmail: customerEmail,
+        customerEmail: email,
         customerName: customerName,
-        ...(paymentMethod === 'mobile_money' && {
-          momoPhone: cleanPhoneNumber(momoPhone),
-          momoProvider: momoProvider
-        })
+        momoPhone: cleanPhoneNumber(momoPhone),
+        momoProvider: momoProvider
       };
 
       console.log('🔍 Payment initialization payload:', paymentPayload);
@@ -305,7 +309,7 @@ const PaystackPayment: React.FC<PaystackPaymentProps> = ({
   };
 
   const paystackProps = {
-    email: customerEmail,
+    email: (customerEmail || authEmail || '').trim(),
     amount: Math.round(amount * 100), // Convert to kobo/pesewas
     currency: 'GHS',
     reference: paymentData?.reference || '',
@@ -313,10 +317,8 @@ const PaystackPayment: React.FC<PaystackPaymentProps> = ({
     text: `Pay ¢${amount.toFixed(2)}`,
     onSuccess: (reference: any) => handlePaystackSuccess(reference.reference),
     onClose: handlePaystackClose,
-    channels: paymentMethod === 'mobile_money' 
-      ? ['mobile_money', 'card'] 
-      : ['card', 'bank', 'ussd', 'qr'],
-    ...(paymentMethod === 'mobile_money' && momoPhone && {
+    channels: ['mobile_money'], // Restrict to MoMo only
+    ...(momoPhone && {
       mobile_money: {
         phone: cleanPhoneNumber(momoPhone),
         provider: momoProvider
@@ -384,34 +386,19 @@ const PaystackPayment: React.FC<PaystackPaymentProps> = ({
         </Card>
 
         <Typography variant="h6" gutterBottom>
-          Select Payment Method
+          Payment Method
         </Typography>
 
-        <RadioGroup
-          value={paymentMethod}
-          onChange={(e) => setPaymentMethod(e.target.value as 'card' | 'mobile_money')}
-          sx={{ mb: 2 }}
-        >
+        {/* Locked to MoMo only */}
+        <RadioGroup value="mobile_money" sx={{ mb: 2 }}>
           <FormControlLabel
             value="mobile_money"
-            control={<Radio />}
+            control={<Radio checked />}
             label={
               <Box>
                 <Typography variant="body1">Mobile Money</Typography>
                 <Typography variant="body2" color="text.secondary">
                   MTN MoMo, Vodafone Cash, AirtelTigo Money
-                </Typography>
-              </Box>
-            }
-          />
-          <FormControlLabel
-            value="card"
-            control={<Radio />}
-            label={
-              <Box>
-                <Typography variant="body1">Card Payment</Typography>
-                <Typography variant="body2" color="text.secondary">
-                  Visa, Mastercard, Verve cards
                 </Typography>
               </Box>
             }

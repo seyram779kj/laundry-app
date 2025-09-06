@@ -78,12 +78,9 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children, title }) => {
           { text: 'Dashboard', icon: <DashboardIcon />, path: '/admin' },
           { text: 'Users', icon: <PersonIcon />, path: '/admin/users' },
           { text: 'Orders', icon: <ListIcon />, path: '/admin/orders' },
-          { text: 'Services', icon: <ServicesIcon />, path: '/admin/services' },
-          { text: 'Analytics', icon: <AnalyticsIcon />, path: '/admin/analytics' },
-          { text: 'Payments', icon: <PaymentIcon />, path: '/admin/payments' },
-          { text: 'Payment History', icon: <HistoryIcon />, path: '/admin/payment-history' },
-          { text: 'Reviews', icon: <ReviewsIcon />, path: '/admin/reviews' },
-          { text: 'Settings', icon: <SettingsIcon />, path: '/admin/settings' },
+                    { text: 'Analytics', icon: <AnalyticsIcon />, path: '/admin/analytics' },
+                    { text: 'Payment History', icon: <HistoryIcon />, path: '/admin/payment-history' },
+                    { text: 'Settings', icon: <SettingsIcon />, path: '/admin/settings' },
         ];
       default:
         return [];
