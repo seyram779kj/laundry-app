@@ -221,7 +221,7 @@ const ProviderEarnings: React.FC = () => {
         <Card>
           <CardContent sx={{ textAlign: 'center', bgcolor: 'primary.light', color: 'white' }}>
             <Typography variant="h4">
-              ${earnings.totalEarnings.toFixed(2)}
+              ¢{earnings.totalEarnings.toFixed(2)}
             </Typography>
             <Typography variant="subtitle1">
               Total Earnings
@@ -235,7 +235,7 @@ const ProviderEarnings: React.FC = () => {
         <Card>
           <CardContent sx={{ textAlign: 'center', bgcolor: 'success.light', color: 'white' }}>
             <Typography variant="h4">
-              ${earnings.completedEarnings.toFixed(2)}
+              ¢{earnings.completedEarnings.toFixed(2)}
             </Typography>
             <Typography variant="subtitle1">
               Completed Earnings
@@ -249,7 +249,7 @@ const ProviderEarnings: React.FC = () => {
         <Card>
           <CardContent sx={{ textAlign: 'center', bgcolor: 'warning.light', color: 'white' }}>
             <Typography variant="h4">
-              ${earnings.pendingEarnings.toFixed(2)}
+              ¢{earnings.pendingEarnings.toFixed(2)}
             </Typography>
             <Typography variant="subtitle1">
               Pending Earnings
@@ -295,7 +295,7 @@ const ProviderEarnings: React.FC = () => {
                     </TableCell>
                     <TableCell>
                       <Typography fontWeight="bold">
-                        ${earning.totalAmount.toFixed(2)}
+                        ¢{earning.totalAmount.toFixed(2)}
                       </Typography>
                     </TableCell>
                     <TableCell>
