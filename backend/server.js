@@ -14,7 +14,12 @@ const app = express();
 const server = http.createServer(app);
 const io = new Server(server, {
   cors: {
-    origin: '*', // Adjust as needed for production
+    origin: [
+      'http://localhost:3000',
+      'http://127.0.0.1:3000',
+      'https://laundry-app-cyan.vercel.app',
+      'https://laundry-rd6qs9np9-seyram779kjs-projects.vercel.app'
+    ],
     methods: ['GET', 'POST']
   }
 });
@@ -30,7 +35,8 @@ app.use(cors({
   origin: [
     'http://localhost:3000',
     'http://127.0.0.1:3000',
-    'https://laundry-app-cyan.vercel.app'
+    'https://laundry-app-cyan.vercel.app',
+    'https://laundry-rd6qs9np9-seyram779kjs-projects.vercel.app'
   ],
   methods: ['GET','POST','PUT','PATCH','DELETE','OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization'],
