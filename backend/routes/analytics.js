@@ -398,8 +398,27 @@ router.get('/reviews', protect, async (req, res) => {
 
     const monthlyReviews = await Review.aggregate([
       { $match: query },
-      
+      {
+        $group: {
+          _id: { $dateToString: { format: '%Y-%m', date: '$createdAt' } },
+          reviews: { $sum: 1 },
+          avgRating: { $avg: '$rating' }
+        }
+      },
+      { $sort: { _id: 1 } }
     ]);
+
+    const totalReviews = await Review.countDocuments(query);
+
+    res.json({
+      success: true,
+      data: {
+        ratingDistribution,
+        averageRating: avgRating[0]?.avg || 0,
+        monthlyReviews,
+        totalReviews
+      }
+    });
   } catch (error) {
     console.error('Get review analytics error:', error);
     res.status(500).json({ success: false, error: 'Failed to fetch review analytics' });
@@ -450,32 +469,6 @@ router.get('/top-services', protect, async (req, res) => {
   } catch (error) {
     console.error('Get top services error:', error);
     res.status(500).json({ success: false, error: 'Failed to fetch top services' });
-  }
-});
-      {
-        $group: {
-          _id: { $dateToString: { format: '%Y-%m', date: '$createdAt' } },
-          reviews: { $sum: 1 },
-          avgRating: { $avg: '$rating' }
-        }
-      },
-      { $sort: { _id: 1 } }
-    ]);
-
-    const totalReviews = await Review.countDocuments(query);
-
-    res.json({
-      success: true,
-      data: {
-        ratingDistribution,
-        averageRating: avgRating[0]?.avg || 0,
-        monthlyReviews,
-        totalReviews
-      }
-    });
-  } catch (error) {
-    console.error('Get review analytics error:', error);
-    res.status(500).json({ success: false, error: 'Failed to fetch review analytics' });
   }
 });
 
