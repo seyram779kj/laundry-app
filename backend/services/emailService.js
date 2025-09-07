@@ -113,7 +113,7 @@ const sendPasswordResetEmail = async (email, resetToken) => {
             </p>
             
             <div style="text-align: center; margin: 25px 0;">
-              <a href="${process.env.FRONTEND_URL}/reset-password?token=${resetToken}" 
+              <a href="${process.env.FRONTEND_URL || 'https://laundry-app-cyan.vercel.app'}/reset-password?token=${resetToken}" 
                  style="background: #667eea; color: white; padding: 12px 30px; text-decoration: none; border-radius: 5px; display: inline-block; font-weight: bold;">
                 Reset Password
               </a>

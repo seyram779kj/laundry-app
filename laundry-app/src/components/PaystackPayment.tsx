@@ -30,6 +30,11 @@ interface PaystackPaymentProps {
   amount: number;
   customerEmail: string;
   customerName: string;
+  // Optional defaults from order to avoid retyping
+  defaultMomoPhone?: string;
+  defaultMomoProvider?: 'mtn' | 'vodafone' | 'airteltigo';
+  // If true, auto-initialize and redirect once config + valid phone are present
+  autoStart?: boolean;
   onPaymentSuccess: (reference: string) => void;
   onPaymentError: (error: string) => void;
 }
@@ -52,6 +57,9 @@ const PaystackPayment: React.FC<PaystackPaymentProps> = ({
   amount,
   customerEmail,
   customerName,
+  defaultMomoPhone,
+  defaultMomoProvider = 'mtn',
+  autoStart = false,
   onPaymentSuccess,
   onPaymentError
 }) => {
@@ -59,8 +67,8 @@ const PaystackPayment: React.FC<PaystackPaymentProps> = ({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [paymentMethod] = useState<'card' | 'mobile_money'>('mobile_money'); // locked to MoMo
-  const [momoPhone, setMomoPhone] = useState('');
-  const [momoProvider, setMomoProvider] = useState<'mtn' | 'vodafone' | 'airteltigo'>('mtn');
+  const [momoPhone, setMomoPhone] = useState(defaultMomoPhone || '');
+  const [momoProvider, setMomoProvider] = useState<'mtn' | 'vodafone' | 'airteltigo'>(defaultMomoProvider || 'mtn');
   const [paymentData, setPaymentData] = useState<PaymentData | null>(null);
   const [isInitializing, setIsInitializing] = useState(false);
 
@@ -101,6 +109,17 @@ const PaystackPayment: React.FC<PaystackPaymentProps> = ({
       fetchConfig();
     }
   }, [open]);
+
+  // Auto-start flow: after config loads and we have a valid momoPhone, initialize automatically
+  useEffect(() => {
+    if (!open || !autoStart || !config) return;
+    if (!momoPhone) return;
+    if (!validateMoMoInput()) return;
+    // Prevent double init
+    if (!paymentData && !isInitializing) {
+      initializePayment();
+    }
+  }, [open, autoStart, config, momoPhone]);
 
   // Clean phone number for Ghana format
   const cleanPhoneNumber = (phone: string): string => {

@@ -559,87 +559,80 @@ const Register: React.FC = () => {
   };
 
   return (
-    <Box
-      sx={{
-        minHeight: '100vh',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-        py: 4,
-      }}
-    >
-      <Paper
-        elevation={8}
-        sx={{
-          p: 4,
-          width: '100%',
-          maxWidth: 500,
-          borderRadius: 2,
-          backdropFilter: 'blur(10px)',
-          backgroundColor: 'rgba(255, 255, 255, 0.95)',
-        }}
-      >
-        <Typography variant="h4" align="center" gutterBottom>
-          Create Account
-        </Typography>
-        <Typography variant="body1" align="center" color="textSecondary" sx={{ mb: 3 }}>
-          Create your customer account to start using our laundry services
-        </Typography>
-
-        {/* Stepper */}
-        <Stepper activeStep={activeStep} sx={{ mb: 4 }}>
-          {steps.map((label) => (
-            <Step key={label}>
-              <StepLabel>{label}</StepLabel>
-            </Step>
-          ))}
-        </Stepper>
-
-        {/* Animated decorative element on first step (replaces social login) */}
-        {activeStep === 0 && (
-          <Box sx={{ mb: 3, display: 'flex', justifyContent: 'center' }}>
-            {/* Simple animated dot that moves horizontally */}
-            <Box
-              sx={{
-                width: 200,
-                height: 8,
-                bgcolor: 'grey.200',
-                borderRadius: 4,
-                position: 'relative',
-                overflow: 'hidden',
-                '::before': {
-                  content: '""',
-                  position: 'absolute',
-                  top: -6,
-                  left: 0,
-                  width: 20,
-                  height: 20,
-                  borderRadius: '50%',
-                  bgcolor: 'primary.main',
-                  animation: 'moveDot 1.6s ease-in-out infinite',
-                },
-                '@keyframes moveDot': {
-                  '0%': { transform: 'translateX(0)' },
-                  '50%': { transform: 'translateX(180px)' },
-                  '100%': { transform: 'translateX(0)' },
-                },
-              }}
-            />
+    <Box sx={{ minHeight: '100vh', background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)' }}>
+      <Box sx={{ display: 'flex', minHeight: '100vh' }}>
+        {/* Left brand/illustration panel (hidden on small) */}
+        <Box sx={{ flex: 1, display: { xs: 'none', md: 'flex' }, alignItems: 'center', justifyContent: 'center', p: 6 }}>
+          <Box sx={{ color: 'white', maxWidth: 520 }}>
+            <Typography variant="h3" fontWeight={700}>Create your Laundry App account</Typography>
+            <Typography variant="h6" sx={{ opacity: 0.9, mt: 1.5 }}>
+              Verify your email and complete a few details to get started with our services.
+            </Typography>
           </Box>
-        )}
-
-        {renderStepContent(activeStep)}
-
-        <Box sx={{ mt: 3, textAlign: 'center' }}>
-          <Typography variant="body2">
-            Already have an account?{' '}
-            <Link component={RouterLink} to="/login">
-              Sign In
-            </Link>
-          </Typography>
         </Box>
-      </Paper>
+
+        {/* Right form panel */}
+        <Box sx={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', p: { xs: 2, sm: 4 } }}>
+          <Paper elevation={10} sx={{ p: { xs: 3, sm: 4 }, width: '100%', maxWidth: 560, borderRadius: 3 }}>
+            <Typography variant="h4" align="center" gutterBottom fontWeight={700}>
+              Create Account
+            </Typography>
+            <Typography variant="body2" align="center" color="text.secondary" sx={{ mb: 3 }}>
+              Create your customer account to start using our laundry services
+            </Typography>
+
+            {/* Stepper */}
+            <Stepper activeStep={activeStep} sx={{ mb: 4 }}>
+              {steps.map((label) => (
+                <Step key={label}>
+                  <StepLabel>{label}</StepLabel>
+                </Step>
+              ))}
+            </Stepper>
+
+            {/* Animated decorative element on first step */}
+            {activeStep === 0 && (
+              <Box sx={{ mb: 3, display: 'flex', justifyContent: 'center' }}>
+                <Box
+                  sx={{
+                    width: 200,
+                    height: 8,
+                    bgcolor: 'grey.200',
+                    borderRadius: 4,
+                    position: 'relative',
+                    overflow: 'hidden',
+                    '::before': {
+                      content: '""',
+                      position: 'absolute',
+                      top: -6,
+                      left: 0,
+                      width: 20,
+                      height: 20,
+                      borderRadius: '50%',
+                      bgcolor: 'primary.main',
+                      animation: 'moveDot 1.6s ease-in-out infinite',
+                    },
+                    '@keyframes moveDot': {
+                      '0%': { transform: 'translateX(0)' },
+                      '50%': { transform: 'translateX(180px)' },
+                      '100%': { transform: 'translateX(0)' },
+                    },
+                  }}
+                />
+              </Box>
+            )}
+
+            {renderStepContent(activeStep)}
+
+            <Box sx={{ mt: 3, textAlign: 'center' }}>
+              <Typography variant="body2">
+                Already have an account?{' '}
+                <Link component={RouterLink} to="/login">Sign In</Link>
+              </Typography>
+            </Box>
+          </Paper>
+        </Box>
+      </Box>
     </Box>
   );
 };

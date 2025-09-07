@@ -398,6 +398,60 @@ router.get('/reviews', protect, async (req, res) => {
 
     const monthlyReviews = await Review.aggregate([
       { $match: query },
+      
+    ]);
+  } catch (error) {
+    console.error('Get review analytics error:', error);
+    res.status(500).json({ success: false, error: 'Failed to fetch review analytics' });
+  }
+});
+
+// Top performing services (by orders and revenue)
+router.get('/top-services', protect, async (req, res) => {
+  try {
+    const { timeRange, startDate, endDate, limit = 10 } = req.query;
+    const query = {};
+
+    // Support timeRange in days for convenience
+    if (timeRange && !startDate && !endDate) {
+      const days = parseInt(timeRange, 10);
+      if (!isNaN(days) && days > 0) {
+        query.createdAt = { $gte: new Date(Date.now() - days * 24 * 60 * 60 * 1000) };
+      }
+    } else if (startDate && endDate) {
+      query.createdAt = {
+        $gte: new Date(startDate),
+        $lte: new Date(endDate)
+      };
+    }
+
+    // Aggregate from orders' items
+    const results = await Order.aggregate([
+      { $match: query },
+      { $unwind: '$items' },
+      {
+        $group: {
+          _id: '$items.serviceName',
+          orders: { $sum: 1 },
+          revenue: { $sum: '$items.totalPrice' }
+        }
+      },
+      { $sort: { revenue: -1 } },
+      { $limit: parseInt(limit, 10) || 10 },
+    ]);
+
+    const topServices = results.map(r => ({
+      name: r._id,
+      orders: r.orders || 0,
+      revenue: r.revenue || 0,
+    }));
+
+    res.json({ success: true, data: topServices });
+  } catch (error) {
+    console.error('Get top services error:', error);
+    res.status(500).json({ success: false, error: 'Failed to fetch top services' });
+  }
+});
       {
         $group: {
           _id: { $dateToString: { format: '%Y-%m', date: '$createdAt' } },

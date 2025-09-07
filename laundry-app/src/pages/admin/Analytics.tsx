@@ -63,31 +63,49 @@ const Analytics: React.FC = () => {
         setError(null);
         
         const { API_BASE_URL } = await import('../../services/api');
-        const response = await fetch(`${API_BASE_URL}/analytics?timeRange=${timeRange}`, {
+        // Fetch core metrics
+        const coreRes = await fetch(`${API_BASE_URL}/analytics?timeRange=${timeRange}`, {
           headers: {
             'Authorization': `Bearer ${localStorage.getItem('token')}`,
             'Content-Type': 'application/json',
           },
         });
+        if (!coreRes.ok) throw new Error('Failed to fetch analytics data');
+        const core = await coreRes.json();
 
-        if (!response.ok) {
-          throw new Error('Failed to fetch analytics data');
-        }
+        // Fetch top performing services if available (fallback to empty array on failure)
+        let topServices = [] as Array<{ name: string; orders: number; revenue: number }>;
+        try {
+          const topRes = await fetch(`${API_BASE_URL}/analytics/top-services?timeRange=${timeRange}`, {
+            headers: {
+              'Authorization': `Bearer ${localStorage.getItem('token')}`,
+              'Content-Type': 'application/json',
+            },
+          });
+          if (topRes.ok) {
+            const topData = await topRes.json();
+            // Accept either topServices or data field shapes
+            topServices = Array.isArray(topData?.topServices)
+              ? topData.topServices
+              : Array.isArray(topData?.data)
+              ? topData.data
+              : [];
+          }
+        } catch {}
 
-        const data = await response.json();
         // Ensure analytics data has the expected structure
         const analyticsData = {
-          totalRevenue: data.totalRevenue || 0,
-          totalOrders: data.totalOrders || 0,
-          totalCustomers: data.totalCustomers || 0,
-          totalProviders: data.totalProviders || 0,
-          averageOrderValue: data.averageOrderValue || 0,
-          completionRate: data.completionRate || 0,
-          customerSatisfaction: data.customerSatisfaction || 0,
-          monthlyRevenue: Array.isArray(data.monthlyRevenue) ? data.monthlyRevenue : [],
-          topServices: Array.isArray(data.topServices) ? data.topServices : [],
-          recentOrders: Array.isArray(data.recentOrders) ? data.recentOrders : [],
-        };
+          totalRevenue: core.totalRevenue || 0,
+          totalOrders: core.totalOrders || 0,
+          totalCustomers: core.totalCustomers || 0,
+          totalProviders: core.totalProviders || 0,
+          averageOrderValue: core.averageOrderValue || 0,
+          completionRate: core.completionRate || 0,
+          customerSatisfaction: core.customerSatisfaction || 0,
+          monthlyRevenue: Array.isArray(core.monthlyRevenue) ? core.monthlyRevenue : [],
+          topServices,
+          recentOrders: Array.isArray(core.recentOrders) ? core.recentOrders : [],
+        } as AnalyticsData;
         setAnalyticsData(analyticsData);
       } catch (error) {
         console.error('Analytics fetch error:', error);
@@ -230,25 +248,7 @@ const Analytics: React.FC = () => {
           </Card>
         </Box>
 
-        <Box sx={{ width: { xs: '100%', sm: 'calc(50% - 12px)', md: 'calc(25% - 18px)' } }}>
-          <Card>
-            <CardContent>
-              <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
-                <Star color="warning" sx={{ mr: 1 }} />
-                <Typography color="textSecondary">
-                  Satisfaction
-                </Typography>
-              </Box>
-              <Typography variant="h4" color="warning.main">
-                {analyticsData.customerSatisfaction}/5.0
-              </Typography>
-              <Typography variant="body2" color="success.main" sx={{ display: 'flex', alignItems: 'center' }}>
-                <TrendingUp sx={{ fontSize: 16, mr: 0.5 }} />
-                +0.2 from last month
-              </Typography>
-            </CardContent>
-          </Card>
-        </Box>
+
       </Box>
 
       {/* Additional Metrics */}

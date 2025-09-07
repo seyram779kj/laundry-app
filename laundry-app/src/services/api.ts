@@ -1,4 +1,10 @@
-export const API_BASE_URL = process.env.REACT_APP_API_BASE_URL || 'http://localhost:5000/api';
+// Prefer runtime override, then build-time env, then domain-based fallback, then localhost
+export const API_BASE_URL =
+  (typeof window !== 'undefined' && (window as any).API_BASE_URL) ||
+  process.env.REACT_APP_API_BASE_URL ||
+  (typeof window !== 'undefined' && window.location.hostname.endsWith('vercel.app')
+    ? 'https://laundry-app-vzba.onrender.com/api'
+    : 'http://localhost:5000/api');
 
 // API response types
 export interface ApiResponse<T> {

@@ -202,7 +202,7 @@ const Orders: React.FC = () => {
             >
               <Card sx={{ height: '100%', display: 'flex', flexDirection: 'column', bgcolor: 'background.paper', borderRadius: 2, boxShadow: 1 }}>
                 <CardContent sx={{ flexGrow: 1 }}>
-                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2, flexWrap: 'wrap', gap: 1 }}>
                     <Typography variant="h6" color="primary">
                       #{order.orderNumber}
                     </Typography>
@@ -211,16 +211,18 @@ const Orders: React.FC = () => {
                         label={statusLabels[order.status] || order.status}
                         color={statusColors[order.status] || 'default'}
                         size="small"
+                        sx={{ maxWidth: '100%', whiteSpace: 'normal' }}
                       />
                       <Chip
                         label={paymentStatusLabels[order.payment.status] || order.payment.status}
                         color={paymentStatusColors[order.payment.status] || 'default'}
                         size="small"
+                        sx={{ maxWidth: '100%', whiteSpace: 'normal' }}
                       />
                     </Box>
                   </Box>
 
-                  <Typography variant="subtitle1" gutterBottom>
+                  <Typography variant="subtitle1" gutterBottom sx={{ wordBreak: 'break-word', overflowWrap: 'anywhere' }}>
                     {order.serviceProvider
                       ? `Provider: ${order.serviceProvider.firstName} ${order.serviceProvider.lastName}`
                       : 'Provider: Not assigned'}
@@ -237,8 +239,8 @@ const Orders: React.FC = () => {
                           item.clothingItems?.map((clothingItem) => (
                             <Box key={clothingItem.itemId} sx={{ ml: 1, mb: 0.5 }}>
                               <Typography variant="body2" component="span">• </Typography>
-                              <Typography variant="body2" component="span"><strong>{clothingItem.itemId}</strong>: {clothingItem.description} </Typography>
-                              <Typography variant="body2" component="span">({clothingItem.serviceName}) - ¢{clothingItem.unitPrice.toFixed(2)}</Typography>
+                              <Typography variant="body2" component="span" sx={{ wordBreak: 'break-word', overflowWrap: 'anywhere' }}><strong>{clothingItem.itemId}</strong>: {clothingItem.description} </Typography>
+                              <Typography variant="body2" component="span" sx={{ wordBreak: 'break-word', overflowWrap: 'anywhere' }}>({clothingItem.serviceName}) - ¢{clothingItem.unitPrice.toFixed(2)}</Typography>
                             </Box>
                           ))
                         )}
@@ -246,7 +248,7 @@ const Orders: React.FC = () => {
                     ) : (
                       <Box>
                         <Typography variant="body2" component="span">Services: </Typography>
-                        <Typography variant="body2" component="span">
+                        <Typography variant="body2" component="span" sx={{ wordBreak: 'break-word', overflowWrap: 'anywhere' }}>
                           {order.items.map((item) => `${item.serviceName} (${item.quantity})`).join(', ')}
                         </Typography>
                       </Box>
@@ -285,6 +287,12 @@ const Orders: React.FC = () => {
           amount={selectedOrder.totalAmount}
           customerEmail={customerEmail}
           customerName={customerName}
+          defaultMomoPhone={(selectedOrder.payment?.paymentDetails?.phoneNumber || selectedOrder.customer?.phoneNumber || '') as string}
+          defaultMomoProvider={(() => {
+            const p = (selectedOrder.payment?.paymentDetails?.momoNetwork || '').toLowerCase();
+            return (p === 'mtn' || p === 'vodafone' || p === 'airteltigo') ? (p as 'mtn' | 'vodafone' | 'airteltigo') : 'mtn';
+          })()}
+          autoStart={Boolean(selectedOrder.payment?.paymentDetails?.phoneNumber || selectedOrder.customer?.phoneNumber)}
           onPaymentSuccess={handlePaymentSuccess}
           onPaymentError={handlePaymentError}
         />

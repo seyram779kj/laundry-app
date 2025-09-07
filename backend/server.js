@@ -26,7 +26,16 @@ const JWT_SECRET = process.env.JWT_SECRET;
 const JWT_EXPIRE = process.env.JWT_EXPIRE || '7d';
 const NODE_ENV = process.env.NODE_ENV || 'development';
 // Middleware
-app.use(cors());
+app.use(cors({
+  origin: [
+    'http://localhost:3000',
+    'http://127.0.0.1:3000',
+    'https://laundry-app-cyan.vercel.app'
+  ],
+  methods: ['GET','POST','PUT','PATCH','DELETE','OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
+  credentials: true
+}));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));

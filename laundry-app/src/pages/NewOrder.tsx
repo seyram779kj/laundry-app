@@ -7,6 +7,7 @@ import {
   CardMedia,
   Button,
   TextField,
+  MenuItem,
   RadioGroup,
   FormControlLabel,
   Radio,
@@ -22,6 +23,8 @@ import {
   StepLabel,
   Container,
 } from '@mui/material';
+import { useSelector } from 'react-redux';
+import { RootState } from '../app/store';
 import {
   Checkroom,
   LocationOn,
@@ -122,6 +125,19 @@ const NewOrderPage = () => {
     momoNetwork: 'mtn',
   });
 
+  // Auth user info for payment initialization
+  const authUser = useSelector((state: RootState) => (state as any)?.auth?.user);
+  const safeLocalUser = React.useMemo(() => {
+    try {
+      const raw = localStorage.getItem('user');
+      return raw ? JSON.parse(raw) : {};
+    } catch {
+      return {} as any;
+    }
+  }, []);
+  const customerEmail = (authUser?.email || safeLocalUser?.email || '').trim();
+  const customerName = `${authUser?.firstName || safeLocalUser?.firstName || ''} ${authUser?.lastName || safeLocalUser?.lastName || ''}`.trim();
+
   // Paystack payment dialog state
   const [showPaystackDialog, setShowPaystackDialog] = useState(false);
   const [createdOrderId, setCreatedOrderId] = useState<string | null>(null);
@@ -215,6 +231,41 @@ const NewOrderPage = () => {
     const deliveryFee = orderData.isUrgent ? 10 : 5;
     return subtotal + tax + deliveryFee;
   };
+
+  // Helper: parse estimatedTime like "24-48 hours", "24 hours", "Same day", "2-3 days"
+  const parseEstimatedTimeToDays = (estimated?: string): number => {
+    if (!estimated) return 2; // default 2 days
+    const lower = estimated.toLowerCase();
+    if (lower.includes('same day')) return 1;
+    const match = lower.match(/(\d+)(?:-(\d+))?\s*(hour|hours|day|days|week|weeks)/);
+    if (!match) return 2;
+    const start = parseInt(match[1], 10);
+    const unit = match[3];
+    let days = start;
+    if (unit.startsWith('hour')) {
+      days = Math.ceil(start / 24);
+    } else if (unit.startsWith('week')) {
+      days = start * 7;
+    }
+    return Math.max(1, days);
+  };
+
+  // Compute delivery date when pickup date, service, or urgent flag changes
+  useEffect(() => {
+    if (!orderData.pickupDate) return;
+    // Use first selected service's estimatedTime for duration
+    const selected = selectedServices[0];
+    const baseDays = parseEstimatedTimeToDays(selected?.estimatedTime);
+    const durationDays = orderData.isUrgent ? Math.max(1, Math.ceil(baseDays / 2)) : baseDays;
+    const pickup = new Date(orderData.pickupDate + 'T00:00:00');
+    const delivery = new Date(pickup);
+    delivery.setDate(pickup.getDate() + durationDays);
+    const yyyy = delivery.getFullYear();
+    const mm = String(delivery.getMonth() + 1).padStart(2, '0');
+    const dd = String(delivery.getDate()).padStart(2, '0');
+    const deliveryStr = `${yyyy}-${mm}-${dd}`;
+    setOrderData((prev) => ({ ...prev, deliveryDate: deliveryStr }));
+  }, [orderData.pickupDate, orderData.isUrgent, selectedServices]);
 
   const handleNext = () => {
     if (activeStep < steps.length - 1) setActiveStep(activeStep + 1);
@@ -597,42 +648,39 @@ const NewOrderPage = () => {
               <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
                 Select the type of cleaning service you need for your items
               </Typography>
-              <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 2 }}>
-                {services.map((service) => (
-                  <Card
-                    key={service._id || service.id}
-                    sx={{
-                      width: 280,
-                      cursor: 'pointer',
-                      border: selectedServiceId === service._id ? 2 : 1,
-                      borderColor: selectedServiceId === service._id ? 'primary.main' : 'divider',
-                      transition: 'all 0.3s',
-                      '&:hover': { transform: 'translateY(-2px)', boxShadow: 3 },
-                      bgcolor: selectedServiceId === service._id ? 'primary.light' : 'background.paper'
-                    }}
-                    onClick={() => setSelectedServiceId(service._id)}
-                  >
-                    <CardContent>
-                      <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
-                        <Box sx={{ bgcolor: selectedServiceId === service._id ? 'primary.main' : 'primary.light', p: 1, borderRadius: '50%', mr: 2 }}>
-                          {service.icon}
-                        </Box>
-                        <Typography variant="h6">{service.name}</Typography>
+              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                <TextField
+                  select
+                  label="Service"
+                  value={selectedServiceId || ''}
+                  onChange={(e) => setSelectedServiceId(e.target.value)}
+                  placeholder="Select a service"
+                >
+                  {services.map((service) => (
+                    <MenuItem key={service._id || service.id} value={service._id || service.id}>
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                        <span>{service.icon}</span>
+                        <Typography variant="body2" sx={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: 240 }}>
+                          {service.name} — ¢{(service.basePrice || service.price || 0).toFixed(2)} {service.estimatedTime ? `(${service.estimatedTime})` : ''}
+                        </Typography>
                       </Box>
-                      <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-                        {service.description}
+                    </MenuItem>
+                  ))}
+                </TextField>
+
+                {/* Optional: show selected service details below dropdown */}
+                {selectedServiceId && (
+                  <Card>
+                    <CardContent>
+                      <Typography variant="subtitle1">
+                        {services.find(s => (s._id || s.id) === selectedServiceId)?.name}
                       </Typography>
-                      <Typography variant="h6" color="primary">
-                        ¢{(service.basePrice || service.price || 0).toFixed(2)} per item
+                      <Typography variant="body2" color="text.secondary">
+                        {services.find(s => (s._id || s.id) === selectedServiceId)?.description}
                       </Typography>
-                      {service.estimatedTime && (
-                        <Box sx={{ bgcolor: 'success.light', color: 'success.main', px: 2, py: 1, borderRadius: 4, fontSize: '0.75rem', mt: 1, display: 'inline-block' }}>
-                          {service.estimatedTime}
-                        </Box>
-                      )}
                     </CardContent>
                   </Card>
-                ))}
+                )}
               </Box>
             </Card>
 
@@ -876,7 +924,7 @@ const NewOrderPage = () => {
             />
             <TextField
               sx={{ flex: '1 1 200px' }}
-              label="State"
+              label="Region"
               value={orderData.pickupAddress.state}
               onChange={(e) => {
                 const value = e.target.value;
@@ -970,7 +1018,7 @@ const NewOrderPage = () => {
             />
             <TextField
               sx={{ flex: '1 1 200px' }}
-              label="State"
+              label="Region"
               value={orderData.deliveryAddress.state}
               onChange={(e) => {
                 const value = e.target.value;
@@ -1025,6 +1073,7 @@ const NewOrderPage = () => {
               label="Pickup Date"
               value={orderData.pickupDate}
               onChange={(e) => setOrderData((prev) => ({ ...prev, pickupDate: e.target.value }))}
+              inputProps={{ min: new Date().toISOString().split('T')[0] }}
               InputLabelProps={{ shrink: true }}
             />
             <TextField
@@ -1032,13 +1081,19 @@ const NewOrderPage = () => {
               type="date"
               label="Delivery Date"
               value={orderData.deliveryDate}
-              onChange={(e) => setOrderData((prev) => ({ ...prev, deliveryDate: e.target.value }))}
+              disabled
+              helperText="Delivery date is calculated from service duration"
               InputLabelProps={{ shrink: true }}
             />
           </Box>
           <FormControlLabel
             control={<Checkbox checked={orderData.isUrgent} onChange={(e) => setOrderData((prev) => ({ ...prev, isUrgent: e.target.checked }))} />}
-            label="Urgent Service (+¢10.00)"
+            label={
+              <Box>
+                <Typography>Urgent Service (+¢10.00)</Typography>
+                <Typography variant="caption" color="text.secondary">Urgent halves the delivery duration.</Typography>
+              </Box>
+            }
           />
         </Box>
       </Card>
@@ -1396,6 +1451,9 @@ const NewOrderPage = () => {
           amount={calculateTotal()}
           customerEmail={(JSON.parse(localStorage.getItem('user') || '{}').email || '').trim()}
           customerName={`${(JSON.parse(localStorage.getItem('user') || '{}').firstName || '').trim()} ${(JSON.parse(localStorage.getItem('user') || '{}').lastName || '').trim()}`.trim()}
+          defaultMomoPhone={orderData.momoPhone}
+          defaultMomoProvider={orderData.momoNetwork as 'mtn' | 'vodafone' | 'airteltigo'}
+          autoStart={Boolean(orderData.momoPhone)}
           onPaymentSuccess={handlePaymentSuccess}
           onPaymentError={handlePaymentError}
         />

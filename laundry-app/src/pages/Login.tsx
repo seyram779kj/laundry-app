@@ -7,6 +7,8 @@ import {
   Paper,
   Alert,
   Link,
+  Stack,
+  InputAdornment,
 } from '@mui/material';
 import { useNavigate, Link as RouterLink } from 'react-router-dom';
 import { useAppDispatch, useAppSelector } from '../app/hooks';
@@ -143,97 +145,91 @@ const Login: React.FC = () => {
   };
 
   return (
-    <Box
-      sx={{
-        minHeight: '100vh',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-        py: 4,
-      }}
-    >
-      <Paper
-        elevation={8}
-        sx={{
-          p: 4,
-          width: '100%',
-          maxWidth: 400,
-          borderRadius: 2,
-          backdropFilter: 'blur(10px)',
-          backgroundColor: 'rgba(255, 255, 255, 0.95)',
-        }}
-      >
-        <Typography variant="h4" component="h1" gutterBottom align="center">
-          Welcome Back
-        </Typography>
-        <Typography variant="subtitle1" gutterBottom align="center" color="textSecondary">
-          Sign in to your account
-        </Typography>
-
-        {(error || localError) && (
-          <Alert severity="error" sx={{ mb: 2 }} onClose={() => {
-            dispatch(clearError());
-            setLocalError(null);
-          }}>
-            {localError || error}
-          </Alert>
-        )}
-
-        <form onSubmit={handleSubmit}>
-          <TextField
-            fullWidth
-            label="Email"
-            type="email"
-            value={email}
-            onChange={handleEmailChange}
-            margin="normal"
-            required
-            autoComplete="email"
-            error={!email.trim() && isSubmitting}
-            helperText={!email.trim() && isSubmitting ? 'Email is required' : ''}
-          />
-
-          <TextField
-            fullWidth
-            label="Password"
-            type="password"
-            value={password}
-            onChange={handlePasswordChange}
-            margin="normal"
-            required
-            autoComplete="current-password"
-            error={!password.trim() && isSubmitting}
-            helperText={!password.trim() && isSubmitting ? 'Password is required' : ''}
-          />
-
-          <Box sx={{ mt: 1, textAlign: 'right' }}>
-            <Link component={RouterLink} to="/forgot-password" variant="body2">
-              Forgot Password?
-            </Link>
-          </Box>
-
-          <Button
-            type="submit"
-            fullWidth
-            variant="contained"
-            size="large"
-            sx={{ mt: 3 }}
-            disabled={loading || isSubmitting || submitTimeoutRef.current !== null}
-          >
-            {loading || isSubmitting ? 'Signing in...' : 'Sign In'}
-          </Button>
-        </form>
-
-        <Box sx={{ mt: 3, textAlign: 'center' }}>
-          <Typography variant="body2">
-            Don't have an account?{' '}
-            <Link component={RouterLink} to="/register">
-              Sign Up
-            </Link>
-          </Typography>
+    <Box sx={{ minHeight: '100vh', background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)' }}>
+      <Box sx={{ display: 'flex', minHeight: '100vh', flexDirection: { xs: 'column', md: 'row' } }}>
+        {/* Left panel with brand/illustration */}
+        <Box sx={{ flex: 1, display: { xs: 'none', md: 'flex' }, alignItems: 'center', justifyContent: 'center', p: 6 }}>
+          <Stack spacing={2} sx={{ color: 'white', maxWidth: 520 }}>
+            <Typography variant="h3" fontWeight={700}>Welcome back to Laundry App</Typography>
+            <Typography variant="h6" sx={{ opacity: 0.9 }}>
+              Fast, reliable laundry services. Sign in to manage your orders, track progress, and more.
+            </Typography>
+          </Stack>
         </Box>
-      </Paper>
+
+        {/* Right panel with form */}
+        <Box sx={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', p: { xs: 2, sm: 4 } }}>
+          <Paper elevation={10} sx={{ p: { xs: 3, sm: 4 }, width: '100%', maxWidth: 440, borderRadius: 3 }}>
+            <Stack spacing={1} sx={{ mb: 1, textAlign: 'center' }}>
+              <Typography variant="h4" fontWeight={700}>Sign in</Typography>
+              <Typography variant="body2" color="text.secondary">Welcome back! Please enter your details.</Typography>
+            </Stack>
+
+            {(error || localError) && (
+              <Alert severity="error" sx={{ mb: 2 }} onClose={() => { dispatch(clearError()); setLocalError(null); }}>
+                {localError || error}
+              </Alert>
+            )}
+
+            <form onSubmit={handleSubmit}>
+              <TextField
+                fullWidth
+                label="Email"
+                type="email"
+                value={email}
+                onChange={handleEmailChange}
+                margin="normal"
+                required
+                autoComplete="email"
+                error={!email.trim() && isSubmitting}
+                helperText={!email.trim() && isSubmitting ? 'Email is required' : ''}
+                InputProps={{
+                  startAdornment: <InputAdornment position="start">📧</InputAdornment>,
+                }}
+              />
+
+              <TextField
+                fullWidth
+                label="Password"
+                type="password"
+                value={password}
+                onChange={handlePasswordChange}
+                margin="normal"
+                required
+                autoComplete="current-password"
+                error={!password.trim() && isSubmitting}
+                helperText={!password.trim() && isSubmitting ? 'Password is required' : ''}
+                InputProps={{
+                  startAdornment: <InputAdornment position="start">🔒</InputAdornment>,
+                }}
+              />
+
+              <Box sx={{ mt: 1, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <span />
+                <Link component={RouterLink} to="/forgot-password" variant="body2">Forgot Password?</Link>
+              </Box>
+
+              <Button
+                type="submit"
+                fullWidth
+                variant="contained"
+                size="large"
+                sx={{ mt: 3, py: 1.2, borderRadius: 2 }}
+                disabled={loading || isSubmitting || submitTimeoutRef.current !== null}
+              >
+                {loading || isSubmitting ? 'Signing in...' : 'Sign In'}
+              </Button>
+            </form>
+
+            <Box sx={{ mt: 3, textAlign: 'center' }}>
+              <Typography variant="body2">
+                Don't have an account?{' '}
+                <Link component={RouterLink} to="/register">Sign Up</Link>
+              </Typography>
+            </Box>
+          </Paper>
+        </Box>
+      </Box>
     </Box>
   );
 };
