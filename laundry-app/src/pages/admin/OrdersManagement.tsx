@@ -513,7 +513,10 @@ const OrdersManagement: React.FC = () => {
                       <IconButton
                         size="small"
                         color="primary"
-                        onClick={() => handleAssignOrder(order._id, '2')} // Replace '2' with actual service provider ID
+                        onClick={async () => {
+                          const spId = prompt('Enter Service Provider ID to assign:');
+                          if (spId) await handleAssignOrder(order._id, spId);
+                        }}
                       >
                         <AssignIcon />
                       </IconButton>

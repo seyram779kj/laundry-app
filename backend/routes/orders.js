@@ -479,6 +479,60 @@ router.put('/:id', protect, async (req, res) => {
   }
 });
 
+// Assign order to a specific provider (admin only)
+router.put('/:id/assign', protect, admin, async (req, res) => {
+  try {
+    const { serviceProviderId } = req.body;
+    if (!serviceProviderId) {
+      return res.status(400).json({ success: false, error: 'serviceProviderId is required' });
+    }
+
+    const order = await Order.findById(req.params.id);
+    if (!order) {
+      return res.status(404).json({ success: false, error: 'Order not found' });
+    }
+
+    // Set provider and status
+    order.serviceProvider = serviceProviderId;
+    if (['pending', 'confirmed'].includes(order.status)) {
+      order.status = 'assigned';
+    }
+
+    // Initialize and push status history
+    if (!order.statusHistory) order.statusHistory = [];
+    order.statusHistory.push({
+      status: 'assigned',
+      changedBy: req.user.id,
+      changedAt: new Date(),
+      notes: req.body.notes || 'Assigned by admin',
+    });
+
+    await order.save();
+
+    // Update related payment document serviceProvider
+    try {
+      await Payment.updateOne({ order: order._id }, { $set: { serviceProvider: serviceProviderId } });
+    } catch (e) {
+      console.warn('Failed to update payment serviceProvider for order', order._id.toString());
+    }
+
+    await order.populate([
+      { path: 'customer', select: 'firstName lastName email phoneNumber' },
+      { path: 'serviceProvider', select: 'firstName lastName email phoneNumber businessDetails' },
+    ]);
+
+    const orderWithFormatted = {
+      ...order.toObject(),
+      formattedTotal: `¢${order.totalAmount.toFixed(2)}`,
+    };
+
+    return res.json({ success: true, data: orderWithFormatted, message: 'Order assigned successfully' });
+  } catch (error) {
+    console.error('Admin assign order error:', error);
+    return res.status(500).json({ success: false, error: 'Failed to assign order' });
+  }
+});
+
 // Self-assign order (service providers only) - PATCH method
 router.put('/:id/assign-self', protect, serviceProvider, async (req, res) => {
   try {

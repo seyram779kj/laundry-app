@@ -12,10 +12,7 @@ const Settings: React.FC = () => {
           control={<Switch />}
           label="Email Notifications"
         />
-        <FormControlLabel
-          control={<Switch />}
-          label="SMS Notifications"
-        />
+
       </Paper>
     </Box>
   );
