@@ -5,22 +5,18 @@ import {
   Typography,
   TextField,
   Button,
-  Divider,
   Alert,
   CircularProgress,
 } from '@mui/material';
 import { useSelector } from 'react-redux';
 import { RootState } from '../app/store';
 import { updateProfile } from '../features/auth/authSlice';
-import AddressList from '../components/profile/AddressList';
-import AddAddressForm from '../components/profile/AddAddressForm';
 import { useAppDispatch } from '../app/hooks';
 import { formatUserData } from '../utils/textUtils';
 
 const Profile: React.FC = () => {
   const dispatch = useAppDispatch();
   const { user, loading, error } = useSelector((state: RootState) => state.auth);
-  const [showAddAddress, setShowAddAddress] = useState(false);
   const [formData, setFormData] = useState({
     firstName: user?.firstName || '',
     lastName: user?.lastName || '',
@@ -113,6 +109,7 @@ const Profile: React.FC = () => {
                   onChange={handleInputChange}
                   required
                   sx={{ mb: 2 }}
+                  disabled
                 />
                 <TextField
                   fullWidth
@@ -136,20 +133,9 @@ const Profile: React.FC = () => {
             </form>
           </Paper>
         </Box>
-
-        {/* Saved Addresses */}
-        <Box flex={1} minWidth={300}>
-          <Paper sx={{ p: 2, width: '100%' }}>
-            <Typography variant="h6" gutterBottom>
-              Saved Addresses
-            </Typography>
-            <AddAddressForm />
-            <AddressList addresses={user?.addresses || []} />
-          </Paper>
-        </Box>
       </Box>
     </Box>
   );
 };
 
-export default Profile; 
+export default Profile;

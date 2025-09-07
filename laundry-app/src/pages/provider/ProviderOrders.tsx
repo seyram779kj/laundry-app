@@ -11,6 +11,11 @@ import {
   Stack,
   Card,
   CardContent,
+  Divider,
+  FormControl,
+  InputLabel,
+  Select,
+  MenuItem,
 } from '@mui/material';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import ChatIcon from '@mui/icons-material/Chat';
@@ -78,6 +83,7 @@ const ProviderOrders: React.FC = () => {
   const [confirming, setConfirming] = useState<string | null>(null);
   const [advancing, setAdvancing] = useState<string | null>(null);
   const [confirmingItem, setConfirmingItem] = useState<string | null>(null);
+  const [filterStatus, setFilterStatus] = useState<string>('all');
 
   useEffect(() => {
     dispatch(fetchProviderOrders({ includeAvailable: true }));
@@ -236,7 +242,8 @@ const ProviderOrders: React.FC = () => {
           size="small"
           variant="outlined"
           color="secondary"
-          onClick={() => handleSelfAssign(order)}
+          onClick={() => handleSelfAssign(order)
+          }
           sx={{ mb: 1 }}
         >
           Assign to Me
@@ -311,18 +318,141 @@ const ProviderOrders: React.FC = () => {
     );
   }
 
+  // Derived data for stats and filtering
+  const myId = authUser?.id;
+  const assignedOrders = orders.filter((o: any) => {
+    const providerId = o.serviceProvider?._id || o.serviceProvider;
+    const userId = authUser?.id;
+    return !!o.serviceProvider && providerId === userId;
+  });
+  const availableOrders = orders.filter((o: any) => !o.serviceProvider && ['pending', 'confirmed'].includes(o.status));
+
+  const filteredAssigned = filterStatus === 'all'
+    ? assignedOrders
+    : assignedOrders.filter((o: any) => o.status === filterStatus);
+
+  const stats = {
+    total: assignedOrders.length,
+    pending: assignedOrders.filter((o: any) => o.status === 'pending').length,
+    inProgress: assignedOrders.filter((o: any) => o.status === 'in_progress').length,
+    completed: assignedOrders.filter((o: any) => o.status === 'completed').length,
+  };
+
   return (
     <Box sx={{ p: 3 }}>
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2, flexWrap: 'wrap', gap: 2 }}>
         <Typography variant="h4" gutterBottom color="primary" sx={{ mb: 0 }}>
           My Orders
         </Typography>
-              </Box>
+        <FormControl size="small" sx={{ minWidth: 200 }}>
+          <InputLabel id="filter-status-label">Filter by Status</InputLabel>
+          <Select
+            labelId="filter-status-label"
+            id="filter-status"
+            value={filterStatus}
+            label="Filter by Status"
+            onChange={(e) => setFilterStatus(e.target.value)}
+          >
+            <MenuItem value="all">All</MenuItem>
+            <MenuItem value="pending">Pending</MenuItem>
+            <MenuItem value="confirmed">Confirmed</MenuItem>
+            <MenuItem value="assigned">Assigned</MenuItem>
+            <MenuItem value="in_progress">In Progress</MenuItem>
+            <MenuItem value="ready_for_pickup">Ready for Pickup</MenuItem>
+            <MenuItem value="picked_up">Picked Up</MenuItem>
+            <MenuItem value="ready_for_delivery">Ready for Delivery</MenuItem>
+            <MenuItem value="completed">Completed</MenuItem>
+            <MenuItem value="cancelled">Cancelled</MenuItem>
+          </Select>
+        </FormControl>
+      </Box>
 
-      {orders.length === 0 ? (
+      {/* Stats */}
+      <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 3, mb: 3 }}>
+        <Box sx={{ width: { xs: '100%', sm: 'calc(50% - 12px)', md: 'calc(20% - 14px)' } }}>
+          <Card>
+            <CardContent>
+              <Typography color="textSecondary" gutterBottom>
+                Total Orders
+              </Typography>
+              <Typography variant="h4">{stats.total}</Typography>
+            </CardContent>
+          </Card>
+        </Box>
+        <Box sx={{ width: { xs: '100%', sm: 'calc(50% - 12px)', md: 'calc(20% - 14px)' } }}>
+          <Card>
+            <CardContent>
+              <Typography color="textSecondary" gutterBottom>
+                Pending
+              </Typography>
+              <Typography variant="h4" color="warning.main">{stats.pending}</Typography>
+            </CardContent>
+          </Card>
+        </Box>
+        <Box sx={{ width: { xs: '100%', sm: 'calc(50% - 12px)', md: 'calc(20% - 14px)' } }}>
+          <Card>
+            <CardContent>
+              <Typography color="textSecondary" gutterBottom>
+                In Progress
+              </Typography>
+              <Typography variant="h4" color="primary.main">{stats.inProgress}</Typography>
+            </CardContent>
+          </Card>
+        </Box>
+        <Box sx={{ width: { xs: '100%', sm: 'calc(50% - 12px)', md: 'calc(20% - 14px)' } }}>
+          <Card>
+            <CardContent>
+              <Typography color="textSecondary" gutterBottom>
+                Completed
+              </Typography>
+              <Typography variant="h4" color="success.main">{stats.completed}</Typography>
+            </CardContent>
+          </Card>
+        </Box>
+      </Box>
+
+      {/* Available (Unassigned) Orders for Self-Assignment */}
+      <Paper sx={{ p: 2, mb: 3 }}>
+        <Typography variant="h6" gutterBottom>
+          Available Orders (Unassigned)
+        </Typography>
+        {availableOrders.length === 0 ? (
+          <Typography color="text.secondary">No available orders at the moment.</Typography>
+        ) : (
+          <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 2 }}>
+            {availableOrders.map((od: any) => {
+              const order = formatOrderForDisplay(od);
+              return (
+                <Card key={`avail-${order._id}`} sx={{ width: { xs: '100%', sm: 'calc(50% - 8px)', md: 'calc(33.33% - 10px)' } }}>
+                  <CardContent>
+                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
+                      <Typography variant="subtitle1">#{order.orderNumber}</Typography>
+                      <Chip label={statusLabels[order.status] || order.status} size="small" color={statusColors[order.status] || 'default'} />
+                    </Box>
+                    <Typography variant="body2" color="text.secondary" gutterBottom>
+                      Customer: {order.customer.firstName} {order.customer.lastName}
+                    </Typography>
+                    <Typography variant="body2" gutterBottom>
+                      Total: {order.formattedTotal}
+                    </Typography>
+                    <Button variant="outlined" color="secondary" onClick={() => handleSelfAssign(order)}>
+                      Assign to Me
+                    </Button>
+                  </CardContent>
+                </Card>
+              );
+            })}
+          </Box>
+        )}
+      </Paper>
+
+      <Divider sx={{ mb: 2 }} />
+
+      {/* Assigned Orders List (filtered) */}
+      {filteredAssigned.length === 0 ? (
         <Paper sx={{ p: 3, textAlign: 'center', bgcolor: 'background.paper', borderRadius: 2, boxShadow: 1 }}>
           <Typography variant="h6" color="text.secondary">
-            No orders available
+            No orders found for selected filter
           </Typography>
           <Button
             onClick={() => dispatch(fetchProviderOrders({ includeAvailable: true }))}
@@ -342,7 +472,7 @@ const ProviderOrders: React.FC = () => {
             justifyContent: 'flex-start',
           }}
         >
-          {orders.map((orderData) => {
+          {filteredAssigned.map((orderData: any) => {
             const order = formatOrderForDisplay(orderData);
             return (
             <Box

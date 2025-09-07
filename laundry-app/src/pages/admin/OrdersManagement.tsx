@@ -106,6 +106,7 @@ const OrdersManagement: React.FC = () => {
   const [filterStatus, setFilterStatus] = useState<string>('all');
   const [unreadChats, setUnreadChats] = useState<{ [orderId: string]: boolean }>({});
   const [adminId, setAdminId] = useState<string | null>(null);
+  const [totalOrdersCount, setTotalOrdersCount] = useState<number>(0);
 
   useEffect(() => {
     const userStr = localStorage.getItem('user');
@@ -124,7 +125,8 @@ const OrdersManagement: React.FC = () => {
         setError(null);
 
         const { API_BASE_URL } = await import('../../services/api');
-        const response = await fetch(`${API_BASE_URL}/orders`, {
+        // Fetch a large page size so admin can see all orders
+        const response = await fetch(`${API_BASE_URL}/orders?page=1&limit=1000`, {
           headers: {
             Authorization: `Bearer ${localStorage.getItem('token')}`,
             'Content-Type': 'application/json',
@@ -139,6 +141,10 @@ const OrdersManagement: React.FC = () => {
         console.log('Orders API response:', JSON.stringify(data, null, 2));
 
         const ordersArray = data.success && data.data?.docs ? data.data.docs : [];
+        // Set true total count from pagination if present
+        const totalFromPagination = (data.data?.totalDocs ?? data.data?.total) ?? 0;
+        setTotalOrdersCount(Number(totalFromPagination) || ordersArray.length);
+
         const mappedOrders = ordersArray.map((order: any) => ({
           _id: order._id,
           customer: {
@@ -374,7 +380,7 @@ const OrdersManagement: React.FC = () => {
                 Total Orders
               </Typography>
               <Typography variant="h4">
-                {orders.length}
+                {totalOrdersCount}
               </Typography>
             </CardContent>
           </Card>

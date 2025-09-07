@@ -13,6 +13,8 @@ import {
   Stepper,
   Step,
   StepLabel,
+  useTheme,
+  useMediaQuery,
 } from '@mui/material';
 import { useNavigate, Link as RouterLink } from 'react-router-dom';
 import { useAppDispatch } from '../app/hooks';
@@ -30,6 +32,8 @@ const steps = ['Email Verification', 'User Information', 'Complete Registration'
 const Register: React.FC = () => {
   const dispatch = useAppDispatch();
   const navigate = useNavigate();
+  const theme = useTheme();
+  const isXs = useMediaQuery(theme.breakpoints.down('sm'));
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
@@ -560,21 +564,54 @@ const Register: React.FC = () => {
 
   return (
     <Box sx={{ minHeight: '100vh', background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)' }}>
-      <Box sx={{ display: 'flex', minHeight: '100vh' }}>
+      <Box
+        sx={{
+          display: 'flex',
+          minHeight: '100vh',
+          flexDirection: { xs: 'column', md: 'row' },
+        }}
+      >
         {/* Left brand/illustration panel (hidden on small) */}
-        <Box sx={{ flex: 1, display: { xs: 'none', md: 'flex' }, alignItems: 'center', justifyContent: 'center', p: 6 }}>
+        <Box
+          sx={{
+            flex: 1,
+            display: { xs: 'none', md: 'flex' },
+            alignItems: 'center',
+            justifyContent: 'center',
+            p: { xs: 2, md: 6 },
+          }}
+        >
           <Box sx={{ color: 'white', maxWidth: 520 }}>
-            <Typography variant="h3" fontWeight={700}>Create your Laundry App account</Typography>
-            <Typography variant="h6" sx={{ opacity: 0.9, mt: 1.5 }}>
+            <Typography variant={isXs ? 'h4' : 'h3'} fontWeight={700}>
+              Create your Laundry App account
+            </Typography>
+            <Typography variant={isXs ? 'body1' : 'h6'} sx={{ opacity: 0.9, mt: 1.5 }}>
               Verify your email and complete a few details to get started with our services.
             </Typography>
           </Box>
         </Box>
 
         {/* Right form panel */}
-        <Box sx={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', p: { xs: 2, sm: 4 } }}>
-          <Paper elevation={10} sx={{ p: { xs: 3, sm: 4 }, width: '100%', maxWidth: 560, borderRadius: 3 }}>
-            <Typography variant="h4" align="center" gutterBottom fontWeight={700}>
+        <Box
+          sx={{
+            flex: 1,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            p: { xs: 2, sm: 3, md: 4 },
+          }}
+        >
+          <Paper
+            elevation={10}
+            sx={{
+              p: { xs: 2, sm: 3, md: 4 },
+              width: '100%',
+              maxWidth: 560,
+              borderRadius: 3,
+              mx: 'auto',
+            }}
+          >
+            <Typography variant={isXs ? 'h5' : 'h4'} align="center" gutterBottom fontWeight={700}>
               Create Account
             </Typography>
             <Typography variant="body2" align="center" color="text.secondary" sx={{ mb: 3 }}>
@@ -582,7 +619,7 @@ const Register: React.FC = () => {
             </Typography>
 
             {/* Stepper */}
-            <Stepper activeStep={activeStep} sx={{ mb: 4 }}>
+            <Stepper activeStep={activeStep} sx={{ mb: { xs: 2, sm: 4 } }} alternativeLabel={isXs}>
               {steps.map((label) => (
                 <Step key={label}>
                   <StepLabel>{label}</StepLabel>
@@ -592,10 +629,10 @@ const Register: React.FC = () => {
 
             {/* Animated decorative element on first step */}
             {activeStep === 0 && (
-              <Box sx={{ mb: 3, display: 'flex', justifyContent: 'center' }}>
+              <Box sx={{ mb: 2, display: 'flex', justifyContent: 'center' }}>
                 <Box
                   sx={{
-                    width: 200,
+                    width: { xs: 160, sm: 200 },
                     height: 8,
                     bgcolor: 'grey.200',
                     borderRadius: 4,
@@ -614,7 +651,7 @@ const Register: React.FC = () => {
                     },
                     '@keyframes moveDot': {
                       '0%': { transform: 'translateX(0)' },
-                      '50%': { transform: 'translateX(180px)' },
+                      '50%': { transform: 'translateX(140px)' },
                       '100%': { transform: 'translateX(0)' },
                     },
                   }}
