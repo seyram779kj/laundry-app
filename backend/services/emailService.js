@@ -93,6 +93,12 @@ const sendPasswordResetEmail = async (email, resetToken) => {
       return true;
     }
     
+    // Determine the correct frontend URL
+    const frontendUrl = process.env.FRONTEND_URL || 'https://laundry-app-cyan.vercel.app';
+    const resetLink = `${frontendUrl}/reset-password?token=${resetToken}`;
+
+    console.log(`🔗 Password reset link: ${resetLink}`);
+
     const mailOptions = {
       from: process.env.EMAIL_USER,
       to: email,
@@ -103,27 +109,32 @@ const sendPasswordResetEmail = async (email, resetToken) => {
             <h1 style="margin: 0; font-size: 28px;">Laundry App</h1>
             <p style="margin: 10px 0 0 0; font-size: 16px;">Password Reset</p>
           </div>
-          
+
           <div style="background: #f9f9f9; padding: 30px; border-radius: 0 0 10px 10px;">
             <h2 style="color: #333; margin-bottom: 20px;">Reset Your Password</h2>
-            
+
             <p style="color: #666; line-height: 1.6; margin-bottom: 25px;">
-              You requested a password reset for your Laundry App account. 
+              You requested a password reset for your Laundry App account.
               Click the button below to reset your password.
             </p>
-            
+
             <div style="text-align: center; margin: 25px 0;">
-              <a href="${process.env.FRONTEND_URL || 'https://laundry-app-cyan.vercel.app'}/reset-password?token=${resetToken}" 
+              <a href="${resetLink}"
                  style="background: #667eea; color: white; padding: 12px 30px; text-decoration: none; border-radius: 5px; display: inline-block; font-weight: bold;">
                 Reset Password
               </a>
             </div>
-            
+
             <p style="color: #666; font-size: 14px; margin-top: 25px;">
-              If you didn't request this password reset, please ignore this email. 
+              If you didn't request this password reset, please ignore this email.
               This link will expire in 10 minutes.
             </p>
-            
+
+            <p style="color: #666; font-size: 12px; margin-top: 15px;">
+              If the button doesn't work, copy and paste this link into your browser:<br>
+              <span style="word-break: break-all; color: #667eea;">${resetLink}</span>
+            </p>
+
             <div style="margin-top: 30px; padding-top: 20px; border-top: 1px solid #eee;">
               <p style="color: #999; font-size: 12px; margin: 0;">
                 Best regards,<br>
@@ -262,8 +273,85 @@ const sendOrderStatusEmail = async (email, customerName, orderNumber, oldStatus,
   }
 };
 
+// Send chat message notification email
+const sendChatMessageEmail = async (email, senderName, messageContent, orderNumber = null) => {
+  try {
+    const transporter = createTransporter();
+
+    // If no transporter (missing email config), just log to console
+    if (!transporter) {
+      console.log(`📧 [DEV MODE] Chat message email would be sent to ${email}`);
+      console.log(`📧 [DEV MODE] From: ${senderName}, Message: ${messageContent}`);
+      return true;
+    }
+
+    // Determine the correct frontend URL
+    const frontendUrl = process.env.FRONTEND_URL || 'https://laundry-app-cyan.vercel.app';
+    const dashboardLink = `${frontendUrl}/dashboard`;
+
+    const subject = orderNumber
+      ? `New Message - Order ${orderNumber}`
+      : 'New Message in Chat';
+
+    const mailOptions = {
+      from: process.env.EMAIL_USER,
+      to: email,
+      subject: subject,
+      html: `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+          <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 30px; text-align: center; border-radius: 10px 10px 0 0;">
+            <h1 style="margin: 0; font-size: 28px;">Laundry App</h1>
+            <p style="margin: 10px 0 0 0; font-size: 16px;">New Chat Message</p>
+          </div>
+
+          <div style="background: #f9f9f9; padding: 30px; border-radius: 0 0 10px 10px;">
+            <h2 style="color: #333; margin-bottom: 20px;">You have a new message!</h2>
+
+            <p style="color: #666; line-height: 1.6; margin-bottom: 25px;">
+              <strong>${senderName}</strong> sent you a message${orderNumber ? ` regarding Order ${orderNumber}` : ''}:
+            </p>
+
+            <div style="background: #fff; border: 2px solid #667eea; border-radius: 8px; padding: 20px; margin: 25px 0;">
+              <p style="color: #333; margin: 0; font-style: italic;">
+                "${messageContent}"
+              </p>
+            </div>
+
+            <div style="text-align: center; margin: 25px 0;">
+              <a href="${dashboardLink}"
+                 style="background: #667eea; color: white; padding: 12px 30px; text-decoration: none; border-radius: 5px; display: inline-block; font-weight: bold;">
+                View Message
+              </a>
+            </div>
+
+            <p style="color: #666; font-size: 14px; margin-top: 25px;">
+              You can reply to this message by logging into your account.
+            </p>
+
+            <div style="margin-top: 30px; padding-top: 20px; border-top: 1px solid #eee;">
+              <p style="color: #999; font-size: 12px; margin: 0;">
+                Best regards,<br>
+                The Laundry App Team
+              </p>
+            </div>
+          </div>
+        </div>
+      `
+    };
+
+    const info = await transporter.sendMail(mailOptions);
+    console.log(`📧 Chat message email sent to ${email}`);
+    console.log(`📧 Message ID: ${info.messageId}`);
+    return true;
+  } catch (error) {
+    console.error('❌ Chat message email sending failed:', error);
+    throw new Error('Failed to send chat message email');
+  }
+};
+
 module.exports = {
   sendVerificationEmail,
   sendPasswordResetEmail,
-  sendOrderStatusEmail
-}; 
+  sendOrderStatusEmail,
+  sendChatMessageEmail
+};

@@ -7,6 +7,9 @@ const http = require('http');
 const { Server } = require('socket.io');
 const Message = require('./models/Message');
 const ChatRoom = require('./models/ChatRoom');
+const User = require('./models/User');
+const Order = require('./models/Order');
+const { sendChatMessageEmail } = require('./services/emailService');
 
 
 
@@ -78,6 +81,7 @@ const paystackRoutes = require('./routes/paystack');
 const reviewRoutes = require('./routes/reviews');
 const analyticsRoutes = require('./routes/analytics');
 const chatRoutes = require('./routes/chats');
+const loyaltyRoutes = require('./routes/loyalty');
 const trackingRoutes = require('./routes/tracking');
 
 // Import middleware
@@ -94,6 +98,7 @@ app.use('/api/paystack', paystackRoutes);
 app.use('/api/reviews', reviewRoutes);
 app.use('/api/analytics', cacheMiddleware(600), analyticsRoutes);
 app.use('/api/chats', chatRoutes);
+app.use('/api/loyalty', loyaltyRoutes);
 app.use('/api/tracking', trackingRoutes);
 
 // Socket.IO logic
@@ -117,6 +122,60 @@ io.on('connection', (socket) => {
         content
       });
       await message.save();
+
+      // Send email notifications
+      try {
+        const chatRoom = await ChatRoom.findById(chatRoomId);
+        if (chatRoom) {
+          const sender = await User.findById(senderId);
+          const senderName = sender ? sender.getFullName() : 'Unknown User';
+
+          let recipients = [];
+          let orderNumber = null;
+
+          // Get order number if exists
+          if (chatRoom.orderId) {
+            const order = await Order.findById(chatRoom.orderId);
+            if (order) {
+              orderNumber = order.orderNumber;
+            }
+          }
+
+          if (senderType === 'customer') {
+            // Send to supplier or admin
+            if (chatRoom.supplierId) {
+              recipients.push(chatRoom.supplierId.toString());
+            } else {
+              // Find admin users
+              const admins = await User.find({ role: 'admin' });
+              recipients = admins.map(admin => admin._id.toString());
+            }
+          } else if (senderType === 'service_provider' || senderType === 'supplier') {
+            // Send to customer
+            recipients.push(chatRoom.customerId.toString());
+          } else if (senderType === 'admin') {
+            // Send to customer and supplier
+            recipients.push(chatRoom.customerId.toString());
+            if (chatRoom.supplierId) {
+              recipients.push(chatRoom.supplierId.toString());
+            }
+          }
+
+          // Send emails to recipients who have chat email notifications enabled
+          for (const recipientId of recipients) {
+            if (recipientId !== senderId) { // Don't send to self
+              const recipient = await User.findById(recipientId);
+              if (recipient && recipient.preferences?.notificationPreferences?.chatEmail !== false) {
+                await sendChatMessageEmail(recipient.email, senderName, content, orderNumber);
+              }
+            }
+          }
+        }
+      } catch (emailErr) {
+        console.error('Error sending chat email notification:', emailErr);
+        // Don't fail the message sending if email fails
+      }
+
       io.to(chatRoomId).emit('newMessage', message);
     } catch (err) {
       console.error('Error saving message:', err);

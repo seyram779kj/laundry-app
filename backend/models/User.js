@@ -65,6 +65,10 @@ const userSchema = new mongoose.Schema({
         type: Boolean,
         default: true
       },
+      chatEmail: {
+        type: Boolean,
+        default: true
+      },
       sms: {
         type: Boolean,
         default: false
@@ -83,6 +87,34 @@ const userSchema = new mongoose.Schema({
       default: 'UTC'
     }
   },
+  loyaltyPoints: {
+    type: Number,
+    default: 0,
+    min: 0
+  },
+  loyaltyHistory: [{
+    type: {
+      type: String,
+      enum: ['earned', 'redeemed', 'expired'],
+      required: true
+    },
+    points: {
+      type: Number,
+      required: true
+    },
+    description: {
+      type: String,
+      required: true
+    },
+    orderId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Order'
+    },
+    timestamp: {
+      type: Date,
+      default: Date.now
+    }
+  }],
   // Service Provider specific fields
   location: String,
   businessDetails: {
@@ -205,6 +237,41 @@ userSchema.methods.hasPermission = function(permission) {
     return this.permissions[permission] || false;
   }
   return false;
+};
+
+// Loyalty points methods
+userSchema.methods.addLoyaltyPoints = function(points, description, orderId = null) {
+  this.loyaltyPoints += points;
+  this.loyaltyHistory.push({
+    type: 'earned',
+    points: points,
+    description: description,
+    orderId: orderId
+  });
+  return this.save();
+};
+
+userSchema.methods.redeemLoyaltyPoints = function(points, description) {
+  if (this.loyaltyPoints < points) {
+    throw new Error('Insufficient loyalty points');
+  }
+  this.loyaltyPoints -= points;
+  this.loyaltyHistory.push({
+    type: 'redeemed',
+    points: points,
+    description: description
+  });
+  return this.save();
+};
+
+userSchema.methods.getLoyaltyPoints = function() {
+  return this.loyaltyPoints;
+};
+
+userSchema.methods.getLoyaltyHistory = function(limit = 10) {
+  return this.loyaltyHistory
+    .sort((a, b) => b.timestamp - a.timestamp)
+    .slice(0, limit);
 };
 
 // Virtual for full name

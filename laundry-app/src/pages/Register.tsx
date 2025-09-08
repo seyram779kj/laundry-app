@@ -305,17 +305,9 @@ const Register: React.FC = () => {
       
       console.log('✅ Registration successful:', result);
       
-      // Navigate to dashboard based on role
-      let targetPath = '/customer';
-      switch (result.role) {
-        case 'admin': targetPath = '/admin'; break;
-        case 'service_provider': targetPath = '/provider'; break;
-        case 'customer': targetPath = '/customer'; break;
-        default: targetPath = '/customer';
-      }
-      
-      console.log(`🎯 Navigating to: ${targetPath}`);
-      navigate(targetPath, { replace: true });
+      // After successful sign-up, redirect to login for explicit authentication
+      console.log('🎯 Navigating to: /login');
+      navigate('/login', { replace: true });
     } catch (err: any) {
       console.error('❌ Registration error:', err);
       console.error('Error type:', typeof err);

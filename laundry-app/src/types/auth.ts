@@ -47,6 +47,7 @@ export interface CustomerUser extends User {
     notificationPreferences: {
       email: boolean;
       sms: boolean;
+      chatEmail: boolean;
     };
   };
   loyaltyPoints?: number;

@@ -208,6 +208,40 @@ const getUsersByRole = async (req, res) => {
   }
 };
 
+// @desc    Update user preferences
+// @route   PUT /api/users/preferences
+// @access  Private
+const updateUserPreferences = async (req, res) => {
+  try {
+    const { notificationPreferences } = req.body;
+
+    const user = await User.findById(req.user._id);
+
+    if (user) {
+      if (notificationPreferences) {
+        user.preferences = {
+          ...user.preferences,
+          notificationPreferences: {
+            ...user.preferences.notificationPreferences,
+            ...notificationPreferences
+          }
+        };
+      }
+
+      const updatedUser = await user.save();
+
+      res.json({
+        preferences: updatedUser.preferences
+      });
+    } else {
+      res.status(404).json({ error: 'User not found' });
+    }
+  } catch (error) {
+    console.error('Update user preferences error:', error);
+    res.status(500).json({ error: 'Server error' });
+  }
+};
+
 // @desc    Get user statistics
 // @route   GET /api/users/stats
 // @access  Private/Admin
@@ -241,6 +275,7 @@ router.get('/role/:role', protect, admin, getUsersByRole);
 router.get('/:id', protect, admin, getUserById);
 router.post('/', protect, admin, createUser);
 router.put('/:id', protect, admin, updateUser);
+router.put('/preferences', protect, updateUserPreferences);
 router.delete('/:id', protect, admin, deleteUser);
 router.put('/:id/toggle-status', protect, admin, toggleUserStatus);
 

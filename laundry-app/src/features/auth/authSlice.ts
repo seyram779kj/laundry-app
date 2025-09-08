@@ -68,6 +68,7 @@ const transformUserResponse = (apiUser: UserResponse): User => {
           notificationPreferences: {
             email: true,
             sms: false,
+            chatEmail: true,
           },
         },
       } as CustomerUser;

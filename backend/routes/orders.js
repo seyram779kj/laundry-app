@@ -5,6 +5,7 @@ const { protect, admin, serviceProvider, customer } = require('../middleware/aut
 const Payment = require('../models/Payment'); // Import Payment model
 const OrderTracking = require('../models/OrderTracking'); // Import OrderTracking model
 const { sendOrderStatusEmail } = require('../services/emailService'); // Import email service
+const { awardPointsForOrder } = require('../services/loyaltyService'); // Import loyalty service
 
 // Get all orders (with filtering)
 router.get('/', protect, async (req, res) => {
@@ -399,7 +400,7 @@ router.put('/:id/status', protect, async (req, res) => {
       const customerName = `${order.customer.firstName} ${order.customer.lastName}`;
       const orderNumber = order.orderNumber;
       const allClothingItems = order.getAllClothingItems();
-      
+
       await sendOrderStatusEmail(
         order.customer.email,
         customerName,
@@ -412,6 +413,19 @@ router.put('/:id/status', protect, async (req, res) => {
     } catch (emailError) {
       console.error('⚠️ Failed to send status update email:', emailError);
       // Don't fail the request if email fails
+    }
+
+    // Award loyalty points if order is completed
+    if (status === 'completed' && oldStatus !== 'completed') {
+      try {
+        const loyaltyResult = await awardPointsForOrder(order._id);
+        if (loyaltyResult.success && loyaltyResult.pointsAwarded > 0) {
+          console.log(`🎉 Awarded ${loyaltyResult.pointsAwarded} loyalty points to customer ${order.customer._id} for order ${order._id}`);
+        }
+      } catch (loyaltyError) {
+        console.error('⚠️ Failed to award loyalty points:', loyaltyError);
+        // Don't fail the request if loyalty points fail
+      }
     }
 
     // Add formatted total for frontend (Ghana Cedis)

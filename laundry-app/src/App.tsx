@@ -1,12 +1,11 @@
 import React, { useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from 'react-router-dom';
-import { ThemeProvider, CssBaseline } from '@mui/material';
 import { Provider } from 'react-redux';
 import { store } from './app/store';
 import { useSelector, useDispatch } from 'react-redux';
-import theme from './theme';
 import { RootState, AppDispatch } from './app/store';
 import { getMe } from './features/auth/authSlice';
+import ThemeModeProvider from './app/ThemeModeProvider';
 
 // Layout
 import MainLayout from './components/layout/MainLayout';
@@ -45,6 +44,7 @@ import ReviewsManagement from './pages/admin/ReviewsManagement';
 import PaymentHistory from './pages/PaymentHistory';
 import TestPaymentAPI from './pages/TestPaymentAPI';
 import PaymentCallback from './pages/PaymentCallback';
+import LoyaltyProgram from './pages/LoyaltyProgram';
 
 // Authentication Initialization Component
 const AuthInitializer: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -164,8 +164,7 @@ const RootRoute: React.FC = () => {
 const App: React.FC = () => {
   return (
     <Provider store={store}>
-      <ThemeProvider theme={theme}>
-        <CssBaseline />
+      <ThemeModeProvider>
         <AuthInitializer>
           <Router>
             <Routes>
@@ -266,6 +265,7 @@ const App: React.FC = () => {
                         <Route path="services" element={<Services />} />
                         <Route path="profile" element={<Profile />} />
                         <Route path="settings" element={<Settings />} />
+                        <Route path="loyalty" element={<LoyaltyProgram />} />
                       </Routes>
                     </MainLayout>
                   </RoleBasedRoute>
@@ -348,7 +348,7 @@ const App: React.FC = () => {
             </Routes>
           </Router>
         </AuthInitializer>
-      </ThemeProvider>
+      </ThemeModeProvider>
     </Provider>
   );
 };

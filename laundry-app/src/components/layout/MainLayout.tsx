@@ -31,12 +31,15 @@ import {
   Payment as PaymentIcon,
   RateReview as ReviewsIcon,
   History as HistoryIcon,
+  Brightness4 as DarkModeIcon,
+  Brightness7 as LightModeIcon,
 } from '@mui/icons-material';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAppDispatch, useAppSelector } from '../../app/hooks';
 import { logout } from '../../features/auth/authSlice';
+import { useThemeMode } from '../../app/ThemeModeProvider';
 
-const drawerWidth = 240;
+const drawerWidth = 280;
 
 interface MainLayoutProps {
   children: React.ReactNode;
@@ -47,10 +50,15 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children, title }) => {
   const [mobileOpen, setMobileOpen] = useState(false);
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
+  const isXs = useMediaQuery(theme.breakpoints.down(600));
   const navigate = useNavigate();
   const location = useLocation();
   const dispatch = useAppDispatch();
   const { user } = useAppSelector((state) => state.auth);
+  const { mode, toggleTheme } = useThemeMode();
+
+  // Responsive drawer width
+  const responsiveDrawerWidth = isXs ? 260 : drawerWidth;
 
   const getMenuItems = () => {
     switch (user?.role) {
@@ -147,8 +155,8 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children, title }) => {
       <AppBar
         position="fixed"
         sx={{
-          width: { sm: `calc(100% - ${drawerWidth}px)` },
-          ml: { sm: `${drawerWidth}px` },
+          width: { sm: `calc(100% - ${responsiveDrawerWidth}px)` },
+          ml: { sm: `${responsiveDrawerWidth}px` },
         }}
       >
         <Toolbar>
@@ -161,14 +169,22 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children, title }) => {
           >
             <MenuIcon />
           </IconButton>
-          <Typography variant="h6" noWrap component="div">
+          <Typography variant="h6" noWrap component="div" sx={{ flexGrow: 1 }}>
             {title}
           </Typography>
+          <IconButton
+            color="inherit"
+            onClick={toggleTheme}
+            aria-label="toggle theme"
+            sx={{ ml: 1 }}
+          >
+            {mode === 'dark' ? <LightModeIcon /> : <DarkModeIcon />}
+          </IconButton>
         </Toolbar>
       </AppBar>
       <Box
         component="nav"
-        sx={{ width: { sm: drawerWidth }, flexShrink: { sm: 0 } }}
+        sx={{ width: { sm: responsiveDrawerWidth }, flexShrink: { sm: 0 } }}
       >
         <Drawer
           variant={isMobile ? 'temporary' : 'permanent'}
@@ -180,7 +196,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children, title }) => {
           sx={{
             '& .MuiDrawer-paper': {
               boxSizing: 'border-box',
-              width: drawerWidth,
+              width: responsiveDrawerWidth,
             },
           }}
         >
@@ -191,9 +207,10 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children, title }) => {
         component="main"
         sx={{
           flexGrow: 1,
-          p: 3,
-          width: { sm: `calc(100% - ${drawerWidth}px)` },
+          p: { xs: 1, sm: 2, md: 3 },
+          width: { sm: `calc(100% - ${responsiveDrawerWidth}px)` },
           mt: '64px',
+          overflowX: 'hidden', // Prevent horizontal scrolling
         }}
       >
         {children}
