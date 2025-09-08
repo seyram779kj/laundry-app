@@ -19,6 +19,16 @@ export interface User {
   role: 'customer' | 'service_provider' | 'admin';
   addresses?: Address[];
   phoneNumber?: string;
+  preferences?: {
+    notificationPreferences: {
+      email: boolean;
+      sms: boolean;
+      chatEmail: boolean;
+      push: boolean;
+    };
+    language: string;
+    timezone: string;
+  };
   createdAt: string;
   updatedAt: string;
 }
@@ -41,15 +51,6 @@ export interface CustomerUser extends User {
   role: 'customer';
   addresses: Address[];
   phoneNumber: string;
-  preferences: {
-    defaultPaymentMethod?: string;
-    defaultAddress?: string;
-    notificationPreferences: {
-      email: boolean;
-      sms: boolean;
-      chatEmail: boolean;
-    };
-  };
   loyaltyPoints?: number;
 }
 

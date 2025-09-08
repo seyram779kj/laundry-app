@@ -58,7 +58,7 @@ const userSchema = new mongoose.Schema({
       default: false
     }
   }],
-  // Customer specific fields
+  // General preferences for all users
   preferences: {
     notificationPreferences: {
       email: {

@@ -41,6 +41,7 @@ export interface UserResponse {
   businessDetails?: any;
   earnings?: any;
   permissions?: any;
+  loyaltyPoints?: number;
   token: string;
 }
 

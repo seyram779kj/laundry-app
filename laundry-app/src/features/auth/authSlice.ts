@@ -26,10 +26,25 @@ const transformUserResponse = (apiUser: UserResponse): User => {
   };
   // Update your AuthState interface to include the token property
 
+  // Add preferences to base user for all roles
+  const userWithPreferences = {
+    ...baseUser,
+    preferences: apiUser.preferences || {
+      notificationPreferences: {
+        email: true,
+        sms: false,
+        chatEmail: true,
+        push: true,
+      },
+      language: 'en',
+      timezone: 'UTC',
+    },
+  };
+
   switch (apiUser.role) {
     case 'admin':
       return {
-        ...baseUser,
+        ...userWithPreferences,
         role: 'admin',
         permissions: apiUser.permissions || {
           canManageUsers: true,
@@ -44,7 +59,7 @@ const transformUserResponse = (apiUser: UserResponse): User => {
       } as AdminUser;
     case 'service_provider':
       return {
-        ...baseUser,
+        ...userWithPreferences,
         role: 'service_provider',
         location: '',
         businessDetails: apiUser.businessDetails || {
@@ -61,19 +76,13 @@ const transformUserResponse = (apiUser: UserResponse): User => {
       } as ServiceProviderUser;
     case 'customer':
       return {
-        ...baseUser,
+        ...userWithPreferences,
         role: 'customer',
         addresses: apiUser.addresses || [],
-        preferences: apiUser.preferences || {
-          notificationPreferences: {
-            email: true,
-            sms: false,
-            chatEmail: true,
-          },
-        },
+        loyaltyPoints: apiUser.loyaltyPoints || 0,
       } as CustomerUser;
     default:
-      return baseUser as User;
+      return userWithPreferences as User;
   }
 };
 

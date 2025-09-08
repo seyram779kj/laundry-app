@@ -67,12 +67,9 @@ const Settings: React.FC = () => {
 
   // Load user preferences
   useEffect(() => {
-    if (user && user.role === 'customer' && 'preferences' in user) {
-      const customerUser = user as any; // Type assertion for customer user
-      if (customerUser.preferences?.notificationPreferences) {
-        setEmailNotifications(customerUser.preferences.notificationPreferences.email !== false);
-        setChatEmailNotifications(customerUser.preferences.notificationPreferences.chatEmail !== false);
-      }
+    if (user?.preferences?.notificationPreferences) {
+      setEmailNotifications(user.preferences.notificationPreferences.email !== false);
+      setChatEmailNotifications(user.preferences.notificationPreferences.chatEmail !== false);
     }
   }, [user]);
 
