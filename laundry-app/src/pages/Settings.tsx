@@ -41,6 +41,7 @@ import {
 } from '@mui/icons-material';
 import { useAppSelector } from '../app/hooks';
 import { ThemeProvider, createTheme } from '@mui/material/styles';
+import { usersApi, authApi } from '../services/api';
 
 const Settings: React.FC = () => {
   const { user } = useAppSelector((state) => state.auth);
@@ -77,18 +78,10 @@ const Settings: React.FC = () => {
   const updateNotificationPreferences = async (preferences: any) => {
     setLoading(true);
     try {
-      const token = localStorage.getItem('token');
-      const response = await fetch('/api/users/preferences', {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({ notificationPreferences: preferences }),
-      });
+      const response = await usersApi.updateUserPreferences({ notificationPreferences: preferences });
 
-      if (!response.ok) {
-        throw new Error('Failed to update preferences');
+      if (response.error) {
+        throw new Error(response.error);
       }
 
       // Update local state
@@ -149,21 +142,13 @@ const Settings: React.FC = () => {
     }
     setChangeLoading(true);
     try {
-      const token = localStorage.getItem('token');
-      const resp = await fetch('/api/auth/password', {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({
-          currentPassword,
-          newPassword,
-        }),
+      const response = await authApi.changePassword({
+        currentPassword,
+        newPassword,
       });
-      const data = await resp.json();
-      if (!resp.ok) {
-        setChangeError(data.error || 'Failed to change password.');
+
+      if (response.error) {
+        setChangeError(response.error);
       } else {
         setChangeSuccess('Password changed successfully!');
         setCurrentPassword('');

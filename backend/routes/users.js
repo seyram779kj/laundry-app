@@ -272,11 +272,13 @@ const getUserStats = async (req, res) => {
 router.get('/', protect, admin, getUsers);
 router.get('/stats', protect, admin, getUserStats);
 router.get('/role/:role', protect, admin, getUsersByRole);
-router.get('/:id', protect, admin, getUserById);
-router.post('/', protect, admin, createUser);
-router.put('/:id', protect, admin, updateUser);
+// Specific routes must come before parameterized routes
 router.put('/preferences', protect, updateUserPreferences);
-router.delete('/:id', protect, admin, deleteUser);
 router.put('/:id/toggle-status', protect, admin, toggleUserStatus);
+// Generic parameterized routes
+router.get('/:id', protect, admin, getUserById);
+router.put('/:id', protect, admin, updateUser);
+router.delete('/:id', protect, admin, deleteUser);
+router.post('/', protect, admin, createUser);
 
 module.exports = router; 

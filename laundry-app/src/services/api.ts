@@ -283,6 +283,14 @@ export const usersApi = {
   getUserStats: async (): Promise<ApiResponse<{ totalUsers: number; activeUsers: number; suspendedUsers: number; customers: number; serviceProviders: number; admins: number }>> => {
     return await apiRequest<{ totalUsers: number; activeUsers: number; suspendedUsers: number; customers: number; serviceProviders: number; admins: number }>('/users/stats');
   },
+
+  // Update user preferences
+  updateUserPreferences: async (preferences: { notificationPreferences?: any }): Promise<ApiResponse<{ preferences: any }>> => {
+    return await apiRequest<{ preferences: any }>('/users/preferences', {
+      method: 'PUT',
+      body: JSON.stringify(preferences),
+    });
+  },
 };
 
 // Health check
