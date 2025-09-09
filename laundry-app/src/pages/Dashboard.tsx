@@ -54,6 +54,15 @@ const Dashboard: React.FC = () => {
                       View Analytics
                     </Button>
                   </Box>
+                  <Box sx={{ width: { xs: '100%', sm: '50%' } }}>
+                    <Button
+                      variant="contained"
+                      fullWidth
+                      onClick={() => navigate('/chats')}
+                    >
+                      Chats
+                    </Button>
+                  </Box>
                 </Stack>
               </Paper>
             </Box>
@@ -154,6 +163,15 @@ const Dashboard: React.FC = () => {
                       onClick={() => navigate('/provider/availability')}
                     >
                       Set Availability
+                    </Button>
+                  </Box>
+                  <Box sx={{ width: { xs: '100%', sm: '50%' } }}>
+                    <Button
+                      variant="contained"
+                      fullWidth
+                      onClick={() => navigate('/chats')}
+                    >
+                      Chats
                     </Button>
                   </Box>
                 </Stack>

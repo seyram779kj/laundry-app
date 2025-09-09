@@ -174,6 +174,56 @@ const PaymentHistory: React.FC = () => {
     setReceiptDialog(true);
   };
 
+  const handleDownloadReceipt = () => {
+    if (!selectedPayment) return;
+
+    // Create receipt content
+    const receiptContent = `
+PAYMENT RECEIPT
+================
+
+Transaction Details:
+-------------------
+Transaction ID: ${selectedPayment.payment?.transactionId || selectedPayment.payment?._id?.slice(-8) || 'N/A'}
+Amount: ${selectedPayment.payment?.formattedAmount || 'N/A'}
+Status: ${selectedPayment.payment?.status || 'N/A'}
+Payment Method: ${selectedPayment.payment?.paymentMethod || 'N/A'}
+Date: ${selectedPayment.payment?.createdAt ? formatDate(selectedPayment.payment.createdAt) : 'N/A'}
+
+${selectedPayment.order ? `
+Order Information:
+-----------------
+Order Number: ${selectedPayment.order.orderNumber || 'N/A'}
+Order Status: ${selectedPayment.order.status || 'N/A'}
+Items: ${selectedPayment.order.items?.length || 0} item(s)
+` : ''}
+
+${selectedPayment.customer ? `
+Customer Information:
+--------------------
+Name: ${selectedPayment.customer.name || 'N/A'}
+Email: ${selectedPayment.customer.email || 'N/A'}
+Phone: ${selectedPayment.customer.phone || 'N/A'}
+` : ''}
+
+Generated on: ${new Date().toLocaleString()}
+================
+Thank you for your business!
+    `.trim();
+
+    // Create blob and download
+    const blob = new Blob([receiptContent], { type: 'text/plain;charset=utf-8' });
+    const url = window.URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    const transactionId = selectedPayment.payment?.transactionId || selectedPayment.payment?._id?.slice(-8) || 'receipt';
+    link.download = `receipt-${transactionId}.txt`;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    window.URL.revokeObjectURL(url);
+  };
+
   const handleExport = async (formatType: 'csv' | 'json' = 'csv') => {
     const params: any = { format: formatType };
     if (status !== 'all') params.status = status;
@@ -513,7 +563,12 @@ const PaymentHistory: React.FC = () => {
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setReceiptDialog(false)}>Close</Button>
-          <Button variant="contained" startIcon={<DownloadIcon />}>
+          <Button
+            variant="contained"
+            startIcon={<DownloadIcon />}
+            onClick={handleDownloadReceipt}
+            disabled={!selectedPayment}
+          >
             Download Receipt
           </Button>
         </DialogActions>

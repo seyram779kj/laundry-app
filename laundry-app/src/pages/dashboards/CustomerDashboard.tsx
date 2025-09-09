@@ -273,20 +273,46 @@ const CustomerDashboard: React.FC = () => {
               ) : (
                 <List>
                   {orders.map((order) => (
-                    <ListItem key={order._id || order.id}>
+                    <ListItem
+                      key={order._id || order.id}
+                      sx={{
+                        flexDirection: { xs: 'column', sm: 'row' },
+                        alignItems: { xs: 'flex-start', sm: 'center' },
+                        py: 2,
+                      }}
+                    >
                       <ListItemText
                         primary={`Order #${order._id || order.id}`}
-                        secondary={`Status: ${order.status} | Total: ¢${Number(order.totalAmount || 0).toFixed(2)}`}
+                        secondary={
+                          <Box sx={{ mt: 0.5 }}>
+                            <Typography variant="body2" color="text.secondary" component="span">
+                              Status: {order.status}
+                            </Typography>
+                            <br />
+                            <Typography variant="body2" color="text.secondary" component="span">
+                              Total: ¢{Number(order.totalAmount || 0).toFixed(2)}
+                            </Typography>
+                          </Box>
+                        }
+                        sx={{
+                          flex: 1,
+                          mr: { xs: 0, sm: 2 },
+                          mb: { xs: 1, sm: 0 },
+                        }}
                       />
-                      <ListItemSecondaryAction>
+                      <Box sx={{ width: { xs: '100%', sm: 'auto' } }}>
                         <Button
                           variant="outlined"
                           size="small"
                           onClick={handleViewOrders}
+                          sx={{
+                            width: { xs: '100%', sm: 'auto' },
+                            minWidth: { xs: '100%', sm: '80px' },
+                          }}
                         >
                           View
                         </Button>
-                      </ListItemSecondaryAction>
+                      </Box>
                     </ListItem>
                   ))}
                 </List>

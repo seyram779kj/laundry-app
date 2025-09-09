@@ -45,6 +45,7 @@ const ChatList: React.FC = () => {
 
   useEffect(() => {
     fetchChats();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const fetchChats = async () => {
@@ -89,10 +90,21 @@ const ChatList: React.FC = () => {
               console.log('Messages for chat room:', messages.length, 'messages');
               const lastMessage = messages.length > 0 ? messages[messages.length - 1] : null;
 
-              // Calculate unread count (messages not read by current user)
-              const unreadCount = messages.filter(
-                (msg: any) => !msg.readBy || !msg.readBy.includes(user?.id)
-              ).length;
+              // Calculate unread count based on user role
+              let unreadCount = 0;
+              if (user?.role === 'admin' || user?.role === 'service_provider') {
+                // For admin/service_provider: count messages sent by customers that they haven't read
+                unreadCount = messages.filter(
+                  (msg: any) => msg.senderType === 'customer' &&
+                                (!msg.readBy || !msg.readBy.includes(user?.id))
+                ).length;
+              } else if (user?.role === 'customer') {
+                // For customers: count messages sent by admin/service_provider that they haven't read
+                unreadCount = messages.filter(
+                  (msg: any) => (msg.senderType === 'admin' || msg.senderType === 'service_provider') &&
+                                (!msg.readBy || !msg.readBy.includes(user?.id))
+                ).length;
+              }
 
               return {
                 chatRoomId: room._id,
@@ -117,12 +129,19 @@ const ChatList: React.FC = () => {
           })
         );
 
+        // Filter out chats with no messages or only error messages
+        const validChats = processedChats.filter(chat =>
+          chat.lastMessage !== 'No messages yet' &&
+          !chat.lastMessage.startsWith('API Error:') &&
+          !chat.lastMessage.startsWith('Error loading messages')
+        );
+
         // Sort by last message time (most recent first)
-        processedChats.sort((a, b) =>
+        validChats.sort((a, b) =>
           new Date(b.lastMessageTime).getTime() - new Date(a.lastMessageTime).getTime()
         );
 
-        setChats(processedChats);
+        setChats(validChats);
       }
     } catch (err: any) {
       console.error('Error fetching chats:', err);
@@ -132,7 +151,24 @@ const ChatList: React.FC = () => {
     }
   };
 
-  const handleChatClick = (chatRoomId: string) => {
+  const handleChatClick = async (chatRoomId: string) => {
+    try {
+      const token = localStorage.getItem('token');
+      if (token) {
+        // Mark messages as read for the current user
+        await axios.patch(
+          `${API_BASE_URL}/chats/${chatRoomId}/messages/read`,
+          { userId: user?.id },
+          { headers: { Authorization: `Bearer ${token}` } }
+        );
+
+        // Refresh the chat list to update unread counts
+        fetchChats();
+      }
+    } catch (error) {
+      console.error('Error marking messages as read:', error);
+    }
+
     // Navigate to the appropriate chat route based on user role
     if (user?.role === 'admin') {
       navigate(`/chat/admin/${chatRoomId}`);
