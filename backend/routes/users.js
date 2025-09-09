@@ -268,13 +268,12 @@ const getUserStats = async (req, res) => {
   }
 };
 
-// Routes
+// Routes - Specific routes must come before parameterized routes
+router.put('/preferences', protect, updateUserPreferences);
+router.put('/:id/toggle-status', protect, admin, toggleUserStatus);
 router.get('/', protect, admin, getUsers);
 router.get('/stats', protect, admin, getUserStats);
 router.get('/role/:role', protect, admin, getUsersByRole);
-// Specific routes must come before parameterized routes
-router.put('/preferences', protect, updateUserPreferences);
-router.put('/:id/toggle-status', protect, admin, toggleUserStatus);
 // Generic parameterized routes
 router.get('/:id', protect, admin, getUserById);
 router.put('/:id', protect, admin, updateUser);

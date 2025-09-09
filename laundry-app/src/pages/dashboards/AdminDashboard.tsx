@@ -131,6 +131,23 @@ const AdminDashboard: React.FC = () => {
             </CardContent>
           </Card>
         </Box>
+
+        {/* Chat Management Section */}
+        <Box sx={{ width: { xs: '100%', md: 'calc(50% - 12px)' } }}>
+          <Card>
+            <CardContent>
+              <Typography variant="h6">Chat Management</Typography>
+              <Button
+                variant="contained"
+                color="primary"
+                onClick={() => navigate('/chats')}
+                sx={{ mt: 2 }}
+              >
+                Chats
+              </Button>
+            </CardContent>
+          </Card>
+        </Box>
       </Box>
     </Box>
   );

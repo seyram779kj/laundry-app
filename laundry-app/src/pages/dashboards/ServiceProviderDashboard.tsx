@@ -202,6 +202,16 @@ const ServiceProviderDashboard: React.FC = () => {
               Update Profile
             </Button>
           </Box>
+          <Box sx={{ width: { xs: '100%', sm: 'calc(50% - 8px)', md: 'calc(25% - 8px)' } }}>
+            <Button
+              variant="contained"
+              fullWidth
+              onClick={() => navigate('/chats')}
+              sx={{ height: '100%', py: 2 }}
+            >
+              Chats
+            </Button>
+          </Box>
         </Box>
       </Paper>
 

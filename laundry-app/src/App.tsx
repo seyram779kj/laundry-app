@@ -31,6 +31,7 @@ import CustomerChat from './pages/dashboards/CustomerChat';
 import SupplierChat from './pages/dashboards/SupplierChat';
 import AdminChat from './pages/dashboards/AdminChat';
 import ProviderChat from './pages/provider/ProviderChat'; // Import ProviderChat
+import ChatList from './pages/ChatList'; // Import ChatList
 
 // Admin pages
 import UsersManagement from './pages/admin/UsersManagement';
@@ -205,6 +206,18 @@ const App: React.FC = () => {
                   <RoleBasedRoute allowedRoles={['admin']}>
                     <MainLayout title="Shop Owner Chat">
                       <AdminChat />
+                    </MainLayout>
+                  </RoleBasedRoute>
+                }
+              />
+
+              {/* Chat List Route */}
+              <Route
+                path="/chats"
+                element={
+                  <RoleBasedRoute allowedRoles={['admin', 'service_provider']}>
+                    <MainLayout title="Chats">
+                      <ChatList />
                     </MainLayout>
                   </RoleBasedRoute>
                 }
