@@ -100,14 +100,14 @@ const LandingPage: React.FC = () => {
                     color: 'white',
                     py: { xs: 10, md: 20 },
                     textAlign: 'center',
-                    clipPath: { xs: 'none', md: 'polygon(0 0, 100% 0, 100% 85%, 0% 100%)' },
+                    clipPath: 'polygon(0 0, 100% 0, 100% 85%, 0% 100%)',
                 }}
             >
                 <Container>
-                    <Typography variant="h2" component="h1" fontWeight="bold" gutterBottom sx={{ animation: `${fadeIn} 1s ease-in-out`, fontSize: { xs: '2rem', md: '3.5rem' }, lineHeight: { xs: 1.2, md: 1.3 } }}>
+                    <Typography variant="h2" component="h1" fontWeight="bold" gutterBottom sx={{ animation: `${fadeIn} 1s ease-in-out` }}>
                         Effortless Laundry, Delivered.
                     </Typography>
-                    <Typography variant="h5" component="p" sx={{ mb: 4, animation: `${fadeIn} 1s ease-in-out 0.2s`, opacity: 0.9, fontSize: { xs: '1rem', md: '1.25rem' }, maxWidth: 700, mx: 'auto' }}>
+                    <Typography variant="h5" component="p" sx={{ mb: 4, animation: `${fadeIn} 1s ease-in-out 0.2s`, opacity: 0.9 }}>
                         Pristine clean clothes, without the hassle. We pick up, clean, and deliver right to your door.
                     </Typography>
                     <Button
@@ -176,30 +176,24 @@ const LandingPage: React.FC = () => {
                         Getting your laundry done has never been easier. Just a few simple steps.
                     </Typography>
                     <Box sx={{ display: 'flex', gap: 4, flexWrap: 'wrap', justifyContent: 'center' }}>
-                        <Box sx={{ width: { xs: '100%', md: '300px' } }}>
-                            <HowItWorksStep
-                                icon={<Schedule />}
-                                title="1. Schedule Pickup"
-                                description="Choose a convenient time and place for us to pick up your laundry."
-                                delay={0.1}
-                            />
-                        </Box>
-                        <Box sx={{ width: { xs: '100%', md: '300px' } }}>
-                            <HowItWorksStep
-                                icon={<LocalLaundryService />}
-                                title="2. We Clean"
-                                description="Our experts clean your clothes with the best products and techniques."
-                                delay={0.3}
-                            />
-                        </Box>
-                        <Box sx={{ width: { xs: '100%', md: '300px' } }}>
-                            <HowItWorksStep
-                                icon={<Speed />}
-                                title="3. We Deliver"
-                                description="Get your fresh, clean laundry delivered back to your door, ready to wear."
-                                delay={0.5}
-                            />
-                        </Box>
+                        <HowItWorksStep
+                            icon={<Schedule />}
+                            title="1. Schedule Pickup"
+                            description="Choose a convenient time and place for us to pick up your laundry."
+                            delay={0.1}
+                        />
+                        <HowItWorksStep
+                            icon={<LocalLaundryService />}
+                            title="2. We Clean"
+                            description="Our experts clean your clothes with the best products and techniques."
+                            delay={0.3}
+                        />
+                        <HowItWorksStep
+                            icon={<Speed />}
+                            title="3. We Deliver"
+                            description="Get your fresh, clean laundry delivered back to your door, ready to wear."
+                            delay={0.5}
+                        />
                     </Box>
                 </Container>
             </Box>
@@ -244,7 +238,7 @@ const LandingPage: React.FC = () => {
                         <AnimatedBox delay={0.2}>
                             <Box sx={{ width: { xs: '100%', md: '300px' } }}>
                                 <TestimonialCard
-                                    avatar="https://source.unsplash.com/featured/300x300/?ghanaian,portrait,woman"
+                                    avatar="https://tse1.mm.bing.net/th/id/OIP.1thT7XTfhuUq-whpFYhJSgHaOD?rs=1&pid=ImgDetMain&o=7&rm=3"
                                     name="Ama Mensah"
                                     testimonial="Seamless service here in Accra. Clothes came back crisp and fresh — highly recommended!"
                                 />
@@ -253,7 +247,7 @@ const LandingPage: React.FC = () => {
                         <AnimatedBox delay={0.4}>
                             <Box sx={{ width: { xs: '100%', md: '300px' } }}>
                                 <TestimonialCard
-                                    avatar="https://source.unsplash.com/featured/300x300/?ghanaian,portrait,man"
+                                    avatar="https://www.nairaland.com/attachments/6983350_img20180416175545_jpeg6bb5bc65d69b872f4263b83414c50ab5"
                                     name="Kwame Boateng"
                                     testimonial="Best laundry service I’ve used in Ghana. Professional, on time, and my clothes have never looked better."
                                 />
@@ -262,7 +256,7 @@ const LandingPage: React.FC = () => {
                         <AnimatedBox delay={0.6}>
                             <Box sx={{ width: { xs: '100%', md: '300px' } }}>
                                 <TestimonialCard
-                                    avatar="https://source.unsplash.com/featured/300x300/?ghana,portrait"
+                                    avatar="https://www.bing.com/images/search?view=detailV2&ccid=r7AVPqSS&id=A7659C6B3E056A722C5FC74E353E99180F625016&thid=OIP.r7AVPqSSaYPczWN3jdbzZAHaJQ&mediaurl=https%3a%2f%2fth.bing.com%2fth%2fid%2fR.afb0153ea4926983dccd63778dd6f364%3frik%3dFlBiDxiZPjVOxw%26riu%3dhttp%253a%252f%252fwww.classicghana.com%252fwp-content%252fuploads%252f2020%252f02%252fafrican-kente-beauty-1.jpg%26ehk%3dm95NHezzpoB3ymGxkKR3mxnMcPO3lv0Bfskc5Tv3RxM%253d%26risl%3d%26pid%3dImgRaw%26r%3d0&exph=1250&expw=1000&q=Beautiful+Woman+in+Ghanaian&FORM=IRPRST&ck=C9AD30AC4DED56A06E410BFB910A470F&selectedIndex=8&itb=0"
                                     name="Akosua Nkrumah"
                                     testimonial="Scheduling pickup is so easy and saves me time. Quality has been consistently great."
                                 />

@@ -129,9 +129,8 @@ const ChatList: React.FC = () => {
           })
         );
 
-        // Filter out chats with no messages or only error messages
+        // Filter out chats with only error messages (but keep chats with no messages)
         const validChats = processedChats.filter(chat =>
-          chat.lastMessage !== 'No messages yet' &&
           !chat.lastMessage.startsWith('API Error:') &&
           !chat.lastMessage.startsWith('Error loading messages')
         );
