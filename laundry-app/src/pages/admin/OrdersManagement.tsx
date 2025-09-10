@@ -2,38 +2,22 @@ import React, { useState, useEffect } from 'react';
 import {
   Box,
   Typography,
-  Paper,
-  Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableHead,
-  TableRow,
   Button,
-  IconButton,
   Chip,
   Dialog,
   DialogTitle,
   DialogContent,
   DialogActions,
-  TextField,
   FormControl,
   InputLabel,
   Select,
   MenuItem,
   Alert,
   CircularProgress,
-  Tooltip,
   Card,
   CardContent,
-  Badge,
 } from '@mui/material';
 import {
-  Edit as EditIcon,
-  Visibility as ViewIcon,
-  Assignment as AssignIcon,
-  CheckCircle as CompleteIcon,
-  Cancel as CancelIcon,
   Refresh as RefreshIcon,
 } from '@mui/icons-material';
 import { usePermissions } from '../../hooks/usePermissions';
@@ -449,15 +433,25 @@ const OrdersManagement: React.FC = () => {
           <Box key={order._id} sx={{ width: { xs: '100%', sm: 'calc(50% - 12px)', md: 'calc(33.33% - 16px)', lg: 'calc(25% - 18px)' } }}>
             <Card sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
               <CardContent sx={{ flexGrow: 1 }}>
-                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-                  <Typography variant="h6" color="primary">
+                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 2, flexWrap: 'wrap', gap: 1 }}>
+                  <Typography variant="h6" color="primary" sx={{ minWidth: 'fit-content' }}>
                     #{order.orderNumber}
                   </Typography>
-                  <Chip
-                    label={order.status.replace('_', ' ')}
-                    color={getStatusColor(order.status)}
-                    size="small"
-                  />
+                  <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+                    <Chip
+                      label={order.status.replace('_', ' ')}
+                      color={getStatusColor(order.status)}
+                      size="small"
+                      sx={{
+                        maxWidth: '120px',
+                        '& .MuiChip-label': {
+                          overflow: 'hidden',
+                          textOverflow: 'ellipsis',
+                          whiteSpace: 'nowrap',
+                        }
+                      }}
+                    />
+                  </Box>
                 </Box>
 
                 <Typography variant="subtitle1" gutterBottom>
@@ -472,105 +466,105 @@ const OrdersManagement: React.FC = () => {
                   {order.formattedTotal}
                 </Typography>
 
-                <Box sx={{ mb: 2 }}>
-                  <Typography variant="body2" color="text.secondary">
-                    Pickup: {new Date(order.pickupDate).toLocaleDateString()}
-                  </Typography>
-                  <Typography variant="body2" color="text.secondary">
-                    Delivery: {new Date(order.deliveryDate).toLocaleDateString()}
-                  </Typography>
-                </Box>
+                <Typography variant="body2" color="text.secondary" gutterBottom>
+                  Pickup: {new Date(order.pickupDate).toLocaleDateString()}
+                </Typography>
 
-                <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
-                  {order.items.map((item, index) => (
-                    <Chip
-                      key={index}
-                      label={`${item.serviceName} x${item.quantity}`}
-                      size="small"
-                      variant="outlined"
-                    />
-                  ))}
-                </Box>
+                <Typography variant="body2" color="text.secondary" gutterBottom>
+                  Delivery: {new Date(order.deliveryDate).toLocaleDateString()}
+                </Typography>
+
+                <Typography component="div" variant="body2" color="text.secondary" gutterBottom>
+                  <Box>
+                    <Typography variant="subtitle2" sx={{ fontWeight: 'bold', mb: 1 }}>
+                      Services:
+                    </Typography>
+                    {order.items.map((item, index) => (
+                      <Box key={index} sx={{ ml: 1, mb: 0.5 }}>
+                        <Typography variant="body2" component="span">• </Typography>
+                        <Typography variant="body2" component="span" sx={{ wordBreak: 'break-word', overflowWrap: 'anywhere' }}>
+                          {item.serviceName} x{item.quantity} - ¢{item.unitPrice.toFixed(2)}
+                        </Typography>
+                      </Box>
+                    ))}
+                  </Box>
+                </Typography>
               </CardContent>
 
               <Box sx={{ p: 2, pt: 0 }}>
-                <Box sx={{ display: 'flex', justifyContent: 'space-around', flexWrap: 'wrap', gap: 1 }}>
-                  <Tooltip title="View Details">
-                    <IconButton
-                      size="small"
-                      onClick={() => handleViewOrder(order)}
-                    >
-                      <ViewIcon />
-                    </IconButton>
-                  </Tooltip>
-                  <Tooltip title="View Chat">
-                    <Badge color="error" variant="dot" invisible={!unreadChats[order._id]}>
-                      <IconButton
-                        size="small"
-                        color="primary"
-                        onClick={() => handleViewChat(order)}
-                      >
-                        💬
-                      </IconButton>
-                    </Badge>
-                  </Tooltip>
+                <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, justifyContent: 'center' }}>
+                  <Button
+                    size="small"
+                    variant="outlined"
+                    onClick={() => handleViewOrder(order)}
+                    sx={{ minWidth: 'fit-content' }}
+                  >
+                    View Details
+                  </Button>
+                  <Button
+                    size="small"
+                    variant="outlined"
+                    color="primary"
+                    onClick={() => handleViewChat(order)}
+                    sx={{ minWidth: 'fit-content' }}
+                  >
+                    💬 Chat {unreadChats[order._id] && '•'}
+                  </Button>
                   {order.status === 'pending' && (
-                    <Tooltip title="Assign to Provider">
-                      <IconButton
-                        size="small"
-                        color="primary"
-                        onClick={async () => {
-                          const spId = prompt('Enter Service Provider ID to assign:');
-                          if (spId) await handleAssignOrder(order._id, spId);
-                        }}
-                      >
-                        <AssignIcon />
-                      </IconButton>
-                    </Tooltip>
+                    <Button
+                      size="small"
+                      variant="contained"
+                      color="primary"
+                      onClick={async () => {
+                        const spId = prompt('Enter Service Provider ID to assign:');
+                        if (spId) await handleAssignOrder(order._id, spId);
+                      }}
+                      sx={{ minWidth: 'fit-content' }}
+                    >
+                      Assign Provider
+                    </Button>
                   )}
                   {order.status === 'assigned' && (
-                    <Tooltip title="Mark In Progress">
-                      <IconButton
-                        size="small"
-                        color="primary"
-                        onClick={() => handleUpdateStatus(order._id, 'in_progress')}
-                      >
-                        <EditIcon />
-                      </IconButton>
-                    </Tooltip>
+                    <Button
+                      size="small"
+                      variant="outlined"
+                      onClick={() => handleUpdateStatus(order._id, 'in_progress')}
+                      sx={{ minWidth: 'fit-content' }}
+                    >
+                      Start Work
+                    </Button>
                   )}
                   {order.status === 'in_progress' && (
-                    <Tooltip title="Mark Ready for Pickup">
-                      <IconButton
-                        size="small"
-                        color="primary"
-                        onClick={() => handleUpdateStatus(order._id, 'ready_for_pickup')}
-                      >
-                        <EditIcon />
-                      </IconButton>
-                    </Tooltip>
+                    <Button
+                      size="small"
+                      variant="outlined"
+                      onClick={() => handleUpdateStatus(order._id, 'ready_for_pickup')}
+                      sx={{ minWidth: 'fit-content' }}
+                    >
+                      Ready for Pickup
+                    </Button>
                   )}
                   {order.status === 'ready_for_pickup' && (
-                    <Tooltip title="Mark Completed">
-                      <IconButton
-                        size="small"
-                        color="success"
-                        onClick={() => handleUpdateStatus(order._id, 'completed')}
-                      >
-                        <CompleteIcon />
-                      </IconButton>
-                    </Tooltip>
+                    <Button
+                      size="small"
+                      variant="contained"
+                      color="success"
+                      onClick={() => handleUpdateStatus(order._id, 'completed')}
+                      sx={{ minWidth: 'fit-content' }}
+                    >
+                      Complete Order
+                    </Button>
                   )}
                   {['pending', 'confirmed', 'assigned', 'in_progress', 'ready_for_pickup'].includes(order.status) && (
-                    <Tooltip title="Cancel Order">
-                      <IconButton
-                        size="small"
-                        color="error"
-                        onClick={() => handleUpdateStatus(order._id, 'cancelled')}
-                      >
-                        <CancelIcon />
-                      </IconButton>
-                    </Tooltip>
+                    <Button
+                      size="small"
+                      variant="outlined"
+                      color="error"
+                      onClick={() => handleUpdateStatus(order._id, 'cancelled')}
+                      sx={{ minWidth: 'fit-content' }}
+                    >
+                      Cancel Order
+                    </Button>
                   )}
                 </Box>
               </Box>

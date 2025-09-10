@@ -210,7 +210,11 @@ const ProviderOrders: React.FC = () => {
         variant="outlined"
         onClick={() => handleViewChat(order)}
         startIcon={<ChatIcon />}
-        sx={{ mb: 1 }}
+        sx={{
+          mb: 1,
+          minWidth: 'fit-content',
+          whiteSpace: 'nowrap'
+        }}
       >
         Chat
       </Button>
@@ -227,7 +231,11 @@ const ProviderOrders: React.FC = () => {
           onClick={() => handleConfirmPayment(order)}
           startIcon={<CheckCircleIcon />}
           disabled={confirming === order._id}
-          sx={{ mb: 1 }}
+          sx={{
+            mb: 1,
+            minWidth: 'fit-content',
+            whiteSpace: 'nowrap'
+          }}
         >
           {confirming === order._id ? 'Confirming...' : 'Payment Made'}
         </Button>
@@ -244,7 +252,11 @@ const ProviderOrders: React.FC = () => {
           color="secondary"
           onClick={() => handleSelfAssign(order)
           }
-          sx={{ mb: 1 }}
+          sx={{
+            mb: 1,
+            minWidth: 'fit-content',
+            whiteSpace: 'nowrap'
+          }}
         >
           Assign to Me
         </Button>
@@ -264,6 +276,11 @@ const ProviderOrders: React.FC = () => {
             variant="outlined"
             onClick={() => handleAdvanceStatus(order)}
             disabled={advancing === order._id}
+            sx={{
+              mb: 1,
+              minWidth: 'fit-content',
+              whiteSpace: 'nowrap'
+            }}
           >
             {advancing === order._id ? 'Updating...' : label}
           </Button>
@@ -282,7 +299,11 @@ const ProviderOrders: React.FC = () => {
           variant="outlined"
           color="error"
           onClick={() => dispatch(updateOrderStatus({ orderId: order._id, status: 'cancelled' }) as any)}
-          sx={{ mb: 1 }}
+          sx={{
+            mb: 1,
+            minWidth: 'fit-content',
+            whiteSpace: 'nowrap'
+          }}
         >
           Cancel Order
         </Button>
@@ -319,7 +340,6 @@ const ProviderOrders: React.FC = () => {
   }
 
   // Derived data for stats and filtering
-  const myId = authUser?.id;
   const assignedOrders = orders.filter((o: any) => {
     const providerId = o.serviceProvider?._id || o.serviceProvider;
     const userId = authUser?.id;
@@ -425,9 +445,19 @@ const ProviderOrders: React.FC = () => {
               return (
                 <Card key={`avail-${order._id}`} sx={{ width: { xs: '100%', sm: 'calc(50% - 8px)', md: 'calc(33.33% - 10px)' } }}>
                   <CardContent>
-                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
-                      <Typography variant="subtitle1">#{order.orderNumber}</Typography>
-                      <Chip label={statusLabels[order.status] || order.status} size="small" color={statusColors[order.status] || 'default'} />
+                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 1, flexWrap: 'wrap', gap: 1 }}>
+                      <Typography variant="subtitle1" sx={{ minWidth: 'fit-content' }}>#{order.orderNumber}</Typography>
+                      <Chip
+                        label={statusLabels[order.status] || order.status}
+                        size="small"
+                        color={statusColors[order.status] || 'default'}
+                        sx={{
+                          minWidth: 'fit-content',
+                          '& .MuiChip-label': {
+                            whiteSpace: 'nowrap',
+                          }
+                        }}
+                      />
                     </Box>
                     <Typography variant="body2" color="text.secondary" gutterBottom>
                       Customer: {order.customer.firstName} {order.customer.lastName}
@@ -489,20 +519,36 @@ const ProviderOrders: React.FC = () => {
             >
               <Card sx={{ height: '100%', display: 'flex', flexDirection: 'column', bgcolor: 'background.paper', borderRadius: 2, boxShadow: 1 }}>
                 <CardContent sx={{ flexGrow: 1 }}>
-                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-                    <Typography variant="h6" color="primary">
+                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 2, flexWrap: 'wrap', gap: 1 }}>
+                    <Typography variant="h6" color="primary" sx={{ minWidth: 'fit-content' }}>
                       #{order.orderNumber}
                     </Typography>
-                    <Box sx={{ display: 'flex', gap: 1 }}>
+                    <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, justifyContent: 'flex-end', flex: 1 }}>
                       <Chip
                         label={statusLabels[order.status] || order.status}
                         color={statusColors[order.status] || 'default'}
                         size="small"
+                        sx={{
+                          maxWidth: '120px',
+                          '& .MuiChip-label': {
+                            overflow: 'hidden',
+                            textOverflow: 'ellipsis',
+                            whiteSpace: 'nowrap',
+                          }
+                        }}
                       />
                       <Chip
                         label={paymentStatusLabels[order.payment.status] || order.payment.status}
                         color={paymentStatusColors[order.payment.status] || 'default'}
                         size="small"
+                        sx={{
+                          maxWidth: '120px',
+                          '& .MuiChip-label': {
+                            overflow: 'hidden',
+                            textOverflow: 'ellipsis',
+                            whiteSpace: 'nowrap',
+                          }
+                        }}
                       />
                     </Box>
                   </Box>
@@ -517,58 +563,51 @@ const ProviderOrders: React.FC = () => {
                     Customer: {order.customer.firstName} {order.customer.lastName}
                   </Typography>
 
-                  <Typography variant="body2" color="text.secondary" gutterBottom>
-                    <Box>
-                      <Typography variant="subtitle2" sx={{ fontWeight: 'bold', mb: 1 }}>
-                        Customer's Items:
-                      </Typography>
-                      {order.items.map((item, itemIndex) => (
-                        <Box key={`${order._id}-${itemIndex}`} sx={{ mb: 1 }}>
-                          <Typography variant="subtitle2" sx={{ mb: 0.5 }}>
-                            {item.serviceName}
-                          </Typography>
-                          {(item.clothingItems && item.clothingItems.length > 0) ? (
-                            item.clothingItems.map((clothingItem, itemIndex) => (
-                              <Box key={clothingItem.itemId} sx={{ ml: 1, mb: 1, p: 2, bgcolor: 'background.paper', borderRadius: 1, border: 1, borderColor: 'divider' }}>
-                                <Typography variant="body2" sx={{ mb: 0.5, fontWeight: 'medium' }}>
-                                  <span style={{ color: '#1976d2', fontWeight: 'bold' }}>Item #{itemIndex + 1}</span> - {clothingItem.description}
-                                </Typography>
-                                <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 0.5 }}>
-                                  <strong>Customer ID:</strong> {clothingItem.itemId}
-                                </Typography>
-                                <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 1 }}>
-                                  Service: {clothingItem.serviceName} - ¢{clothingItem.unitPrice.toFixed(2)}
-                                </Typography>
-                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                                  <Chip
-                                    label={clothingItem.isConfirmed ? 'Received ✓' : 'Pending Receipt'}
+                  <Typography component="div" variant="body2" color="text.secondary" gutterBottom>
+                    {/* Show individual items if available, otherwise show service summary */}
+                    {order.items.some(item => item.clothingItems && item.clothingItems.length > 0) ? (
+                      <Box>
+                        <Typography variant="subtitle2" sx={{ fontWeight: 'bold', mb: 1 }}>
+                          Individual Items:
+                        </Typography>
+                        {order.items.map((item) =>
+                          item.clothingItems?.map((clothingItem) => (
+                            <Box key={clothingItem.itemId} sx={{ ml: 1, mb: 0.5 }}>
+                              <Typography variant="body2" component="span">• </Typography>
+                              <Typography variant="body2" component="span" sx={{ wordBreak: 'break-word', overflowWrap: 'anywhere' }}><strong>{clothingItem.itemId}</strong>: {clothingItem.description} </Typography>
+                              <Typography variant="body2" component="span" sx={{ wordBreak: 'break-word', overflowWrap: 'anywhere' }}>({clothingItem.serviceName}) - ¢{clothingItem.unitPrice.toFixed(2)}</Typography>
+                              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: 0.5 }}>
+                                <Chip
+                                  label={clothingItem.isConfirmed ? 'Received ✓' : 'Pending Receipt'}
+                                  size="small"
+                                  color={clothingItem.isConfirmed ? 'success' : 'warning'}
+                                  variant={clothingItem.isConfirmed ? 'filled' : 'outlined'}
+                                />
+                                {order.serviceProvider && !clothingItem.isConfirmed && (
+                                  <Button
                                     size="small"
-                                    color={clothingItem.isConfirmed ? 'success' : 'warning'}
-                                    variant={clothingItem.isConfirmed ? 'filled' : 'outlined'}
-                                  />
-                                  {order.serviceProvider && !clothingItem.isConfirmed && (
-                                    <Button
-                                      size="small"
-                                      variant="contained"
-                                      color="primary"
-                                      onClick={() => handleConfirmItem(order._id, clothingItem.itemId)}
-                                      disabled={confirmingItem === clothingItem.itemId}
-                                      sx={{ fontSize: '0.7rem', py: 0.3, px: 1.5 }}
-                                    >
-                                      {confirmingItem === clothingItem.itemId ? 'Confirming...' : 'Confirm Received'}
-                                    </Button>
-                                  )}
-                                </Box>
+                                    variant="contained"
+                                    color="primary"
+                                    onClick={() => handleConfirmItem(order._id, clothingItem.itemId)}
+                                    disabled={confirmingItem === clothingItem.itemId}
+                                    sx={{ fontSize: '0.7rem', py: 0.3, px: 1.5 }}
+                                  >
+                                    {confirmingItem === clothingItem.itemId ? 'Confirming...' : 'Confirm'}
+                                  </Button>
+                                )}
                               </Box>
-                            ))
-                          ) : (
-                            <Typography variant="caption" color="text.secondary" sx={{ ml: 1, display: 'block' }}>
-                              No items listed by customer.
-                            </Typography>
-                          )}
-                        </Box>
-                      ))}
-                    </Box>
+                            </Box>
+                          ))
+                        )}
+                      </Box>
+                    ) : (
+                      <Box>
+                        <Typography variant="body2" component="span">Services: </Typography>
+                        <Typography variant="body2" component="span" sx={{ wordBreak: 'break-word', overflowWrap: 'anywhere' }}>
+                          {order.items.map((item) => `${item.serviceName} (${item.quantity})`).join(', ')}
+                        </Typography>
+                      </Box>
+                    )}
                   </Typography>
 
                   <Typography variant="h6" color="primary" gutterBottom>
@@ -583,7 +622,9 @@ const ProviderOrders: React.FC = () => {
                     Delivery: {formatDate(order.deliveryDate)}
                   </Typography>
 
-                  <Stack spacing={1}>{getActionButtons(order)}</Stack>
+                  <Stack spacing={1} sx={{ mt: 2 }}>
+                    {getActionButtons(order)}
+                  </Stack>
                 </CardContent>
               </Card>
             </Box>

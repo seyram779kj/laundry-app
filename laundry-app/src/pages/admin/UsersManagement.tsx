@@ -113,6 +113,18 @@ const UsersManagement: React.FC = () => {
   const handleEditUser = (user: UserWithStatus) => {
     setSelectedUser(user);
     setDialogType('edit');
+    // Populate form with user's current data
+    setFormData({
+      firstName: user.firstName || '',
+      lastName: user.lastName || '',
+      email: user.email || '', // Email will be readonly
+      phoneNumber: user.phoneNumber || '',
+      role: user.role || 'customer',
+      status: user.status || 'active',
+      password: '', // Not needed for editing
+      confirmPassword: '', // Not needed for editing
+    });
+    setFormErrors({});
     setDialogOpen(true);
   };
 
@@ -196,39 +208,42 @@ const UsersManagement: React.FC = () => {
 
   const validateForm = () => {
     const errors: {[key: string]: string} = {};
-    
+
     if (!formData.firstName.trim()) {
       errors.firstName = 'First name is required';
     }
-    
+
     if (!formData.lastName.trim()) {
       errors.lastName = 'Last name is required';
     }
-    
-    if (!formData.email.trim()) {
-      errors.email = 'Email is required';
-    } else if (!/\S+@\S+\.\S+/.test(formData.email)) {
-      errors.email = 'Please enter a valid email address';
+
+    // Only validate email for new users, not when editing
+    if (dialogType === 'add') {
+      if (!formData.email.trim()) {
+        errors.email = 'Email is required';
+      } else if (!/\S+@\S+\.\S+/.test(formData.email)) {
+        errors.email = 'Please enter a valid email address';
+      }
     }
-    
+
     if (!formData.phoneNumber.trim()) {
       errors.phoneNumber = 'Phone number is required';
     }
-    
+
     if (dialogType === 'add') {
       if (!formData.password) {
         errors.password = 'Password is required';
       } else if (formData.password.length < 8) {
         errors.password = 'Password must be at least 8 characters long';
       }
-      
+
       if (!formData.confirmPassword) {
         errors.confirmPassword = 'Please confirm your password';
       } else if (formData.password !== formData.confirmPassword) {
         errors.confirmPassword = 'Passwords do not match';
       }
     }
-    
+
     setFormErrors(errors);
     return Object.keys(errors).length === 0;
   };
@@ -287,16 +302,15 @@ const UsersManagement: React.FC = () => {
         setDialogOpen(false);
         setError(null);
       } else if (dialogType === 'edit') {
-        // Format user data before sending to database
+        // Format user data before sending to database (exclude email for editing)
         const formattedUserData = formatUserData({
           firstName: formData.firstName,
           lastName: formData.lastName,
-          email: formData.email,
           role: formData.role,
           phoneNumber: formData.phoneNumber,
         });
 
-        // Real API call to update user
+        // Real API call to update user (exclude email since it's readonly)
         const response = await fetch(`${API_BASE_URL}/users/${selectedUser?.id}`, {
           method: 'PUT',
           headers: {
@@ -544,8 +558,12 @@ const UsersManagement: React.FC = () => {
                   value={formData.email}
                   onChange={(e) => handleFormChange('email', e.target.value)}
                   error={!!formErrors.email}
-                  helperText={formErrors.email}
+                  helperText={dialogType === 'edit' ? 'Email cannot be changed when editing a user' : formErrors.email}
                   required
+                  disabled={dialogType === 'edit'}
+                  InputProps={{
+                    readOnly: dialogType === 'edit',
+                  }}
                 />
                 <TextField
                   fullWidth

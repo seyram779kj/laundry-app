@@ -96,7 +96,14 @@ router.get('/user/:userId', protect, async (req, res) => {
 router.get('/', protect, async (req, res) => {
   if (req.user.role === 'admin' || req.user.role === 'service_provider') {
     try {
-      const chatRooms = await ChatRoom.find({});
+      let query = {};
+
+      // For service providers, only show chat rooms assigned to them
+      if (req.user.role === 'service_provider') {
+        query.supplierId = req.user._id;
+      }
+
+      const chatRooms = await ChatRoom.find(query);
       return res.json(chatRooms);
     } catch (err) {
       return res.status(500).json({ error: 'Failed to fetch all chat rooms' });

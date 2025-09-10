@@ -43,13 +43,36 @@ const getUsers = async (req, res) => {
 
 // @desc    Get user by ID
 // @route   GET /api/users/:id
-// @access  Private/Admin
+// @access  Private/Admin or Service Provider (for customers in their chat rooms)
 const getUserById = async (req, res) => {
   try {
     const user = await User.findById(req.params.id).select('-password');
 
     if (user) {
-      res.json(user);
+      // Allow access if:
+      // 1. User is admin, OR
+      // 2. User is service provider and the requested user is a customer they're assigned to chat with
+      if (req.user.role === 'admin') {
+        return res.json(user);
+      }
+
+      if (req.user.role === 'service_provider' && user.role === 'customer') {
+        // Check if service provider has a chat room with this customer
+        const ChatRoom = require('../models/ChatRoom');
+        const chatRoom = await ChatRoom.findOne({
+          customerId: user._id,
+          supplierId: req.user._id
+        });
+
+        if (chatRoom) {
+          return res.json(user);
+        } else {
+          return res.status(403).json({ error: 'Not authorized to view this customer' });
+        }
+      }
+
+      // Deny access for other cases
+      return res.status(403).json({ error: 'Not authorized to view this user' });
     } else {
       res.status(404).json({ error: 'User not found' });
     }
@@ -275,7 +298,7 @@ router.get('/', protect, admin, getUsers);
 router.get('/stats', protect, admin, getUserStats);
 router.get('/role/:role', protect, admin, getUsersByRole);
 // Generic parameterized routes
-router.get('/:id', protect, admin, getUserById);
+router.get('/:id', protect, getUserById);
 router.put('/:id', protect, admin, updateUser);
 router.delete('/:id', protect, admin, deleteUser);
 router.post('/', protect, admin, createUser);
