@@ -466,7 +466,7 @@ const ProviderOrders: React.FC = () => {
                       Total: {order.formattedTotal}
                     </Typography>
                     <Button variant="outlined" color="secondary" onClick={() => handleSelfAssign(order)}>
-                      Assign to Me
+                      Accept 
                     </Button>
                   </CardContent>
                 </Card>
